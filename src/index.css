@@ -1,0 +1,136 @@
+@import "tailwindcss";
+
+:root {
+  /* Master Color System & Design Tokens */
+  --bg: #f8fafc;
+  --card-bg: #ffffff;
+  --text: #0f172a;
+  --sidebar: #1e293b;
+  --sidebar-end: #0f172a;
+  --primary: #2563eb;
+  --primary-light: #3b82f6;
+  --accent: #0ea5e9;
+  --border: rgba(0, 0, 0, 0.06);
+  --radius-card: 20px;
+  --radius-btn: 10px;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Glassmorphism System */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+}
+
+.glass-header {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.glass-nav-dark {
+  background: rgba(30, 41, 59, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Tactile Micro-Interactions & Animations */
+.tactile-btn {
+  transition: transform 0.1s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.tactile-btn:active {
+  transform: scale(0.97);
+}
+
+.stat-card-hover {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+}
+
+.stat-card-hover:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+}
+
+/* Fade in with upward drift on page load */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Staggered entry for cards in lists */
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.10s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.20s; }
+
+/* Subtle pulse glow for live/in-progress badges */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0); }
+  50% { box-shadow: 0 0 0 6px rgba(14, 165, 233, 0.2); }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s infinite ease-in-out;
+}
+
+/* Print & PDF CSS Architecture (@media print) */
+#planner-print-portal {
+  display: none;
+}
+
+@media print {
+  /* 1. Hide web app shell, sidebars, buttons, and modals */
+  .no-print,
+  #root,
+  .fixed,
+  [role="dialog"] {
+    display: none !important;
+  }
+
+  /* 2. Make dedicated print portal visible */
+  #planner-print-portal {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  /* 3. Force exact background colors and badges to print */
+  * {
+    color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* 4. Page Break & Orientation Control */
+  @page landscape { size: A4 landscape; margin: 10mm; }
+  @page portrait { size: A4 portrait; margin: 10mm; }
+  .print-landscape { page: landscape; }
+  .print-portrait { page: portrait; }
+  .print-page-break { page-break-after: always; break-after: page; }
+}
