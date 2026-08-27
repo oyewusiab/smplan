@@ -102,18 +102,57 @@ function validateDatabase() {
   return results;
 }
 
-// ─── Core CRUD ────────────────────────────────────────────────────────────────
+// ─── Core CRUD & High-Performance Cache Layer ────────────────────────────────
+
+// Request-scoped memoization cache
+var _MEM_CACHE = {};
 
 /**
- * Read all rows from a sheet as an array of objects.
+ * Purges the in-memory and ScriptCache for a specific sheet.
+ */
+function invalidateSheetCache(sheetName) {
+  _MEM_CACHE[sheetName] = null;
+  try {
+    const cache = CacheService.getScriptCache();
+    cache.remove('CACHE_SHEET_' + sheetName);
+  } catch (e) {
+    // Cache service unavailable or error
+  }
+}
+
+/**
+ * Read all rows from a sheet as an array of objects with multi-tier caching.
  */
 function dbReadAll(sheetName) {
+  // 1. Check in-memory request cache (0ms)
+  if (_MEM_CACHE[sheetName]) {
+    return _MEM_CACHE[sheetName];
+  }
+
+  // 2. Check Apps Script ScriptCache (~15ms vs ~1500ms spreadsheet read)
+  try {
+    const cache = CacheService.getScriptCache();
+    const cachedStr = cache.get('CACHE_SHEET_' + sheetName);
+    if (cachedStr) {
+      const parsed = JSON.parse(cachedStr);
+      if (Array.isArray(parsed)) {
+        _MEM_CACHE[sheetName] = parsed;
+        return parsed;
+      }
+    }
+  } catch (e) {
+    // Fallback to direct sheet read
+  }
+
   const sheet = getSheet(sheetName);
   const data = sheet.getDataRange().getValues();
-  if (data.length <= 1) return [];
+  if (data.length <= 1) {
+    _MEM_CACHE[sheetName] = [];
+    return [];
+  }
   
   const headers = data[0];
-  return data.slice(1)
+  const rows = data.slice(1)
     .filter(row => row.some(cell => cell !== '' && cell !== null))
     .map(row => {
       const obj = {};
@@ -135,8 +174,60 @@ function dbReadAll(sheetName) {
         obj.members_id = mid;
         obj.member_id = mid;
       }
+      if (sheetName === 'MEMBERS_LIST') {
+        // Normalize birthdate / birth_date column aliases
+        const bdate = obj.birthdate || obj.birth_date || obj['Birth Date'] || obj['Birthdate'] || '';
+        obj.birthdate = bdate;
+        obj.birth_date = bdate;
+
+        // Dynamically calculate age from birthdate if available
+        if (bdate) {
+          try {
+            let bDateObj = null;
+            if (bdate instanceof Date) {
+              bDateObj = bdate;
+            } else if (typeof bdate === 'string' && bdate.trim()) {
+              const str = bdate.trim();
+              const parsed = new Date(str);
+              if (!isNaN(parsed.getTime())) {
+                bDateObj = parsed;
+              }
+            }
+            if (bDateObj && !isNaN(bDateObj.getTime())) {
+              const today = new Date();
+              let age = today.getFullYear() - bDateObj.getFullYear();
+              const m = today.getMonth() - bDateObj.getMonth();
+              if (m < 0 || (m === 0 && today.getDate() < bDateObj.getDate())) {
+                age--;
+              }
+              if (age >= 0 && age <= 120) {
+                obj.age = age;
+              }
+            }
+          } catch(e) { /* keep existing age */ }
+        }
+        // Normalize confirmation_date / confirmationdate column aliases
+        const cdate = obj.confirmation_date || obj.confirmationdate || obj['Confirmation Date'] || obj['ConfirmationDate'] || '';
+        obj.confirmation_date = cdate;
+        obj.confirmationdate = cdate;
+      }
       return obj;
     });
+
+  _MEM_CACHE[sheetName] = rows;
+
+  // Cache in ScriptCache for 300 seconds (5 minutes) if payload size < 95KB
+  try {
+    const serialized = JSON.stringify(rows);
+    if (serialized.length < 95000) {
+      const cache = CacheService.getScriptCache();
+      cache.put('CACHE_SHEET_' + sheetName, serialized, 300);
+    }
+  } catch (e) {
+    // Ignore cache put error
+  }
+
+  return rows;
 }
 
 /**
@@ -168,6 +259,7 @@ function dbInsert(sheetName, record) {
   });
   
   sheet.appendRow(row);
+  invalidateSheetCache(sheetName);
   return record;
 }
 
@@ -198,6 +290,7 @@ function dbUpdate(sheetName, pkField, pkValue, updates) {
         }
       });
       
+      invalidateSheetCache(sheetName);
       return { old: oldRecord, updated: { ...oldRecord, ...updates } };
     }
   }
@@ -219,6 +312,7 @@ function dbDelete(sheetName, pkField, pkValue) {
       const deletedRecord = {};
       headers.forEach((h, j) => { deletedRecord[h] = data[i][j]; });
       sheet.deleteRow(i + 1);
+      invalidateSheetCache(sheetName);
       return deletedRecord;
     }
   }

@@ -14,6 +14,7 @@ import { useAuthStore } from '../store/authStore';
 import { plannersApi, agendasApi, assignmentsApi, membersApi, hymnsApi } from '../services/api';
 import type { Planner, Agenda, Member, Hymn, SpeakerItem, MeetingType } from '../types';
 import { PlannerPrintModal } from '../components/planner/PlannerPrintModal';
+import { getDynamicAge } from '../utils/memberAnalyticsEngine';
 import { format, eachWeekOfInterval, startOfMonth, endOfMonth, isSunday } from 'date-fns';
 import toast from 'react-hot-toast';
 
@@ -108,16 +109,16 @@ export function PlannerDetailPage() {
   const [showPrintModal, setShowPrintModal] = useState(false);
 
   // Load Planner and related data
-  const loadData = async () => {
+  const loadData = async (force = false) => {
     if (!session || !id) return;
     setLoading(true);
     try {
       const [pRes, aRes, asRes, mRes, hRes] = await Promise.allSettled([
-        plannersApi.get(session.token, id) as Promise<{ ok: boolean; data: Planner }>,
-        agendasApi.list(session.token, id) as Promise<{ ok: boolean; data: Agenda[] }>,
-        assignmentsApi.list(session.token) as Promise<{ ok: boolean; data: any[] }>,
-        membersApi.list(session.token) as Promise<{ ok: boolean; data: Member[] }>,
-        hymnsApi.list(session.token) as Promise<{ ok: boolean; data: Hymn[] }>,
+        plannersApi.get(session.token, id, { forceRefresh: force }) as Promise<{ ok: boolean; data: Planner }>,
+        agendasApi.list(session.token, id, { forceRefresh: force }) as Promise<{ ok: boolean; data: Agenda[] }>,
+        assignmentsApi.list(session.token, undefined, { forceRefresh: force }) as Promise<{ ok: boolean; data: any[] }>,
+        membersApi.list(session.token, { forceRefresh: force }) as Promise<{ ok: boolean; data: Member[] }>,
+        hymnsApi.list(session.token, undefined, { forceRefresh: force }) as Promise<{ ok: boolean; data: Hymn[] }>,
       ]);
 
       if (pRes.status === 'fulfilled' && pRes.value.ok) {
@@ -677,7 +678,7 @@ export function PlannerDetailPage() {
             <Button size="sm" variant="outline" icon={<ArrowLeft className="h-4 w-4" />} onClick={() => navigate('/planners')}>
               Back
             </Button>
-            <Button size="sm" variant="outline" icon={<RefreshCw className="h-4 w-4" />} onClick={loadData}>
+            <Button size="sm" variant="outline" icon={<RefreshCw className="h-4 w-4" />} onClick={() => loadData(true)}>
               Refresh
             </Button>
             <Button size="sm" variant="outline" icon={<Printer className="h-4 w-4" />} onClick={() => setShowPrintModal(true)}>
@@ -1365,7 +1366,11 @@ export function PlannerDetailPage() {
                         </datalist>
 
                         <datalist id="male_members_list">
-                          {members.filter(m => m.gender === 'M' || !m.gender).map(m => (
+                          {members.filter(m => {
+                            const isMale = String(m.gender || '').toUpperCase() === 'M' || !m.gender;
+                            const age = getDynamicAge(m.birthdate || m.birth_date, m.age);
+                            return isMale && (age === 0 || age >= 11);
+                          }).map(m => (
                             <option key={m.name} value={m.name}>{m.organisation ? `${m.name} (${m.organisation})` : m.name}</option>
                           ))}
                         </datalist>

@@ -995,7 +995,7 @@ export function BulletinFormEditor({
                 checked={!!f.show_bishopric}
                 onChange={(v) => setForm({ ...f, show_bishopric: v })}
                 label="6. Bishopric Message"
-                description="Pastoral weekly thought"
+                description="Bishopric weekly thought"
               />
               <ToggleItem
                 checked={!!f.show_missionary}

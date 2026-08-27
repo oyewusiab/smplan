@@ -20,6 +20,103 @@
 import { API_BASE_URL } from '../config/api';
 import { useAuthStore } from '../store/authStore';
 
+// ─── High-Performance Client-Side Caching Layer ──────────────────────────────
+
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+  ttlMs: number;
+}
+
+const memoryCache = new Map<string, CacheEntry<unknown>>();
+
+// Dynamic cache policy rules based on action name
+function getCachePolicy(action: string): { ttlMs: number; storage: 'localStorage' | 'sessionStorage' | 'memory' | 'none' } {
+  switch (action) {
+    case 'LIST_HYMNS':
+      return { ttlMs: 24 * 60 * 60 * 1000, storage: 'localStorage' }; // 24 hours static cache
+    case 'LIST_MEMBERS':
+    case 'GET_MEMBERS_ANALYTICS':
+    case 'GET_UNIT_SETTINGS':
+      return { ttlMs: 5 * 60 * 1000, storage: 'sessionStorage' }; // 5 minutes SWR
+    case 'LIST_PLANNERS':
+    case 'GET_PLANNER':
+    case 'LIST_AGENDAS':
+    case 'LIST_ASSIGNMENTS':
+    case 'LIST_BULLETINS':
+    case 'LIST_ACTIVITIES':
+    case 'LIST_CHECKLISTS':
+    case 'LIST_TODOS':
+    case 'LIST_NOTIFICATIONS':
+      return { ttlMs: 45 * 1000, storage: 'memory' }; // 45 seconds SWR
+    default:
+      return { ttlMs: 0, storage: 'none' };
+  }
+}
+
+function getCacheKey(params: Record<string, string>): string {
+  const sorted = Object.entries(params)
+    .filter(([k]) => k !== 'token') // Token independent key
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${k}=${v}`)
+    .join('&');
+  return `SM_CACHE_${sorted}`;
+}
+
+export function invalidateClientCache(actionPrefix?: string) {
+  if (!actionPrefix) {
+    memoryCache.clear();
+    try {
+      Object.keys(sessionStorage).forEach(k => {
+        if (k.startsWith('SM_CACHE_')) sessionStorage.removeItem(k);
+      });
+      Object.keys(localStorage).forEach(k => {
+        if (k.startsWith('SM_CACHE_')) localStorage.removeItem(k);
+      });
+    } catch { /* ignore */ }
+    return;
+  }
+
+  // Selective invalidation
+  for (const [key] of memoryCache.entries()) {
+    if (key.includes(actionPrefix)) memoryCache.delete(key);
+  }
+  try {
+    Object.keys(sessionStorage).forEach(k => {
+      if (k.startsWith('SM_CACHE_') && k.includes(actionPrefix)) sessionStorage.removeItem(k);
+    });
+    Object.keys(localStorage).forEach(k => {
+      if (k.startsWith('SM_CACHE_') && k.includes(actionPrefix)) localStorage.removeItem(k);
+    });
+  } catch { /* ignore */ }
+}
+
+// Invalidate on mutations automatically
+function autoInvalidateOnMutation(action: string) {
+  if (action.includes('PLANNER') || action.includes('AGENDA')) {
+    invalidateClientCache('LIST_PLANNERS');
+    invalidateClientCache('GET_PLANNER');
+    invalidateClientCache('LIST_AGENDAS');
+    invalidateClientCache('LIST_ASSIGNMENTS');
+  } else if (action.includes('MEMBER')) {
+    invalidateClientCache('LIST_MEMBERS');
+    invalidateClientCache('GET_MEMBERS_ANALYTICS');
+  } else if (action.includes('BULLETIN')) {
+    invalidateClientCache('LIST_BULLETINS');
+    invalidateClientCache('GET_BULLETIN');
+  } else if (action.includes('ACTIVITY')) {
+    invalidateClientCache('LIST_ACTIVITIES');
+  } else if (action.includes('CHECKLIST')) {
+    invalidateClientCache('LIST_CHECKLISTS');
+  } else if (action.includes('TODO')) {
+    invalidateClientCache('LIST_TODOS');
+  } else if (action.includes('HYMN')) {
+    invalidateClientCache('LIST_HYMNS');
+  } else if (action.includes('SETTING')) {
+    invalidateClientCache('GET_UNIT_SETTINGS');
+  }
+}
+
 // ─── Core HTTP Helpers ────────────────────────────────────────────────────────
 
 function handleSessionExpiry(errorMsg: string) {
@@ -31,7 +128,37 @@ function handleSessionExpiry(errorMsg: string) {
   }
 }
 
-async function get<T = unknown>(params: Record<string, string>): Promise<T> {
+async function get<T = unknown>(params: Record<string, string>, options?: { forceRefresh?: boolean }): Promise<T> {
+  const action = params.action || '';
+  const policy = getCachePolicy(action);
+  const cacheKey = getCacheKey(params);
+  const now = Date.now();
+
+  // If not forcing refresh, check cache
+  if (!options?.forceRefresh && policy.storage !== 'none') {
+    // 1. Check in-memory cache (0ms)
+    const mem = memoryCache.get(cacheKey);
+    if (mem && (now - mem.timestamp < mem.ttlMs)) {
+      return mem.data as T;
+    }
+
+    // 2. Check persistent storage (localStorage / sessionStorage)
+    if (policy.storage === 'localStorage' || policy.storage === 'sessionStorage') {
+      try {
+        const storage = policy.storage === 'localStorage' ? localStorage : sessionStorage;
+        const raw = storage.getItem(cacheKey);
+        if (raw) {
+          const entry: CacheEntry<T> = JSON.parse(raw);
+          if (now - entry.timestamp < entry.ttlMs) {
+            memoryCache.set(cacheKey, entry);
+            return entry.data;
+          }
+        }
+      } catch { /* storage fallback */ }
+    }
+  }
+
+  // Network fetch
   const url = new URL(API_BASE_URL);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
 
@@ -47,6 +174,23 @@ async function get<T = unknown>(params: Record<string, string>): Promise<T> {
     handleSessionExpiry(json.error || '');
     throw new Error(json.error || 'Backend error');
   }
+
+  // Store in cache if policy permits
+  if (policy.storage !== 'none' && json) {
+    const entry: CacheEntry<unknown> = {
+      data: json,
+      timestamp: now,
+      ttlMs: policy.ttlMs,
+    };
+    memoryCache.set(cacheKey, entry);
+    if (policy.storage === 'localStorage' || policy.storage === 'sessionStorage') {
+      try {
+        const storage = policy.storage === 'localStorage' ? localStorage : sessionStorage;
+        storage.setItem(cacheKey, JSON.stringify(entry));
+      } catch { /* storage full */ }
+    }
+  }
+
   return json as T;
 }
 
@@ -68,6 +212,11 @@ async function post<T = unknown>(body: Record<string, unknown>): Promise<T> {
     handleSessionExpiry(json.error || '');
     throw new Error(json.error || 'Backend error');
   }
+
+  // Invalidate relevant caches on successful mutation
+  const action = String(body.action || '');
+  autoInvalidateOnMutation(action);
+
   return json as T;
 }
 
@@ -98,11 +247,11 @@ export const authApi = {
 // ─── Planners ────────────────────────────────────────────────────────────────
 
 export const plannersApi = {
-  list: (token: string) =>
-    get(withToken(token, { action: 'LIST_PLANNERS' })),
+  list: (token: string, options?: { forceRefresh?: boolean }) =>
+    get(withToken(token, { action: 'LIST_PLANNERS' }), options),
 
-  get: (token: string, planner_id: string) =>
-    get(withToken(token, { action: 'GET_PLANNER', planner_id })),
+  get: (token: string, planner_id: string, options?: { forceRefresh?: boolean }) =>
+    get(withToken(token, { action: 'GET_PLANNER', planner_id }), options),
 
   create: (token: string, data: Record<string, unknown>) =>
     post(withTokenBody(token, { action: 'CREATE_PLANNER', ...data })),
@@ -132,11 +281,11 @@ export const plannersApi = {
 // ─── Agendas ─────────────────────────────────────────────────────────────────
 
 export const agendasApi = {
-  list: (token: string, planner_id?: string) =>
-    get(withToken(token, { action: 'LIST_AGENDAS', ...(planner_id ? { planner_id } : {}) })),
+  list: (token: string, planner_id?: string, options?: { forceRefresh?: boolean }) =>
+    get(withToken(token, { action: 'LIST_AGENDAS', ...(planner_id ? { planner_id } : {}) }), options),
 
-  get: (token: string, agenda_id: string) =>
-    get(withToken(token, { action: 'GET_AGENDA', agenda_id })),
+  get: (token: string, agenda_id: string, options?: { forceRefresh?: boolean }) =>
+    get(withToken(token, { action: 'GET_AGENDA', agenda_id }), options),
 
   create: (token: string, data: Record<string, unknown>) =>
     post(withTokenBody(token, { action: 'CREATE_AGENDA', ...data })),
@@ -151,8 +300,8 @@ export const agendasApi = {
 // ─── Assignments ─────────────────────────────────────────────────────────────
 
 export const assignmentsApi = {
-  list: (token: string, planner_id?: string) =>
-    get(withToken(token, { action: 'LIST_ASSIGNMENTS', ...(planner_id ? { planner_id } : {}) })),
+  list: (token: string, planner_id?: string, options?: { forceRefresh?: boolean }) =>
+    get(withToken(token, { action: 'LIST_ASSIGNMENTS', ...(planner_id ? { planner_id } : {}) }), options),
 
   create: (token: string, data: Record<string, unknown>) =>
     post(withTokenBody(token, { action: 'CREATE_ASSIGNMENT', ...data })),
@@ -169,27 +318,27 @@ export const assignmentsApi = {
   updateRsvp: (token: string, assignment_id: string, rsvp_status: string) =>
     post(withTokenBody(token, { action: 'UPDATE_ASSIGNMENT_RSVP', assignment_id, rsvp_status })),
 
-  getSecretaryInfo: (token: string) =>
-    get(withToken(token, { action: 'GET_SECRETARY_INFO' })),
+  getSecretaryInfo: (token: string, options?: { forceRefresh?: boolean }) =>
+    get(withToken(token, { action: 'GET_SECRETARY_INFO' }), options),
 
   delete: (token: string, assignment_id: string) =>
     post(withTokenBody(token, { action: 'DELETE_ASSIGNMENT', assignment_id })),
 
-  suggest: (token: string, role: string, date: string) =>
-    get(withToken(token, { action: 'SUGGEST_MEMBERS', role, date })),
+  suggest: (token: string, role: string, date: string, options?: { forceRefresh?: boolean }) =>
+    get(withToken(token, { action: 'SUGGEST_MEMBERS', role, date }), options),
 };
 
 // ─── Bulletins ────────────────────────────────────────────────────────────────
 
 export const bulletinsApi = {
-  list: (token: string, planner_id?: string) =>
-    get(withToken(token, { action: 'LIST_BULLETINS', ...(planner_id ? { planner_id } : {}) })),
+  list: (token: string, planner_id?: string, options?: { forceRefresh?: boolean }) =>
+    get(withToken(token, { action: 'LIST_BULLETINS', ...(planner_id ? { planner_id } : {}) }), options),
 
-  get: (token: string, bulletin_id: string) =>
-    get(withToken(token, { action: 'GET_BULLETIN', bulletin_id })),
+  get: (token: string, bulletin_id: string, options?: { forceRefresh?: boolean }) =>
+    get(withToken(token, { action: 'GET_BULLETIN', bulletin_id }), options),
 
-  getDraftData: (token: string, date: string, planner_id?: string) =>
-    get(withToken(token, { action: 'GET_BULLETIN_DRAFT_DATA', date, ...(planner_id ? { planner_id } : {}) })),
+  getDraftData: (token: string, date: string, planner_id?: string, options?: { forceRefresh?: boolean }) =>
+    get(withToken(token, { action: 'GET_BULLETIN_DRAFT_DATA', date, ...(planner_id ? { planner_id } : {}) }), options),
 
   save: (token: string, data: Record<string, unknown>) =>
     post(withTokenBody(token, { action: 'SAVE_BULLETIN', ...data })),
@@ -200,8 +349,8 @@ export const bulletinsApi = {
   submitFeedback: (data: Record<string, unknown>) =>
     post({ action: 'SUBMIT_BULLETIN_FEEDBACK', ...data }),
 
-  listFeedbacks: (token: string, bulletin_id?: string, date?: string) =>
-    get(withToken(token, { action: 'LIST_BULLETIN_FEEDBACKS', ...(bulletin_id ? { bulletin_id } : {}), ...(date ? { date } : {}) })),
+  listFeedbacks: (token: string, bulletin_id?: string, date?: string, options?: { forceRefresh?: boolean }) =>
+    get(withToken(token, { action: 'LIST_BULLETIN_FEEDBACKS', ...(bulletin_id ? { bulletin_id } : {}), ...(date ? { date } : {}) }), options),
 
   generateCfmAi: (token: string, lesson: string, scripture?: string) =>
     post(withTokenBody(token, { action: 'GENERATE_CFM_AI', lesson, scripture })),
@@ -213,8 +362,8 @@ export const bulletinsApi = {
 // ─── Members ─────────────────────────────────────────────────────────────────
 
 export const membersApi = {
-  list: (token: string) =>
-    get(withToken(token, { action: 'LIST_MEMBERS' })),
+  list: (token: string, options?: { forceRefresh?: boolean }) =>
+    get(withToken(token, { action: 'LIST_MEMBERS' }), options),
 
   create: (token: string, data: Record<string, unknown>) =>
     post(withTokenBody(token, { action: 'CREATE_MEMBER', ...data })),
@@ -231,15 +380,15 @@ export const membersApi = {
   batchDelete: (token: string, names: string[]) =>
     post(withTokenBody(token, { action: 'BATCH_DELETE_MEMBERS', names: JSON.stringify(names) })),
 
-  getAnalytics: (token: string, year?: number) =>
-    get(withToken(token, { action: 'GET_MEMBERS_ANALYTICS', ...(year ? { year } : {}) })),
+  getAnalytics: (token: string, year?: number, options?: { forceRefresh?: boolean }) =>
+    get(withToken(token, { action: 'GET_MEMBERS_ANALYTICS', ...(year ? { year: String(year) } : {}) }), options),
 };
 
 // ─── Hymns & Music ────────────────────────────────────────────────────────────
 
 export const hymnsApi = {
-  list: (token: string, query?: string) =>
-    get(withToken(token, { action: 'LIST_HYMNS', ...(query ? { query } : {}) })),
+  list: (token: string, query?: string, options?: { forceRefresh?: boolean }) =>
+    get(withToken(token, { action: 'LIST_HYMNS', ...(query ? { query } : {}) }), options),
 
   update: (token: string, data: Record<string, unknown>) =>
     post(withTokenBody(token, { action: 'UPDATE_HYMN', ...data })),
@@ -255,11 +404,11 @@ export const musicApi = {
   completePlan: (token: string, planner_id: string) =>
     post(withTokenBody(token, { action: 'COMPLETE_MUSIC_PLAN', planner_id })),
 
-  getRotation: (token: string) =>
-    get(withToken(token, { action: 'GET_MUSIC_ROTATION' })),
+  getRotation: (token: string, options?: { forceRefresh?: boolean }) =>
+    get(withToken(token, { action: 'GET_MUSIC_ROTATION' }), options),
 
-  getAvailability: (token: string) =>
-    get(withToken(token, { action: 'GET_MUSIC_AVAILABILITY' })),
+  getAvailability: (token: string, options?: { forceRefresh?: boolean }) =>
+    get(withToken(token, { action: 'GET_MUSIC_AVAILABILITY' }), options),
 
   saveAvailability: (token: string, records: unknown[]) =>
     post(withTokenBody(token, { action: 'SAVE_MUSIC_AVAILABILITY', records: JSON.stringify(records) })),
@@ -268,8 +417,8 @@ export const musicApi = {
 // ─── Activities ───────────────────────────────────────────────────────────────
 
 export const activitiesApi = {
-  list: (token: string) =>
-    get(withToken(token, { action: 'LIST_ACTIVITIES' })),
+  list: (token: string, options?: { forceRefresh?: boolean }) =>
+    get(withToken(token, { action: 'LIST_ACTIVITIES' }), options),
 
   create: (token: string, data: Record<string, unknown>) =>
     post(withTokenBody(token, { action: 'CREATE_ACTIVITY', ...data })),
@@ -284,8 +433,8 @@ export const activitiesApi = {
 // ─── Checklists ───────────────────────────────────────────────────────────────
 
 export const checklistsApi = {
-  list: (token: string, planner_id?: string) =>
-    get(withToken(token, { action: 'LIST_CHECKLISTS', ...(planner_id ? { planner_id } : {}) })),
+  list: (token: string, planner_id?: string, options?: { forceRefresh?: boolean }) =>
+    get(withToken(token, { action: 'LIST_CHECKLISTS', ...(planner_id ? { planner_id } : {}) }), options),
 
   update: (token: string, data: Record<string, unknown>) =>
     post(withTokenBody(token, { action: 'UPDATE_CHECKLIST', ...data })),
@@ -315,8 +464,8 @@ export const checklistsApi = {
 // ─── Todos ────────────────────────────────────────────────────────────────────
 
 export const todosApi = {
-  list: (token: string) =>
-    get(withToken(token, { action: 'LIST_TODOS' })),
+  list: (token: string, options?: { forceRefresh?: boolean }) =>
+    get(withToken(token, { action: 'LIST_TODOS' }), options),
 
   create: (token: string, data: Record<string, unknown>) =>
     post(withTokenBody(token, { action: 'CREATE_TODO', ...data })),

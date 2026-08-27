@@ -3,7 +3,7 @@
  * 
  * Stewardship Philosophy:
  * - ADMIN (Bishop): Supreme full-system access & approval authority.
- * - BISHOPRIC (1st & 2nd Counsellors): Planners, Agendas, Bulletins, Assignments, Calendar, Checklists, Pastoral Analytics & Member View/Export (cannot delete/edit members). Hidden from Settings & Archive.
+ * - BISHOPRIC (1st & 2nd Counsellors): Planners, Agendas, Bulletins, Assignments, Calendar, Checklists, Bishopric Analytics & Member View/Export (cannot delete/edit members). Hidden from Settings & Archive.
  * - CLERK (Ward / Assistant Clerk): Members Directory (Full CRUD, Import, Batch Delete, Export), Settings Page (View & Submit Change Requests to Queue), Archive (View & Restore), Planners/Agendas (View submitted & Print stand copies only), Assignments & Bulletin (Generate/Print). Hidden from Music.
  * - SECRETARY (Executive Secretary): Assignments Hub (Duty slips, personalized invites, auto-populated 3-up slips with signature), Checklists, Planners/Agendas (View submitted & Print stand copies only), Bulletin & Calendar. Hidden from Members, Settings, Music, Archive, Approvals.
  * - MUSIC (Ward Music Coordinator): Music Workspace (Hymn library, rotation, conductor/pianist scheduling, mark music complete), Notifications (MUSIC_INPUT_REQUEST alerts). Hidden from all other pages.

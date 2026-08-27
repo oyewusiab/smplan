@@ -383,6 +383,9 @@ export interface Member {
   organisation: string;
   status: MemberStatus | string;
   birth_date?: string; // YYYY-MM-DD or DD-MMM-YYYY or MM-DD
+  birthdate?: string; // Alias for birth_date column from sheet
+  confirmation_date?: string; // YYYY-MM-DD or DD-MMM-YYYY (convert / confirmation date)
+  confirmationdate?: string; // Alias for confirmation_date column from sheet
   calling?: string;
   priesthood_office?: string;
   household_id?: string;
@@ -434,6 +437,8 @@ export interface InactiveMemberAlert {
 export interface NewcomerAlert {
   member: Member;
   monthsJoined: number;
+  confirmationDate?: string;
+  bracket: '0-6m' | '7-12m';
   rolesCount: number;
 }
 
@@ -468,7 +473,7 @@ export interface OrgParticipationStat {
   participationRate: number;
 }
 
-export interface PastoralAlertsData {
+export interface BishopricAlertsData {
   inactiveMembers: InactiveMemberAlert[];
   newcomers: NewcomerAlert[];
   doubleDips: DoubleDipAlert[];
@@ -476,6 +481,8 @@ export interface PastoralAlertsData {
   familySaturation: FamilySaturationStat[];
   orgParticipation: OrgParticipationStat[];
 }
+
+export type PastoralAlertsData = BishopricAlertsData;
 
 export interface MonthlyActivityStat {
   monthIndex: number; // 0-11
@@ -496,7 +503,8 @@ export interface YearAnalyticsData {
   monthlyStats: MonthlyActivityStat[];
   rolePredictions: Record<RecommendedRoleType, RoleCandidate[]>;
   youthMilestones: YouthMilestoneStats;
-  pastoralAlerts: PastoralAlertsData;
+  bishopricAlerts: BishopricAlertsData;
+  pastoralAlerts: BishopricAlertsData;
 }
 
 export interface MemberImportItem extends Partial<Member> {

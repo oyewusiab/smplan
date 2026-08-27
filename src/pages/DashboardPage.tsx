@@ -26,14 +26,14 @@ export function DashboardPage() {
   const [checklists, setChecklists] = useState<ChecklistItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const loadData = async () => {
+  const loadData = async (force = false) => {
     if (!session) return;
     setLoading(true);
     try {
       const [pRes, aRes, tRes, nRes] = await Promise.allSettled([
-        plannersApi.list(session.token) as Promise<{ ok: boolean; data: Planner[] }>,
-        activitiesApi.list(session.token) as Promise<{ ok: boolean; data: Activity[] }>,
-        todosApi.list(session.token) as Promise<{ ok: boolean; data: Todo[] }>,
+        plannersApi.list(session.token, { forceRefresh: force }) as Promise<{ ok: boolean; data: Planner[] }>,
+        activitiesApi.list(session.token, { forceRefresh: force }) as Promise<{ ok: boolean; data: Activity[] }>,
+        todosApi.list(session.token, { forceRefresh: force }) as Promise<{ ok: boolean; data: Todo[] }>,
         notificationsApi.list(session.token, session.user_id) as Promise<{ ok: boolean; data: Notification[] }>,
       ]);
       let loadedPlanners: Planner[] = [];
@@ -53,8 +53,8 @@ export function DashboardPage() {
 
       if (curr) {
         const [agRes, chRes] = await Promise.allSettled([
-          agendasApi.list(session.token, curr.planner_id) as Promise<{ ok: boolean; data: Agenda[] }>,
-          checklistsApi.list(session.token, curr.planner_id) as Promise<{ ok: boolean; data: ChecklistItem[] }>,
+          agendasApi.list(session.token, curr.planner_id, { forceRefresh: force }) as Promise<{ ok: boolean; data: Agenda[] }>,
+          checklistsApi.list(session.token, curr.planner_id, { forceRefresh: force }) as Promise<{ ok: boolean; data: ChecklistItem[] }>,
         ]);
         if (agRes.status === 'fulfilled' && agRes.value.ok) setAgendas(agRes.value.data || []);
         if (chRes.status === 'fulfilled' && chRes.value.ok) setChecklists(chRes.value.data || []);
@@ -160,7 +160,7 @@ export function DashboardPage() {
         title="Dashboard"
         subtitle={format(currentMonth, 'MMMM yyyy')}
         actions={
-          <Button size="sm" icon={<RefreshCw className="h-4 w-4" />} onClick={loadData} loading={loading}>
+          <Button size="sm" icon={<RefreshCw className="h-4 w-4" />} onClick={() => loadData(true)} loading={loading}>
             Refresh
           </Button>
         }

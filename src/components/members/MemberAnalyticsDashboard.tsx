@@ -58,6 +58,10 @@ export function MemberAnalyticsDashboard({
 
   const maxMonthTotal = Math.max(...analytics.monthlyStats.map(m => m.total), 1);
 
+  const alerts = analytics.bishopricAlerts || analytics.pastoralAlerts;
+  const newcomers0to6 = (alerts?.newcomers || []).filter(n => n.bracket === '0-6m');
+  const newcomers7to12 = (alerts?.newcomers || []).filter(n => n.bracket === '7-12m');
+
   return (
     <div className="space-y-6">
       {/* ─── Top Header & Year Selector ─────────────────────────────────────── */}
@@ -68,7 +72,7 @@ export function MemberAnalyticsDashboard({
           </div>
           <div>
             <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              Calendar Year Pastoral Analytics ({selectedYear})
+              Calendar Year Bishopric Analytics ({selectedYear})
               <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
                 Live Ledger Sync
               </span>
@@ -531,58 +535,108 @@ export function MemberAnalyticsDashboard({
         </div>
       </Card>
 
-      {/* ─── Pastoral Guardrails & Inactivity Alerts ─────────────────────────── */}
+      {/* ─── Bishopric Guardrails & Inactivity Alerts ───────────────────────── */}
       <div className="space-y-3">
         <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
           <ShieldCheck className="h-4 w-4 text-blue-600" />
-          Pastoral Guardrails & Inactivity Alerts
+          Bishopric Guardrails & Inactivity Alerts
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* 1. Inactive Members Alert */}
+          {/* 1. Inactive Members Alert (Active members 8+ with no role in 6M+) */}
           <Card className="p-4 border-amber-200 bg-amber-50/30">
             <div className="flex items-center justify-between mb-2">
               <h4 className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
                 <Clock className="h-4 w-4 text-amber-600" />
                 Inactive Members (6M+ No Role)
               </h4>
-              <Badge variant="warning">{analytics.pastoralAlerts.inactiveMembers.length}</Badge>
+              <Badge variant="warning">{alerts?.inactiveMembers?.length || 0}</Badge>
             </div>
-            <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-              {analytics.pastoralAlerts.inactiveMembers.map(item => (
-                <div key={item.member.name} className="text-xs flex justify-between bg-white/80 p-1.5 rounded border border-amber-100">
-                  <span className="font-medium text-slate-800">{item.member.name}</span>
-                  <span className="text-amber-700 text-[11px]">
+            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+              {(alerts?.inactiveMembers || []).map(item => (
+                <div key={item.member.name} className="text-xs flex items-center justify-between bg-white/80 p-1.5 rounded border border-amber-100">
+                  <span className="font-medium text-slate-800 truncate mr-2">{item.member.name}</span>
+                  <span className="text-amber-700 font-semibold text-[11px] shrink-0">
                     {item.neverAssigned ? 'Never assigned' : `${item.monthsSinceLast}m ago`}
                   </span>
                 </div>
               ))}
-              {analytics.pastoralAlerts.inactiveMembers.length === 0 && (
+              {(!alerts?.inactiveMembers || alerts.inactiveMembers.length === 0) && (
                 <p className="text-xs text-slate-500 py-2 text-center">No inactive member alerts.</p>
               )}
             </div>
           </Card>
 
-          {/* 2. Newcomer Spotlight */}
+          {/* 2. Newcomer Spotlight (Categorized by 0-6 Months vs 7-12 Months) */}
           <Card className="p-4 border-emerald-200 bg-emerald-50/30">
             <div className="flex items-center justify-between mb-2">
               <h4 className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
                 <Sparkles className="h-4 w-4 text-emerald-600" />
-                Newcomer Spotlight (0 Roles)
+                Newcomer Spotlight ({alerts?.newcomers?.length || 0})
               </h4>
-              <Badge variant="success">{analytics.pastoralAlerts.newcomers.length}</Badge>
+              <div className="flex gap-1">
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                  {newcomers0to6.length} in 0–6m
+                </span>
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-teal-100 text-teal-800">
+                  {newcomers7to12.length} in 7–12m
+                </span>
+              </div>
             </div>
-            <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-              {analytics.pastoralAlerts.newcomers.map(item => (
-                <div key={item.member.name} className="text-xs flex justify-between bg-white/80 p-1.5 rounded border border-emerald-100">
-                  <span className="font-medium text-slate-800">{item.member.name}</span>
-                  <span className="text-emerald-700 text-[11px]">
-                    Joined {item.monthsJoined}m ago
-                  </span>
+
+            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+              {/* 0-6 Months Bracket */}
+              {newcomers0to6.length > 0 && (
+                <div className="space-y-1">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
+                    0–6 Months (Recent Converts)
+                  </div>
+                  {newcomers0to6.map(item => (
+                    <div key={item.member.name} className="text-xs flex items-center justify-between bg-white p-1.5 rounded border border-emerald-200 shadow-2xs">
+                      <div className="truncate mr-1">
+                        <span className="font-semibold text-slate-800">{item.member.name}</span>
+                        <span className="text-[10px] text-slate-400 block">
+                          {item.confirmationDate ? `Confirmed: ${item.confirmationDate}` : `Joined ~${item.monthsJoined}m ago`}
+                        </span>
+                      </div>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                        item.rolesCount === 0 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                      }`}>
+                        {item.rolesCount === 0 ? '0 Roles (Needs talk/prayer)' : `${item.rolesCount} roles`}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-              {analytics.pastoralAlerts.newcomers.length === 0 && (
-                <p className="text-xs text-slate-500 py-2 text-center">No unassigned newcomers.</p>
+              )}
+
+              {/* 7-12 Months Bracket */}
+              {newcomers7to12.length > 0 && (
+                <div className="space-y-1 pt-1">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-teal-800 flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-teal-600" />
+                    7–12 Months (1st Year Integration)
+                  </div>
+                  {newcomers7to12.map(item => (
+                    <div key={item.member.name} className="text-xs flex items-center justify-between bg-white p-1.5 rounded border border-teal-200 shadow-2xs">
+                      <div className="truncate mr-1">
+                        <span className="font-semibold text-slate-800">{item.member.name}</span>
+                        <span className="text-[10px] text-slate-400 block">
+                          {item.confirmationDate ? `Confirmed: ${item.confirmationDate}` : `Joined ~${item.monthsJoined}m ago`}
+                        </span>
+                      </div>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                        item.rolesCount === 0 ? 'bg-amber-100 text-amber-800' : 'bg-teal-100 text-teal-800'
+                      }`}>
+                        {item.rolesCount === 0 ? '0 Roles' : `${item.rolesCount} roles`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {(!alerts?.newcomers || alerts.newcomers.length === 0) && (
+                <p className="text-xs text-slate-500 py-3 text-center">No 1st-year newcomers found.</p>
               )}
             </div>
           </Card>
@@ -594,10 +648,10 @@ export function MemberAnalyticsDashboard({
                 <AlertTriangle className="h-4 w-4 text-rose-600" />
                 Double-Dip Overload (3+ in Month)
               </h4>
-              <Badge variant="danger">{analytics.pastoralAlerts.doubleDips.length}</Badge>
+              <Badge variant="danger">{alerts?.doubleDips?.length || 0}</Badge>
             </div>
-            <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-              {analytics.pastoralAlerts.doubleDips.map(item => (
+            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+              {(alerts?.doubleDips || []).map(item => (
                 <div key={`${item.member.name}_${item.monthKey}`} className="text-xs flex justify-between bg-white/80 p-1.5 rounded border border-rose-100">
                   <span className="font-medium text-slate-800">{item.member.name}</span>
                   <span className="text-rose-700 font-bold text-[11px]">
@@ -605,7 +659,7 @@ export function MemberAnalyticsDashboard({
                   </span>
                 </div>
               ))}
-              {analytics.pastoralAlerts.doubleDips.length === 0 && (
+              {(!alerts?.doubleDips || alerts.doubleDips.length === 0) && (
                 <p className="text-xs text-slate-500 py-2 text-center">No member overload detected.</p>
               )}
             </div>
@@ -618,16 +672,16 @@ export function MemberAnalyticsDashboard({
                 <Flame className="h-4 w-4 text-orange-500" />
                 Topic Staleness (3+ in 60d)
               </h4>
-              <Badge>{analytics.pastoralAlerts.topicStaleness.length}</Badge>
+              <Badge>{alerts?.topicStaleness?.length || 0}</Badge>
             </div>
-            <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-              {analytics.pastoralAlerts.topicStaleness.map(item => (
+            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+              {(alerts?.topicStaleness || []).map(item => (
                 <div key={item.topic} className="text-xs flex justify-between bg-white p-1.5 rounded border border-slate-200">
                   <span className="font-medium text-slate-800 truncate mr-2">{item.topic}</span>
                   <span className="text-orange-600 font-semibold shrink-0">{item.occurrences}x recent</span>
                 </div>
               ))}
-              {analytics.pastoralAlerts.topicStaleness.length === 0 && (
+              {(!alerts?.topicStaleness || alerts.topicStaleness.length === 0) && (
                 <p className="text-xs text-slate-500 py-2 text-center">Good doctrinal topic variety.</p>
               )}
             </div>
@@ -642,14 +696,14 @@ export function MemberAnalyticsDashboard({
               </h4>
               <span className="text-[10px] text-slate-500">Podium balance</span>
             </div>
-            <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-              {analytics.pastoralAlerts.familySaturation.map(item => (
+            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+              {(alerts?.familySaturation || []).map(item => (
                 <div key={item.surname} className="text-xs flex justify-between bg-white p-1.5 rounded border border-slate-200">
                   <span className="font-medium text-slate-800">{item.surname} Family</span>
                   <span className="text-purple-700 font-semibold">{item.count} roles ({item.percentage}%)</span>
                 </div>
               ))}
-              {analytics.pastoralAlerts.familySaturation.length === 0 && (
+              {(!alerts?.familySaturation || alerts.familySaturation.length === 0) && (
                 <p className="text-xs text-slate-500 py-2 text-center">Balanced family distribution.</p>
               )}
             </div>
@@ -664,8 +718,8 @@ export function MemberAnalyticsDashboard({
               </h4>
               <span className="text-[10px] text-slate-500">Active vs Idle</span>
             </div>
-            <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-              {analytics.pastoralAlerts.orgParticipation.map(item => (
+            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+              {(alerts?.orgParticipation || []).map(item => (
                 <div key={item.organisation} className="text-xs flex justify-between bg-white p-1.5 rounded border border-slate-200">
                   <span className="font-medium text-slate-800">{item.organisation}</span>
                   <span className="text-blue-700 font-semibold">

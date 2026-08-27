@@ -74,11 +74,11 @@ export function PlannersPage() {
     }
   }, [session]);
 
-  const load = async () => {
+  const load = async (force = false) => {
     if (!session) return;
     setLoading(true);
     try {
-      const res = await plannersApi.list(session.token) as { ok: boolean; data: Planner[] };
+      const res = await plannersApi.list(session.token, { forceRefresh: force }) as { ok: boolean; data: Planner[] };
       if (res.ok) {
         // Planner page contains only drafted and submitted planners (archived belong on /archive)
         setPlanners((res.data || []).filter(p => p.state !== 'ARCHIVED'));
@@ -226,7 +226,7 @@ export function PlannersPage() {
         subtitle="Monthly scheduling engine for draft & submitted sacrament planners"
         actions={
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" icon={<RefreshCw className="h-4 w-4" />} onClick={load} loading={loading}>
+            <Button size="sm" variant="outline" icon={<RefreshCw className="h-4 w-4" />} onClick={() => load(true)} loading={loading}>
               Refresh
             </Button>
             <Button size="sm" variant="outline" icon={<Archive className="h-4 w-4" />} onClick={() => navigate('/archive')}>

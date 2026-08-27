@@ -1,5 +1,5 @@
 /**
- * Member Analytics & Pastoral Intelligence Engine
+ * Member Analytics & Bishopric Intelligence Engine
  * 
  * Implements:
  * 1. Dynamic Age Calculation (getDynamicAge)
@@ -8,7 +8,7 @@
  * 4. Smart Role Recommendation Engine (Overdue & Fit Confidence Algorithm for 8 roles)
  * 5. Member Assignment Readiness Score (0-100)
  * 6. Youth Milestone Tracker (Aaronic Priesthood: Passing, Preparing, Blessing)
- * 7. Pastoral Guardrails (Inactive 6M+, Newcomer Spotlight, Double-Dip Overload, Topic Staleness, Family Saturation, Org Participation)
+ * 7. Bishopric Guardrails (Inactive 6M+, Newcomer Spotlight 0-6m/7-12m, Double-Dip Overload, Topic Staleness, Family Saturation, Org Participation)
  */
 
 import {
@@ -89,15 +89,27 @@ export function extractPersonName(val: unknown): string {
 }
 
 /**
- * Parses multi-format birth dates (DD-MMM-YYYY, YYYY-MM-DD, DD/MM/YYYY, MM/DD/YYYY, DD-MMM, etc.)
+ * Parses multi-format birth dates (Date objects, DD-MMM-YYYY, YYYY-MM-DD, DD/MM/YYYY, MM/DD/YYYY, DD-MMM, etc.)
  */
-export function parseDateFlexible(dateStr?: string | null): Date | null {
-  if (!dateStr || typeof dateStr !== 'string') return null;
-  const str = dateStr.trim();
+export function parseDateFlexible(dateVal?: unknown): Date | null {
+  if (!dateVal) return null;
+  if (dateVal instanceof Date) {
+    return isValid(dateVal) && !isNaN(dateVal.getTime()) ? dateVal : null;
+  }
+  if (typeof dateVal === 'number' && !isNaN(dateVal)) {
+    // If it looks like a year (e.g. 1988)
+    if (dateVal > 1900 && dateVal < 2100) {
+      return new Date(dateVal, 0, 1);
+    }
+    const d = new Date(dateVal);
+    return isValid(d) && !isNaN(d.getTime()) ? d : null;
+  }
+  if (typeof dateVal !== 'string') return null;
+  const str = dateVal.trim();
   if (!str) return null;
 
   // 1. Check standard ISO YYYY-MM-DD
-  if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(str)) {
+  if (/^\d{4}-\d{1,2}-\d{1,2}/.test(str)) {
     const d = parseISO(str);
     if (isValid(d)) return d;
   }
@@ -150,9 +162,9 @@ export function parseDateFlexible(dateStr?: string | null): Date | null {
 /**
  * Calculates current dynamic age from birthDate or falls back to static stored age
  */
-export function getDynamicAge(birthDateStr?: string | null, fallbackAge: number = 0): number {
-  if (birthDateStr) {
-    const bDate = parseDateFlexible(birthDateStr);
+export function getDynamicAge(birthDateVal?: unknown, fallbackAge: number = 0): number {
+  if (birthDateVal) {
+    const bDate = parseDateFlexible(birthDateVal);
     if (bDate && isValid(bDate)) {
       const today = new Date();
       const birthYear = bDate.getFullYear();
@@ -296,9 +308,12 @@ export function predictCandidatesForRole(
     const status = s(m.status).toUpperCase();
     if (status !== 'ACTIVE' && !status.includes('NEW')) return false;
 
+    // Recommendations focus on active members aged at least 8 years old
+    const age = getDynamicAge(m.birthdate || m.birth_date, m.age);
+    if (age > 0 && age < 8) return false;
+
     // Optional org filter for Aaronic Priesthood duties
     if (roleDef.orgHint === 'Young Men') {
-      const age = getDynamicAge(m.birth_date, m.age);
       const isMale = s(m.gender).toUpperCase().startsWith('M');
       const isYM = s(m.organisation).toLowerCase().includes('young men') || (age >= 11 && age <= 19 && isMale);
       if (!isYM && !isMale) return false;
@@ -591,23 +606,27 @@ export function calculateYouthMilestones(
   };
 }
 
-// ─── 6. Pastoral Guardrails & Inactivity Alerts ──────────────────────────────
+// ─── 6. Bishopric Guardrails & Inactivity Alerts ─────────────────────────────
 
-export function calculatePastoralAlerts(
+export function calculateBishopricAlerts(
   members: Member[],
   assignments: Assignment[],
   referenceDate: Date = new Date()
-): PastoralAlertsData {
+): BishopricAlertsData {
   const inactiveMembers: InactiveMemberAlert[] = [];
   const newcomers: NewcomerAlert[] = [];
   const monthMap = new Map<string, Map<string, { role: string; date: string; org?: string; planner_id?: string }[]>>();
   const surnameMap = new Map<string, { count: number; members: Set<string> }>();
   const topicMap = new Map<string, { count: number; dates: string[]; lastUsed: string }>();
 
-  // 1. Inactive & Newcomers
+  // 1. Inactive & Newcomers (focusing on ACTIVE members aged >= 8 years old)
   members.forEach(m => {
     const statusUpper = s(m.status).toUpperCase();
-    if (statusUpper === 'ACTIVE' || statusUpper.includes('NEW')) {
+    const isActive = statusUpper === 'ACTIVE' || statusUpper.includes('NEW');
+    const dynamicAge = getDynamicAge(m.birthdate || m.birth_date, m.age);
+
+    // Analysis, suggestions, and inactivity guardrails focus on active members aged 8+
+    if (isActive && (dynamicAge === 0 || dynamicAge >= 8)) {
       let monthsSince = 12;
       let neverAssigned = true;
 
@@ -628,24 +647,43 @@ export function calculatePastoralAlerts(
         });
       }
 
-      let isNew = statusUpper.includes('NEW');
-      let monthsJoined = 1;
-      if (m.created_date) {
+      // ─── Newcomer Spotlight with confirmation_date (0-6 months vs 7-12 months) ───
+      const rawConfDate = m.confirmation_date || m.confirmationdate || '';
+      let confDateObj = rawConfDate ? parseDateFlexible(rawConfDate) : null;
+      let monthsSinceConfirmation = -1;
+
+      if (confDateObj) {
+        monthsSinceConfirmation = Math.max(0, differenceInMonths(referenceDate, confDateObj));
+      } else if (m.created_date) {
         const cd = parseDateFlexible(m.created_date);
-        if (cd) {
-          monthsJoined = Math.max(1, differenceInMonths(referenceDate, cd));
-          if (monthsJoined <= 3) isNew = true;
-        }
+        if (cd) monthsSinceConfirmation = Math.max(0, differenceInMonths(referenceDate, cd));
       }
 
-      if (isNew && Number(m.total_assignments || 0) === 0 && Number(m.spoken_count || 0) === 0) {
+      const isNewStatus = statusUpper.includes('NEW') || statusUpper.includes('CONVERT');
+      const isWithinFirstYear = monthsSinceConfirmation >= 0 && monthsSinceConfirmation <= 12;
+
+      if (isWithinFirstYear || (isNewStatus && (monthsSinceConfirmation === -1 || monthsSinceConfirmation <= 24))) {
+        const effectiveMonths = monthsSinceConfirmation >= 0 ? monthsSinceConfirmation : 1;
+        const bracket: '0-6m' | '7-12m' = effectiveMonths <= 6 ? '0-6m' : '7-12m';
+        const rolesCount = Number(m.total_assignments || 0) + Number(m.spoken_count || 0) + Number(m.prayers_count || 0);
+
         newcomers.push({
           member: m,
-          monthsJoined,
-          rolesCount: 0
+          monthsJoined: effectiveMonths,
+          confirmationDate: rawConfDate || (confDateObj ? format(confDateObj, 'yyyy-MM-dd') : ''),
+          bracket,
+          rolesCount
         });
       }
     }
+  });
+
+  // Sort newcomers by bracket (0-6m first), then fewest assignments, then newest
+  newcomers.sort((a, b) => {
+    if (a.bracket !== b.bracket) {
+      return a.bracket === '0-6m' ? -1 : 1;
+    }
+    return a.rolesCount - b.rolesCount || a.monthsJoined - b.monthsJoined;
   });
 
   // 2. Double-Dip, Surname Saturation, Topic Staleness
@@ -766,23 +804,29 @@ export function calculatePastoralAlerts(
   });
   familySaturation.sort((a, b) => b.count - a.count);
 
-  // Organisation Participation Balance
+  // Organisation Participation Balance (Dynamically extracts and tracks ALL unique organisations)
   const orgMap = new Map<string, { total: number; active: number; idle: number }>();
-  const STANDARD_ORGS = ['Elders Quorum', 'Relief Society', 'Young Men', 'Young Women', 'Primary', 'Sunday School', 'Bishopric'];
-
-  STANDARD_ORGS.forEach(o => orgMap.set(o, { total: 0, active: 0, idle: 0 }));
 
   members.forEach(m => {
-    const org = s(m.organisation) || 'Other';
-    if (!orgMap.has(org)) orgMap.set(org, { total: 0, active: 0, idle: 0 });
-    const entry = orgMap.get(org)!;
-    entry.total++;
+    const rawOrgs = s(m.organisation).split(',').map(x => x.trim()).filter(Boolean);
+    const orgs = rawOrgs.length > 0 ? rawOrgs : ['Unassigned'];
     const hasAssignments = Number(m.total_assignments || 0) > 0 || Number(m.spoken_count || 0) > 0 || Number(m.prayers_count || 0) > 0;
-    if (hasAssignments) {
-      entry.active++;
-    } else {
-      entry.idle++;
-    }
+
+    // Deduplicate within the same member if duplicate org names exist
+    const uniqueMemberOrgs = Array.from(new Set(orgs.map(rawOrg => {
+      return rawOrg.toLowerCase().includes('sunday school') ? 'Sunday School' : rawOrg;
+    })));
+
+    uniqueMemberOrgs.forEach(org => {
+      if (!orgMap.has(org)) orgMap.set(org, { total: 0, active: 0, idle: 0 });
+      const entry = orgMap.get(org)!;
+      entry.total++;
+      if (hasAssignments) {
+        entry.active++;
+      } else {
+        entry.idle++;
+      }
+    });
   });
 
   const orgParticipation: OrgParticipationStat[] = [];
@@ -797,6 +841,9 @@ export function calculatePastoralAlerts(
       });
     }
   });
+
+  // Sort descending by total members
+  orgParticipation.sort((a, b) => b.totalMembers - a.totalMembers);
 
   return {
     inactiveMembers: inactiveMembers.slice(0, 15),
@@ -866,8 +913,8 @@ export function compileYearAnalytics(
   // Youth Aaronic Progress
   const youthMilestones = calculateYouthMilestones(safeMembers, allYearAssignments);
 
-  // Pastoral Alerts
-  const pastoralAlerts = calculatePastoralAlerts(safeMembers, allYearAssignments, referenceDate);
+  // Bishopric Intelligence & Inactivity Alerts
+  const bishopricAlerts = calculateBishopricAlerts(safeMembers, allYearAssignments, referenceDate);
 
   return {
     year,
@@ -879,6 +926,10 @@ export function compileYearAnalytics(
     monthlyStats,
     rolePredictions,
     youthMilestones,
-    pastoralAlerts
+    bishopricAlerts,
+    pastoralAlerts: bishopricAlerts
   };
 }
+
+// Alias for backward compatibility
+export const calculatePastoralAlerts = calculateBishopricAlerts;

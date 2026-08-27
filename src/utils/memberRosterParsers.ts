@@ -504,7 +504,7 @@ export function generateRosterPrintHtml(members: Member[], unitName = 'Ward Dire
   <div class="header">
     <div>
       <h1>${unitName}</h1>
-      <p>Official Membership Directory & Pastoral Overview</p>
+      <p>Official Membership Directory & Bishopric Overview</p>
     </div>
     <div style="text-align: right;">
       <p>Generated: ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
@@ -547,11 +547,11 @@ export function generateRosterPrintHtml(members: Member[], unitName = 'Ward Dire
           <td style="font-family: monospace; font-size: 7.5pt; font-weight: 600; color: #475569;">
             ${m.members_id || m.member_id ? '#' + (m.members_id || m.member_id) : '—'}
           </td>
-          <td>${getDynamicAge(m.birth_date, m.age) || '—'}</td>
+          <td>${getDynamicAge(m.birthdate || m.birth_date, m.age) || '—'}</td>
           <td>${m.gender || '—'}</td>
           <td>${m.phone || '—'}</td>
           <td><span class="badge badge-org">${m.organisation || '—'}</span></td>
-          <td>${normalizeBirthDate(m.birth_date)}</td>
+          <td>${normalizeBirthDate(m.birthdate || m.birth_date)}</td>
           <td><span class="badge badge-status">${m.status || 'Active'}</span></td>
           <td>
             <span style="font-size: 7.5pt;">${m.spoken_count || 0} talks · ${m.prayers_count || 0} prayers</span>
@@ -563,7 +563,7 @@ export function generateRosterPrintHtml(members: Member[], unitName = 'Ward Dire
 
   <div class="footer">
     <div>Confidential — For Internal Church Leadership Use Only</div>
-    <div>SM Planner Pastoral Management System</div>
+    <div>SM Planner Bishopric Management System</div>
   </div>
 </body>
 </html>`;

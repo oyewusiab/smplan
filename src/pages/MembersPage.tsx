@@ -60,8 +60,19 @@ const ORG_OPTIONS = [
   { value: 'Young Men', label: 'Young Men' },
   { value: 'Young Women', label: 'Young Women' },
   { value: 'Primary', label: 'Primary' },
-  { value: 'Sunday School', label: 'Sunday School' },
+  { value: 'Sunday School', label: 'Sunday School (Adult Sunday School)' },
   { value: 'Bishopric', label: 'Bishopric' },
+  { value: 'YSA', label: 'Young Single Adults (YSA)' },
+  { value: 'High Priests', label: 'High Priests' },
+];
+
+const AGE_BRACKET_OPTIONS = [
+  { value: '', label: 'All Ages' },
+  { value: 'CHILDREN', label: 'Children (0–11 yrs)' },
+  { value: 'YOUTH', label: 'Youth (12–17 yrs)' },
+  { value: 'YSA', label: 'Young Single Adults (18–30 yrs)' },
+  { value: 'ADULTS', label: 'Adults (31–59 yrs)' },
+  { value: 'SENIORS', label: 'Seniors (60+ yrs)' },
 ];
 
 const PRIESTHOOD_OFFICE_OPTIONS = [
@@ -72,6 +83,18 @@ const PRIESTHOOD_OFFICE_OPTIONS = [
   { value: 'Elder', label: 'Elder (Melchizedek)' },
   { value: 'High Priest', label: 'High Priest (Melchizedek)' },
   { value: 'Bishop', label: 'Bishop' },
+];
+
+const PRIESTHOOD_FILTER_OPTIONS = [
+  { value: '', label: 'All Priesthood' },
+  { value: 'AARONIC', label: 'Aaronic Priesthood' },
+  { value: 'MELCHIZEDEK', label: 'Melchizedek Priesthood' },
+  { value: 'Deacon', label: 'Deacon' },
+  { value: 'Teacher', label: 'Teacher' },
+  { value: 'Priest', label: 'Priest' },
+  { value: 'Elder', label: 'Elder' },
+  { value: 'High Priest', label: 'High Priest' },
+  { value: 'NONE', label: 'None / Auxiliary' },
 ];
 
 const emptyMember: Partial<Member> = {
@@ -86,6 +109,9 @@ const emptyMember: Partial<Member> = {
   household_id: '',
   status: 'ACTIVE',
   birth_date: '',
+  birthdate: '',
+  confirmation_date: '',
+  confirmationdate: '',
   notes: '',
 };
 
@@ -107,6 +133,9 @@ export function MembersPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [orgFilter, setOrgFilter] = useState('');
+  const [genderFilter, setGenderFilter] = useState('');
+  const [ageFilter, setAgeFilter] = useState('');
+  const [priesthoodFilter, setPriesthoodFilter] = useState('');
   const [selectedMemberNames, setSelectedMemberNames] = useState<Set<string>>(new Set());
 
   // Modals state
@@ -156,10 +185,64 @@ export function MembersPage() {
     loadAllData();
   }, [session]);
 
-  // Filtered members list
+  // Dynamically extract ALL unique organisations across all members in the ward
+  const availableOrganisations = useMemo(() => {
+    const orgMap = new Map<string, string>(); // lowercase -> display string
+
+    // Seed standard base options
+    const standardOrgs = [
+      'Elders Quorum',
+      'Relief Society',
+      'Young Men',
+      'Young Women',
+      'Primary',
+      'Sunday School',
+      'Bishopric',
+      'Young Single Adults (YSA)',
+      'High Priests',
+      'Ward Missionaries',
+      'Temple & Family History',
+      'Choir',
+      'Activities Committee',
+      'Ward Council',
+      'Aaronic Priesthood Quorum',
+      'Single Adults',
+      'Self-Reliance',
+      'Seminary & Institute'
+    ];
+
+    standardOrgs.forEach(o => orgMap.set(o.toLowerCase(), o));
+
+    // Extract every unique organisation from the active member roster (splitting comma-separated entries)
+    members.forEach(m => {
+      if (!m.organisation) return;
+      const parts = String(m.organisation).split(',');
+      parts.forEach(p => {
+        const trimmed = p.trim();
+        if (trimmed && trimmed !== '—' && trimmed !== '-') {
+          const lower = trimmed.toLowerCase();
+          if (!orgMap.has(lower)) {
+            orgMap.set(lower, trimmed);
+          }
+        }
+      });
+    });
+
+    return Array.from(orgMap.values()).sort((a, b) => a.localeCompare(b));
+  }, [members]);
+
+  // Filtered members list with accurate multi-organisation, birthdate age, gender & priesthood checks
   const filtered = useMemo(() => {
     return members.filter((m) => {
       const q = search.toLowerCase().trim();
+      const bDate = m.birthdate || m.birth_date || '';
+      const dynamicAge = getDynamicAge(bDate, m.age);
+      const memberOrgs = String(m.organisation || '')
+        .split(',')
+        .map(s => s.trim().toLowerCase())
+        .filter(Boolean);
+
+      // Search Query Match across all member fields
       const matchQ =
         !q ||
         String(m.name || '').toLowerCase().includes(q) ||
@@ -169,16 +252,63 @@ export function MembersPage() {
         String(m.calling || '').toLowerCase().includes(q) ||
         String(m.priesthood_office || '').toLowerCase().includes(q) ||
         String(m.household_id || '').toLowerCase().includes(q) ||
-        String(m.notes || '').toLowerCase().includes(q);
+        String(m.notes || '').toLowerCase().includes(q) ||
+        memberOrgs.some(org => org.includes(q));
 
+      // Status Match
       const statusUpper = String(m.status || '').toUpperCase().replace('-', '_');
       const filterUpper = statusFilter.toUpperCase().replace('-', '_');
       const matchStatus = !statusFilter || statusUpper === filterUpper || String(m.status) === statusFilter;
-      const matchOrg = !orgFilter || String(m.organisation) === orgFilter;
 
-      return matchQ && matchStatus && matchOrg;
+      // Organisation Match (Supports multi-organisation comma separation & Sunday School = Adult Sunday School)
+      let matchOrg = true;
+      if (orgFilter) {
+        const filterLower = orgFilter.toLowerCase().trim();
+        const isFilterSS = filterLower.includes('sunday school');
+
+        matchOrg = memberOrgs.some(org => {
+          if (isFilterSS && org.includes('sunday school')) return true;
+          if (org === filterLower) return true;
+          if (org.includes(filterLower) || filterLower.includes(org)) return true;
+          return false;
+        });
+      }
+
+      // Gender Match
+      const memberGender = String(m.gender || '').toUpperCase();
+      const matchGender =
+        !genderFilter ||
+        (genderFilter === 'M' && (memberGender === 'M' || memberGender === 'MALE')) ||
+        (genderFilter === 'F' && (memberGender === 'F' || memberGender === 'FEMALE'));
+
+      // Age Bracket Match
+      let matchAge = true;
+      if (ageFilter) {
+        if (ageFilter === 'CHILDREN') matchAge = dynamicAge >= 0 && dynamicAge <= 11;
+        else if (ageFilter === 'YOUTH') matchAge = dynamicAge >= 12 && dynamicAge <= 17;
+        else if (ageFilter === 'YSA') matchAge = dynamicAge >= 18 && dynamicAge <= 30;
+        else if (ageFilter === 'ADULTS') matchAge = dynamicAge >= 31 && dynamicAge <= 59;
+        else if (ageFilter === 'SENIORS') matchAge = dynamicAge >= 60;
+      }
+
+      // Priesthood Office Match
+      let matchPriesthood = true;
+      if (priesthoodFilter) {
+        const po = String(m.priesthood_office || '').toLowerCase();
+        if (priesthoodFilter === 'AARONIC') {
+          matchPriesthood = po.includes('deacon') || po.includes('teacher') || po.includes('priest');
+        } else if (priesthoodFilter === 'MELCHIZEDEK') {
+          matchPriesthood = po.includes('elder') || po.includes('high priest') || po.includes('bishop');
+        } else if (priesthoodFilter === 'NONE') {
+          matchPriesthood = !po || po === 'none' || po === 'auxiliary';
+        } else {
+          matchPriesthood = po.includes(priesthoodFilter.toLowerCase());
+        }
+      }
+
+      return matchQ && matchStatus && matchOrg && matchGender && matchAge && matchPriesthood;
     });
-  }, [members, search, statusFilter, orgFilter]);
+  }, [members, search, statusFilter, orgFilter, genderFilter, ageFilter, priesthoodFilter]);
 
   // Analytics compiled data
   const yearAnalytics = useMemo(() => {
@@ -215,9 +345,15 @@ export function MembersPage() {
 
   const openEdit = (m: Member) => {
     setEditMember(m);
+    const bDate = m.birthdate || m.birth_date || '';
+    const cDate = m.confirmationdate || m.confirmation_date || '';
     setForm({
       ...m,
-      age: getDynamicAge(m.birth_date, m.age)
+      birth_date: bDate,
+      birthdate: bDate,
+      confirmation_date: cDate,
+      confirmationdate: cDate,
+      age: getDynamicAge(bDate, m.age)
     });
     setShowForm(true);
   };
@@ -230,10 +366,19 @@ export function MembersPage() {
     }
     setSaving(true);
     try {
+      const rawBDate = form.birthdate || form.birth_date || '';
+      const formattedBDate = rawBDate ? formatBirthDateForStorage(rawBDate) : '';
+      const rawCDate = form.confirmationdate || form.confirmation_date || '';
+      const formattedCDate = rawCDate ? formatBirthDateForStorage(rawCDate) : '';
+      const calcAge = getDynamicAge(rawBDate, form.age);
+
       const payload: Partial<Member> = {
         ...form,
-        age: getDynamicAge(form.birth_date, form.age),
-        birth_date: form.birth_date ? formatBirthDateForStorage(form.birth_date) : '',
+        age: calcAge,
+        birth_date: formattedBDate,
+        birthdate: formattedBDate,
+        confirmation_date: formattedCDate,
+        confirmationdate: formattedCDate,
       };
 
       if (editMember) {
@@ -401,7 +546,7 @@ export function MembersPage() {
       key: 'age',
       header: 'Age',
       render: (m: Member) => {
-        const dynamicAge = getDynamicAge(m.birth_date, m.age);
+        const dynamicAge = getDynamicAge(m.birthdate || m.birth_date, m.age);
         return (
           <span className="font-mono text-xs text-slate-700 font-medium">
             {dynamicAge > 0 ? `${dynamicAge} yrs` : '—'}
@@ -441,18 +586,62 @@ export function MembersPage() {
     {
       key: 'organisation',
       header: 'Organisation',
-      render: (m: Member) => (
-        <Badge variant={m.organisation?.includes('Elders') ? 'default' : m.organisation?.includes('Relief') ? 'info' : 'outline'}>
-          {m.organisation || '—'}
-        </Badge>
-      ),
+      render: (m: Member) => {
+        const orgs = String(m.organisation || '')
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+
+        if (orgs.length === 0) {
+          return <span className="text-slate-400">—</span>;
+        }
+
+        return (
+          <div className="flex flex-wrap gap-1">
+            {orgs.map((org, i) => {
+              const isSS = org.toLowerCase().includes('sunday school');
+              const isEQ = org.toLowerCase().includes('elder');
+              const isRS = org.toLowerCase().includes('relief');
+              const isYM = org.toLowerCase().includes('young men');
+              const isYW = org.toLowerCase().includes('young women');
+              const isPri = org.toLowerCase().includes('primary');
+              const isBish = org.toLowerCase().includes('bishopric');
+
+              return (
+                <span
+                  key={i}
+                  className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                    isEQ
+                      ? 'bg-blue-50 text-blue-700 border-blue-200'
+                      : isRS
+                      ? 'bg-rose-50 text-rose-700 border-rose-200'
+                      : isSS
+                      ? 'bg-amber-50 text-amber-800 border-amber-200'
+                      : isYM
+                      ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                      : isYW
+                      ? 'bg-pink-50 text-pink-700 border-pink-200'
+                      : isPri
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : isBish
+                      ? 'bg-purple-50 text-purple-700 border-purple-200'
+                      : 'bg-slate-50 text-slate-700 border-slate-200'
+                  }`}
+                >
+                  {org}
+                </span>
+              );
+            })}
+          </div>
+        );
+      },
     },
     {
       key: 'birthday',
       header: 'Birthday',
       render: (m: Member) => (
         <span className="text-xs text-slate-600 font-medium">
-          {normalizeBirthDate(m.birth_date)}
+          {normalizeBirthDate(m.birthdate || m.birth_date)}
         </span>
       ),
     },
@@ -532,7 +721,7 @@ export function MembersPage() {
     <div>
       <Header
         title="Members"
-        subtitle="Intelligent membership directory & pastoral analytics hub"
+        subtitle="Intelligent membership directory & Bishopric analytics hub"
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -605,35 +794,79 @@ export function MembersPage() {
         {activeTab === 'directory' ? (
           <div className="space-y-4">
             {/* Filters Bar */}
-            <div className="flex flex-wrap items-center gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
-              <div className="relative flex-1 min-w-[220px] max-w-sm">
+            <div className="flex flex-wrap items-center gap-2.5 bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
+              <div className="relative flex-1 min-w-[200px] max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search by name, calling, phone, email, household…"
+                  placeholder="Search name, org, calling, phone, email…"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="block w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 />
               </div>
 
+              {/* Organisation Filter (Dynamically populated from all 20+ organisations) */}
               <select
                 value={orgFilter}
                 onChange={(e) => setOrgFilter(e.target.value)}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none text-slate-700"
+                className="rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-xs font-medium focus:border-blue-500 focus:outline-none text-slate-700 max-w-[200px]"
+                title="Filter by Organisation"
               >
-                <option value="">All Organisations</option>
-                {ORG_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
+                <option value="">All Organisations ({availableOrganisations.length})</option>
+                {availableOrganisations.map((orgName) => (
+                  <option key={orgName} value={orgName}>
+                    {orgName}
                   </option>
                 ))}
               </select>
 
+              {/* Gender Filter */}
+              <select
+                value={genderFilter}
+                onChange={(e) => setGenderFilter(e.target.value)}
+                className="rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-xs font-medium focus:border-blue-500 focus:outline-none text-slate-700"
+                title="Filter by Gender"
+              >
+                <option value="">All Genders</option>
+                <option value="M">Male (M)</option>
+                <option value="F">Female (F)</option>
+              </select>
+
+              {/* Age Bracket Filter */}
+              <select
+                value={ageFilter}
+                onChange={(e) => setAgeFilter(e.target.value)}
+                className="rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-xs font-medium focus:border-blue-500 focus:outline-none text-slate-700"
+                title="Filter by Age Group"
+              >
+                {AGE_BRACKET_OPTIONS.map((a) => (
+                  <option key={a.value} value={a.value}>
+                    {a.label}
+                  </option>
+                ))}
+              </select>
+
+              {/* Priesthood Office Filter */}
+              <select
+                value={priesthoodFilter}
+                onChange={(e) => setPriesthoodFilter(e.target.value)}
+                className="rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-xs font-medium focus:border-blue-500 focus:outline-none text-slate-700"
+                title="Filter by Priesthood Office"
+              >
+                {PRIESTHOOD_FILTER_OPTIONS.map((p) => (
+                  <option key={p.value} value={p.value}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+
+              {/* Status Filter */}
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none text-slate-700"
+                className="rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-xs font-medium focus:border-blue-500 focus:outline-none text-slate-700"
+                title="Filter by Member Status"
               >
                 <option value="">All Statuses</option>
                 {STATUS_OPTIONS.map((o) => (
@@ -642,6 +875,24 @@ export function MembersPage() {
                   </option>
                 ))}
               </select>
+
+              {/* Reset Filters */}
+              {(search || orgFilter || statusFilter || genderFilter || ageFilter || priesthoodFilter) && (
+                <button
+                  onClick={() => {
+                    setSearch('');
+                    setOrgFilter('');
+                    setStatusFilter('');
+                    setGenderFilter('');
+                    setAgeFilter('');
+                    setPriesthoodFilter('');
+                  }}
+                  className="px-2.5 py-2 rounded-lg text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 transition border border-rose-200"
+                  title="Reset all filters"
+                >
+                  Reset
+                </button>
+              )}
 
               {/* Bulk Actions Button */}
               {selectedMemberNames.size > 0 && canEdit && (
@@ -652,13 +903,13 @@ export function MembersPage() {
                   icon={<Trash2 className="h-4 w-4" />}
                   onClick={() => setShowDeleteConfirmModal(true)}
                 >
-                  Delete Selected ({selectedMemberNames.size})
+                  Delete ({selectedMemberNames.size})
                 </Button>
               )}
 
               <div className="ml-auto flex items-center gap-2">
                 <span className="text-xs font-semibold text-slate-500">
-                  {filtered.length} member{filtered.length !== 1 ? 's' : ''}
+                  {filtered.length} of {members.length}
                 </span>
                 <Button
                   size="sm"
@@ -695,13 +946,17 @@ export function MembersPage() {
               onRowClick={canEdit ? openEdit : undefined}
             />
           </div>
-        ) : (
+        ) : yearAnalytics ? (
           /* ─── Workspace 2: Calendar Year Analytics Mode ─────────────────────── */
           <MemberAnalyticsDashboard
             analytics={yearAnalytics}
             selectedYear={selectedYear}
             onYearChange={setSelectedYear}
           />
+        ) : (
+          <div className="py-12 text-center text-sm text-slate-500">
+            Calculating Bishopric analytics...
+          </div>
         )}
       </div>
 
@@ -768,21 +1023,47 @@ export function MembersPage() {
             <input
               type="text"
               placeholder="YYYY-MM-DD or DD-MMM-YYYY"
-              value={form.birth_date || ''}
+              value={form.birth_date || form.birthdate || ''}
               onChange={(e) => {
                 const val = e.target.value;
                 const calcAge = getDynamicAge(val, form.age);
                 setForm({
                   ...form,
                   birth_date: val,
+                  birthdate: val,
                   age: calcAge > 0 ? calcAge : form.age,
                 });
               }}
               className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
             />
-            {form.birth_date && (
+            {(form.birth_date || form.birthdate) && (
               <p className="text-[11px] text-blue-600 mt-1">
-                Calculated Age: {getDynamicAge(form.birth_date, form.age)} yrs · Birthday Label: {normalizeBirthDate(form.birth_date)}
+                Calculated Age: <strong>{getDynamicAge(form.birth_date || form.birthdate, form.age)} yrs</strong> · Birthday: {normalizeBirthDate(form.birth_date || form.birthdate)}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Confirmation Date (Convert / Baptism)
+            </label>
+            <input
+              type="text"
+              placeholder="YYYY-MM-DD or DD-MMM-YYYY"
+              value={form.confirmation_date || form.confirmationdate || ''}
+              onChange={(e) => {
+                const val = e.target.value;
+                setForm({
+                  ...form,
+                  confirmation_date: val,
+                  confirmationdate: val,
+                });
+              }}
+              className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            />
+            {(form.confirmation_date || form.confirmationdate) && (
+              <p className="text-[11px] text-emerald-600 mt-1">
+                Recorded Confirmation: <strong>{form.confirmation_date || form.confirmationdate}</strong>
               </p>
             )}
           </div>
@@ -803,13 +1084,70 @@ export function MembersPage() {
             placeholder="member@example.com"
           />
 
-          <Select
-            label="Organisation"
-            options={ORG_OPTIONS}
-            placeholder="Select organisation"
-            value={form.organisation || ''}
-            onChange={(e) => setForm({ ...form, organisation: e.target.value })}
-          />
+          <div className="sm:col-span-2 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-semibold text-slate-700">
+                Organisation(s) (Member can belong to multiple, separated by commas)
+              </label>
+              <span className="text-[11px] text-slate-400 font-medium">
+                {availableOrganisations.length} ward groups
+              </span>
+            </div>
+            {/* Quick Toggle Chips for all unique ward organisations */}
+            <div className="flex flex-wrap gap-1.5 pb-1 max-h-32 overflow-y-auto pr-1">
+              {availableOrganisations.map((orgName) => {
+                const currentOrgs = String(form.organisation || '')
+                  .split(',')
+                  .map(s => s.trim())
+                  .filter(Boolean);
+                const isSelected = currentOrgs.some(
+                  o => o.toLowerCase() === orgName.toLowerCase() ||
+                  (orgName.toLowerCase().includes('sunday school') && o.toLowerCase().includes('sunday school'))
+                );
+
+                return (
+                  <button
+                    key={orgName}
+                    type="button"
+                    onClick={() => {
+                      let nextOrgs: string[];
+                      if (isSelected) {
+                        nextOrgs = currentOrgs.filter(
+                          o => o.toLowerCase() !== orgName.toLowerCase() &&
+                          !(orgName.toLowerCase().includes('sunday school') && o.toLowerCase().includes('sunday school'))
+                        );
+                      } else {
+                        nextOrgs = [...currentOrgs, orgName];
+                      }
+                      setForm({ ...form, organisation: nextOrgs.join(', ') });
+                    }}
+                    className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition ${
+                      isSelected
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    {isSelected ? '✓ ' : '+ '}{orgName}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="relative">
+              <input
+                type="text"
+                list="unique-orgs-datalist"
+                value={form.organisation || ''}
+                onChange={(e) => setForm({ ...form, organisation: e.target.value })}
+                placeholder="e.g. Relief Society, Sunday School"
+                className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+              <datalist id="unique-orgs-datalist">
+                {availableOrganisations.map((orgName) => (
+                  <option key={orgName} value={orgName} />
+                ))}
+              </datalist>
+            </div>
+          </div>
 
           <Select
             label="Priesthood Office"
@@ -840,7 +1178,7 @@ export function MembersPage() {
           />
 
           <Textarea
-            label="Pastoral Notes / Availability"
+            label="Bishopric Notes / Availability"
             value={form.notes || ''}
             onChange={(e) => setForm({ ...form, notes: e.target.value })}
             rows={3}

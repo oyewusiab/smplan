@@ -457,7 +457,7 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp }: BulletinWebVie
           </div>
         )}
 
-        {/* 6. Bishopric Pastoral Message */}
+        {/* 6. Bishopric Message */}
         {b.show_bishopric && b.bishopric_message && (
           <div className="rounded-2xl p-4 bg-white border border-slate-200 shadow-2xs space-y-1.5">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1">
