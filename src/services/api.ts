@@ -292,6 +292,24 @@ export const checklistsApi = {
 
   create: (token: string, data: Record<string, unknown>) =>
     post(withTokenBody(token, { action: 'CREATE_CHECKLIST', ...data })),
+
+  delete: (token: string, checklist_id: string) =>
+    post(withTokenBody(token, { action: 'DELETE_CHECKLIST', checklist_id })),
+
+  seed: (token: string, data: { planner_id: string; week_id: string; week_label?: string; date?: string }) =>
+    post(withTokenBody(token, { action: 'SEED_CHECKLIST', ...data })),
+
+  resetWeek: (token: string, data: { planner_id: string; week_id: string }) =>
+    post(withTokenBody(token, { action: 'RESET_CHECKLIST_WEEK', ...data })),
+
+  bulkUpdate: (token: string, data: { items: Record<string, unknown>[] }) =>
+    post(withTokenBody(token, { action: 'BULK_UPDATE_CHECKLIST', ...data })),
+
+  bulkAssign: (token: string, data: { planner_id: string; week_id: string; responsible: string }) =>
+    post(withTokenBody(token, { action: 'BULK_ASSIGN_CHECKLIST', ...data })),
+
+  sendReminders: (token: string, data: { planner_id: string; week_id: string; date?: string; items?: unknown[] }) =>
+    post(withTokenBody(token, { action: 'SEND_CHECKLIST_REMINDERS', ...data })),
 };
 
 // ─── Todos ────────────────────────────────────────────────────────────────────

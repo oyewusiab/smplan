@@ -35,6 +35,15 @@ function handleListPlanners(params) {
     planners = planners.filter(p => p.state !== 'DRAFT' || p.created_by === session.user_id);
   }
 
+  // Populate weeks array for each planner from AGENDAS table if empty or string
+  const allAgendas = dbReadAll('AGENDAS');
+  planners.forEach(p => {
+    const plannerAgendas = allAgendas.filter(a => a.planner_id === p.planner_id);
+    if (plannerAgendas.length > 0) {
+      p.weeks = JSON.stringify(plannerAgendas);
+    }
+  });
+
   // Sort chronologically descending (latest updated or year/month first)
   planners.sort((a, b) => {
     if (b.year !== a.year) return Number(b.year) - Number(a.year);
@@ -53,6 +62,12 @@ function handleGetPlanner(params) {
   // Enforce draft privacy rule on single fetch
   if (planner.state === 'DRAFT' && session.role !== 'ADMIN' && session.role !== 'BISHOPRIC' && planner.created_by !== session.user_id) {
     throw new Error('Access denied to private draft planner');
+  }
+
+  // Attach full agendas from AGENDAS table
+  const agendas = dbFind('AGENDAS', a => a.planner_id === params.planner_id);
+  if (agendas.length > 0) {
+    planner.weeks = JSON.stringify(agendas);
   }
 
   return { ok: true, data: planner };
@@ -352,6 +367,11 @@ function handleSavePlannerWorkspace(body) {
     if (agData.closing_prayer) {
       updateMemberAssignmentStats(agData.closing_prayer, 'CLOSING_PRAYER', agendaPayload.date);
     }
+  });
+
+  dbUpdate('PLANNERS', 'planner_id', body.planner_id, {
+    weeks: JSON.stringify(savedAgendas),
+    updated_date: now(),
   });
 
   auditLog(session.user_id, 'SAVE_WORKSPACE', 'PLANNERS', body.planner_id, null, { weeks_count: savedAgendas.length }, 'OK');
@@ -1686,7 +1706,12 @@ function handleDeleteActivity(body) {
 function handleListChecklists(params) {
   const session = requireAuth(params.token);
   let items = dbReadAll('CHECKLISTS');
-  if (params.planner_id) items = items.filter(c => c.planner_id === params.planner_id);
+  if (params.planner_id) {
+    items = items.filter(c => c.planner_id === params.planner_id);
+  }
+  if (params.week_id) {
+    items = items.filter(c => c.week_id === params.week_id);
+  }
   return { ok: true, data: items };
 }
 
@@ -1702,7 +1727,7 @@ function handleCreateChecklist(body) {
     task: sanitizeString(body.task),
     responsible: sanitizeString(body.responsible),
     status: sanitizeString(body.status || 'PENDING'),
-    updated_by: session.user_id,
+    updated_by: session.name || session.user_id,
     updated_date: now(),
   };
   
@@ -1717,9 +1742,9 @@ function handleUpdateChecklist(body) {
   
   const updates = {
     status: sanitizeString(body.status),
-    responsible: sanitizeString(body.responsible),
-    task: sanitizeString(body.task),
-    updated_by: session.user_id,
+    responsible: sanitizeString(body.responsible !== undefined ? body.responsible : ''),
+    task: sanitizeString(body.task !== undefined ? body.task : ''),
+    updated_by: session.name || session.user_id,
     updated_date: now(),
   };
   
@@ -1728,11 +1753,153 @@ function handleUpdateChecklist(body) {
   return { ok: true, data: result.updated };
 }
 
+function handleDeleteChecklist(body) {
+  const session = requireAuth(body.token);
+  validateRequired(body, ['checklist_id']);
+  
+  const old = dbDelete('CHECKLISTS', 'checklist_id', body.checklist_id);
+  auditLog(session.user_id, 'DELETE', 'CHECKLISTS', body.checklist_id, old, null, 'OK');
+  return { ok: true };
+}
+
+function handleSeedChecklist(body) {
+  const session = requireAuth(body.token);
+  validateRequired(body, ['planner_id', 'week_id']);
+  
+  const plannerId = sanitizeString(body.planner_id);
+  const weekId = sanitizeString(body.week_id);
+  const weekLabel = sanitizeString(body.week_label || 'Sunday Preparation');
+  
+  // Standard 8 Sacrament Readiness Tasks
+  const standardTasks = [
+    'Microphones tested',
+    'Sacrament bread ready',
+    'Water cups ready',
+    'Sacrament table prepared & covered',
+    'Hymn numbers displayed on board',
+    'Podium prepared (water, program, scriptures)',
+    'Speakers confirmed present on stand',
+    'Presiding authority confirmed & greeted',
+  ];
+
+  // Check existing tasks for this week to avoid unnecessary duplicate seeding
+  const existing = dbFind('CHECKLISTS', c => c.planner_id === plannerId && c.week_id === weekId);
+  const existingTaskNames = new Set(existing.map(e => (e.task || '').trim().toLowerCase()));
+
+  const createdItems = [];
+  standardTasks.forEach(taskName => {
+    if (!existingTaskNames.has(taskName.toLowerCase())) {
+      const item = {
+        checklist_id: generateId('CHK'),
+        planner_id: plannerId,
+        week_id: weekId,
+        week_label: weekLabel,
+        task: taskName,
+        responsible: '',
+        status: 'PENDING',
+        updated_by: session.name || session.user_id,
+        updated_date: now(),
+      };
+      dbInsert('CHECKLISTS', item);
+      createdItems.push(item);
+    }
+  });
+
+  auditLog(session.user_id, 'SEED_CHECKLIST', 'CHECKLISTS', `${createdItems.length} tasks seeded`, null, { count: createdItems.length }, 'OK');
+  return { ok: true, data: createdItems, count: createdItems.length };
+}
+
+function handleResetChecklistWeek(body) {
+  const session = requireAuth(body.token);
+  validateRequired(body, ['planner_id', 'week_id']);
+  
+  const items = dbFind('CHECKLISTS', c => c.planner_id === body.planner_id && c.week_id === body.week_id);
+  const updatedItems = [];
+  
+  items.forEach(item => {
+    const res = dbUpdate('CHECKLISTS', 'checklist_id', item.checklist_id, {
+      status: 'PENDING',
+      updated_by: session.name || session.user_id,
+      updated_date: now(),
+    });
+    if (res && res.updated) updatedItems.push(res.updated);
+  });
+
+  auditLog(session.user_id, 'RESET_WEEK', 'CHECKLISTS', `${updatedItems.length} items reset`, null, null, 'OK');
+  return { ok: true, data: updatedItems, count: updatedItems.length };
+}
+
+function handleBulkUpdateChecklist(body) {
+  const session = requireAuth(body.token);
+  validateRequired(body, ['items']);
+  
+  const itemsList = Array.isArray(body.items) ? body.items : [];
+  const results = [];
+  
+  itemsList.forEach(item => {
+    if (!item || !item.checklist_id) return;
+    const patch = {
+      status: sanitizeString(item.status),
+      responsible: sanitizeString(item.responsible !== undefined ? item.responsible : ''),
+      updated_by: session.name || session.user_id,
+      updated_date: now(),
+    };
+    const res = dbUpdate('CHECKLISTS', 'checklist_id', item.checklist_id, patch);
+    if (res && res.updated) results.push(res.updated);
+  });
+  
+  auditLog(session.user_id, 'BULK_UPDATE', 'CHECKLISTS', `${results.length} items`, null, null, 'OK');
+  return { ok: true, data: results, count: results.length };
+}
+
+function handleBulkAssignChecklist(body) {
+  const session = requireAuth(body.token);
+  validateRequired(body, ['planner_id', 'week_id', 'responsible']);
+  
+  const items = dbFind('CHECKLISTS', c =>
+    c.planner_id === body.planner_id &&
+    c.week_id === body.week_id &&
+    (c.status === 'PENDING' || c.status === 'false' || !c.responsible)
+  );
+  
+  const assigned = [];
+  items.forEach(item => {
+    const res = dbUpdate('CHECKLISTS', 'checklist_id', item.checklist_id, {
+      responsible: sanitizeString(body.responsible),
+      updated_by: session.name || session.user_id,
+      updated_date: now(),
+    });
+    if (res && res.updated) assigned.push(res.updated);
+  });
+
+  auditLog(session.user_id, 'BULK_ASSIGN', 'CHECKLISTS', `${assigned.length} items assigned`, null, { responsible: body.responsible }, 'OK');
+  return { ok: true, data: assigned, count: assigned.length };
+}
+
+function handleSendChecklistReminders(body) {
+  const session = requireAuth(body.token);
+  validateRequired(body, ['planner_id', 'week_id']);
+  
+  const items = dbFind('CHECKLISTS', c => c.planner_id === body.planner_id && c.week_id === body.week_id);
+  const assigned = items.filter(i => i.responsible && i.responsible.trim().length > 0);
+  
+  // Create in-app notifications for bishopric/admin
+  notifyRoles(['ADMIN', 'BISHOPRIC'], 'CHECKLIST_REMINDER_SENT',
+    'Saturday Checklist Reminders Prepared',
+    `${assigned.length} Sunday preparation assignments have been checked for ${body.week_id}.`,
+    { planner_id: body.planner_id, week_id: body.week_id, count: assigned.length });
+
+  return { ok: true, count: assigned.length };
+}
+
 // ─── Todo Handlers ────────────────────────────────────────────────────────────
 
 function handleListTodos(params) {
   const session = requireAuth(params.token);
-  const todos = dbReadAll('TODOS');
+  let todos = dbReadAll('TODOS');
+  if (params.category && params.category !== 'ALL') {
+    todos = todos.filter(t => t.category === params.category);
+  }
   return { ok: true, data: todos };
 }
 
@@ -1744,11 +1911,14 @@ function handleCreateTodo(body) {
     todo_id: generateId('TODO'),
     title: sanitizeString(body.title),
     details: sanitizeString(body.details),
+    category: sanitizeString(body.category || 'GENERAL'),
     due_date: sanitizeDate(body.due_date),
     priority: sanitizeString(body.priority || 'MEDIUM'),
     status: sanitizeString(body.status || 'OPEN'),
     assigned_to_user_id: sanitizeString(body.assigned_to_user_id),
+    assigned_to_name: sanitizeString(body.assigned_to_name),
     created_by_user_id: session.user_id,
+    created_by_name: session.name || session.username,
     planner_id: sanitizeString(body.planner_id),
     week_id: sanitizeString(body.week_id),
     created_date: now(),
@@ -1768,10 +1938,12 @@ function handleUpdateTodo(body) {
   const updates = {
     title: sanitizeString(body.title),
     details: sanitizeString(body.details),
+    category: sanitizeString(body.category || 'GENERAL'),
     due_date: sanitizeDate(body.due_date),
     priority: sanitizeString(body.priority),
     status: sanitizeString(body.status),
     assigned_to_user_id: sanitizeString(body.assigned_to_user_id),
+    assigned_to_name: sanitizeString(body.assigned_to_name),
     updated_date: now(),
     completed_date: body.status === 'DONE' ? now() : '',
   };

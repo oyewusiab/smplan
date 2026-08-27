@@ -207,26 +207,44 @@ export function AgendasPage() {
   // Check if saved agenda exists for selected date
   const savedAgendaForDate = useMemo(() => {
     if (!selectedDate) return null;
-    return agendas.find((a) => a.date === selectedDate) || null;
-  }, [agendas, selectedDate]);
+    return (
+      agendas.find((a) => a.planner_id === selectedPlannerId && a.date === selectedDate) ||
+      agendas.find((a) => a.date === selectedDate) ||
+      null
+    );
+  }, [agendas, selectedDate, selectedPlannerId]);
 
   // Requirement 1: Extract corresponding week plan from the selected Monthly Planner
   const weekPlanFromPlanner = useMemo(() => {
-    if (!selectedPlanner || !selectedDate) return null;
-    try {
-      const weeksArr: Partial<Agenda>[] = typeof selectedPlanner.weeks === 'string'
-        ? JSON.parse(selectedPlanner.weeks)
-        : selectedPlanner.weeks || [];
-      return weeksArr.find((w) => w.date === selectedDate) || null;
-    } catch {
-      return null;
+    if (!selectedDate) return null;
+
+    // 1. Look in agendas table for matching planner & date
+    const fromAgendas = agendas.find(
+      (a) => a.planner_id === selectedPlannerId && a.date === selectedDate
+    ) || agendas.find((a) => a.date === selectedDate);
+    if (fromAgendas) return fromAgendas;
+
+    // 2. Look in selectedPlanner.weeks
+    if (selectedPlanner) {
+      try {
+        const weeksArr: Partial<Agenda>[] = typeof selectedPlanner.weeks === 'string'
+          ? JSON.parse(selectedPlanner.weeks)
+          : selectedPlanner.weeks || [];
+        const found = weeksArr.find((w) => w.date === selectedDate);
+        if (found) return found;
+      } catch {}
     }
-  }, [selectedPlanner, selectedDate]);
+
+    return null;
+  }, [selectedPlanner, selectedDate, selectedPlannerId, agendas]);
 
   // Populate workspace when date changes or saved agenda found
   useEffect(() => {
     if (savedAgendaForDate) {
       loadAgendaIntoWorkspace(savedAgendaForDate);
+      setIsDraftCreated(true);
+    } else if (weekPlanFromPlanner) {
+      loadAgendaIntoWorkspace(weekPlanFromPlanner);
       setIsDraftCreated(true);
     } else {
       setIsDraftCreated(false);
@@ -237,7 +255,7 @@ export function AgendasPage() {
         ward_branch: selectedPlanner?.unit_name || '',
       });
     }
-  }, [selectedDate, savedAgendaForDate]);
+  }, [selectedDate, selectedPlannerId, savedAgendaForDate, weekPlanFromPlanner]);
 
   const loadAgendaIntoWorkspace = (agenda: Agenda | Partial<Agenda>) => {
     setActiveAgenda(agenda);
@@ -368,14 +386,18 @@ export function AgendasPage() {
     const parsedSac = parseHymn(plannerWeek?.sacrament_hymn || '');
     const parsedClose = parseHymn(plannerWeek?.closing_hymn || '');
 
-    const openPrayerName = formatPersonWithTitle(
-      plannerWeek?.opening_prayer || '',
-      plannerWeek?.opening_prayer_gender as 'M' | 'F' | ''
-    );
-    const closePrayerName = formatPersonWithTitle(
-      plannerWeek?.closing_prayer || '',
-      plannerWeek?.closing_prayer_gender as 'M' | 'F' | ''
-    );
+    const openPrayerName = plannerWeek?.opening_prayer
+      ? formatPersonWithTitle(
+          plannerWeek.opening_prayer,
+          plannerWeek.opening_prayer_gender as 'M' | 'F' | ''
+        )
+      : '';
+    const closePrayerName = plannerWeek?.closing_prayer
+      ? formatPersonWithTitle(
+          plannerWeek.closing_prayer,
+          plannerWeek.closing_prayer_gender as 'M' | 'F' | ''
+        )
+      : '';
 
     // Auto-query top 6 upcoming calendar events
     const upcomingEvents = activities
@@ -393,23 +415,29 @@ export function AgendasPage() {
     const importedSpeakers = parseSpeakersList(plannerWeek?.speakers);
     if (importedSpeakers.length > 0) {
       setSpeakersList(importedSpeakers);
+    } else {
+      setSpeakersList([
+        { name: '', topic: '', scripture_ref: '', minutes: 10, gender: '' },
+        { name: '', topic: '', scripture_ref: '', minutes: 15, gender: '' },
+        { name: '', topic: '', scripture_ref: '', minutes: 20, gender: '' },
+      ]);
     }
 
     const draft: Partial<Agenda> = {
       ...emptyAgenda,
       planner_id: selectedPlanner?.planner_id || '',
       date: selectedDate,
-      ward_branch: plannerWeek?.ward_branch || selectedPlanner?.unit_name || 'Obantoko Ward',
-      stake_district: plannerWeek?.stake_district || 'Abeokuta Nigeria Stake',
+      ward_branch: plannerWeek?.ward_branch || selectedPlanner?.unit_name || '',
+      stake_district: plannerWeek?.stake_district || '',
       type_of_meeting: plannerWeek?.type_of_meeting || 'SACRAMENT',
       other_meeting_specify: plannerWeek?.other_meeting_specify || '',
-      presiding: plannerWeek?.presiding || 'Adebayo Oyewusi',
+      presiding: plannerWeek?.presiding || 'Bishop',
       presiding_position: plannerWeek?.presiding_position || 'Bishop',
-      conducting: plannerWeek?.conducting || selectedPlanner?.conducting_officer || 'Adebayo Oyewusi',
-      conducting_position: plannerWeek?.conducting_position || 'Bishop',
-      music_director: plannerWeek?.music_director || 'Sister Oke, Fridados Darasimi',
+      conducting: plannerWeek?.conducting || selectedPlanner?.conducting_officer || '',
+      conducting_position: plannerWeek?.conducting_position || '1st Counsellor',
+      music_director: plannerWeek?.music_director || '',
       choir_director: plannerWeek?.choir_director || '',
-      organist: plannerWeek?.organist || 'Brother Okorie, Emmanuel Chigoziri',
+      organist: plannerWeek?.organist || '',
       start_time: plannerWeek?.start_time || '9:00 AM',
       prelude_music: plannerWeek?.prelude_music || '',
       postlude_music: plannerWeek?.postlude_music || '',
@@ -418,21 +446,31 @@ export function AgendasPage() {
       stake_district_business: plannerWeek?.stake_district_business || '',
       naming_blessing: plannerWeek?.naming_blessing || '',
       confirmation_bestowal: plannerWeek?.confirmation_bestowal || '',
-      opening_hymn: parsedOpen.title || plannerWeek?.opening_hymn || 'Standing on the Promises',
-      opening_hymn_number: parsedOpen.number || plannerWeek?.opening_hymn_number || '1023',
-      opening_prayer: openPrayerName || plannerWeek?.opening_prayer || 'Sister Ajayi, Omowumi Anike',
-      sacrament_hymn: parsedSac.title || plannerWeek?.sacrament_hymn || 'Bread of Life, Living Water',
-      sacrament_hymn_number: parsedSac.number || plannerWeek?.sacrament_hymn_number || '1008',
+      opening_hymn: parsedOpen.title || plannerWeek?.opening_hymn || '',
+      opening_hymn_number: parsedOpen.number || plannerWeek?.opening_hymn_number || '',
+      opening_prayer: openPrayerName || plannerWeek?.opening_prayer || '',
+      sacrament_hymn: parsedSac.title || plannerWeek?.sacrament_hymn || '',
+      sacrament_hymn_number: parsedSac.number || plannerWeek?.sacrament_hymn_number || '',
       special_music: plannerWeek?.special_music || '',
-      closing_hymn: parsedClose.title || plannerWeek?.closing_hymn || 'I will walk with Jesus',
-      closing_hymn_number: parsedClose.number || plannerWeek?.closing_hymn_number || '1004',
-      closing_prayer: closePrayerName || plannerWeek?.closing_prayer || 'Brother Usenawaji, Bodyofchrist',
+      closing_hymn: parsedClose.title || plannerWeek?.closing_hymn || '',
+      closing_hymn_number: parsedClose.number || plannerWeek?.closing_hymn_number || '',
+      closing_prayer: closePrayerName || plannerWeek?.closing_prayer || '',
+      announcements: plannerWeek?.announcements || '',
+      releases: plannerWeek?.releases || '[]',
+      calls: plannerWeek?.calls || '[]',
+      baptized_children: plannerWeek?.baptized_children || '[]',
+      aaronic_ordinations: plannerWeek?.aaronic_ordinations || '[]',
+      aaronic_advancements: plannerWeek?.aaronic_advancements || '[]',
+      achievements: plannerWeek?.achievements || '[]',
+      babies: plannerWeek?.babies || '[]',
+      confirmations: plannerWeek?.confirmations || '[]',
+      fellowships: plannerWeek?.fellowships || '[]',
       state: 'DRAFT',
     };
 
     setActiveAgenda(draft);
     setIsDraftCreated(true);
-    toast.success(`Extracted week plan & generated agenda for ${format(new Date(selectedDate), 'MMM d, yyyy')}`);
+    toast.success(`Extracted real week plan & generated agenda for ${format(new Date(selectedDate), 'MMM d, yyyy')}`);
   };
 
   // Hymn parsing on input change
@@ -556,29 +594,53 @@ export function AgendasPage() {
 
   // Step 4: The Live Planner Sync Safety Net
   const handleOpenDiffSafetyNet = () => {
-    if (!weekPlanFromPlanner) {
-      toast('No corresponding planner week found to compare with', { icon: 'ℹ️' });
+    // 1. First search in selectedPlanner.weeks
+    let targetWeek: Partial<Agenda> | null = null;
+    if (selectedPlanner && selectedPlanner.weeks) {
+      try {
+        const weeksArr: Partial<Agenda>[] = typeof selectedPlanner.weeks === 'string'
+          ? JSON.parse(selectedPlanner.weeks)
+          : selectedPlanner.weeks || [];
+        targetWeek = weeksArr.find((w) => w.date === selectedDate) || null;
+      } catch {}
+    }
+
+    // 2. If not found in planner.weeks, search in agendas list
+    if (!targetWeek && selectedDate) {
+      targetWeek = agendas.find(
+        (a) => (selectedPlannerId ? a.planner_id === selectedPlannerId : true) && a.date === selectedDate
+      ) || agendas.find((a) => a.date === selectedDate) || null;
+    }
+
+    // 3. Fallback to weekPlanFromPlanner
+    if (!targetWeek) {
+      targetWeek = weekPlanFromPlanner;
+    }
+
+    if (!targetWeek) {
+      toast('No corresponding planner week found to compare with. Please ensure a Monthly Planner has been created and saved for this month.', { icon: 'ℹ️' });
       return;
     }
-    const parsedOpen = parseHymn(weekPlanFromPlanner.opening_hymn || '');
-    const parsedSac = parseHymn(weekPlanFromPlanner.sacrament_hymn || '');
-    const parsedClose = parseHymn(weekPlanFromPlanner.closing_hymn || '');
+
+    const parsedOpen = parseHymn(targetWeek.opening_hymn || '');
+    const parsedSac = parseHymn(targetWeek.sacrament_hymn || '');
+    const parsedClose = parseHymn(targetWeek.closing_hymn || '');
 
     const pWeekFormatted: Partial<Agenda> = {
-      ...weekPlanFromPlanner,
-      opening_hymn: parsedOpen.title || weekPlanFromPlanner.opening_hymn,
-      opening_hymn_number: parsedOpen.number || weekPlanFromPlanner.opening_hymn_number,
-      sacrament_hymn: parsedSac.title || weekPlanFromPlanner.sacrament_hymn,
-      sacrament_hymn_number: parsedSac.number || weekPlanFromPlanner.sacrament_hymn_number,
-      closing_hymn: parsedClose.title || weekPlanFromPlanner.closing_hymn,
-      closing_hymn_number: parsedClose.number || weekPlanFromPlanner.closing_hymn_number,
+      ...targetWeek,
+      opening_hymn: parsedOpen.title || targetWeek.opening_hymn,
+      opening_hymn_number: parsedOpen.number || targetWeek.opening_hymn_number,
+      sacrament_hymn: parsedSac.title || targetWeek.sacrament_hymn,
+      sacrament_hymn_number: parsedSac.number || targetWeek.sacrament_hymn_number,
+      closing_hymn: parsedClose.title || targetWeek.closing_hymn,
+      closing_hymn_number: parsedClose.number || targetWeek.closing_hymn_number,
       opening_prayer: formatPersonWithTitle(
-        weekPlanFromPlanner.opening_prayer || '',
-        weekPlanFromPlanner.opening_prayer_gender as 'M' | 'F' | ''
+        targetWeek.opening_prayer || '',
+        targetWeek.opening_prayer_gender as 'M' | 'F' | ''
       ),
       closing_prayer: formatPersonWithTitle(
-        weekPlanFromPlanner.closing_prayer || '',
-        weekPlanFromPlanner.closing_prayer_gender as 'M' | 'F' | ''
+        targetWeek.closing_prayer || '',
+        targetWeek.closing_prayer_gender as 'M' | 'F' | ''
       ),
     };
 

@@ -70,6 +70,15 @@ function runDailyTasks() {
     Logger.log('ERROR in updateAllReadinessScores: ' + e.message);
   }
   
+  // 5. Saturday Evening Checklist Reminders Trigger
+  try {
+    results.checklistReminders = checkSaturdayChecklistReminders();
+    Logger.log('Checklist reminders: ' + JSON.stringify(results.checklistReminders));
+  } catch(e) {
+    results.errors.push('ChecklistReminders: ' + e.message);
+    Logger.log('ERROR in checkSaturdayChecklistReminders: ' + e.message);
+  }
+  
   auditLog('SYSTEM', 'DAILY_TASKS', 'SYSTEM', 'daily_run', null, results, results.errors.length > 0 ? 'PARTIAL' : 'OK');
   
   Logger.log('=== Daily Tasks Complete. Errors: ' + results.errors.length + ' ===');
@@ -175,6 +184,32 @@ function purgeOldRecords() {
   
   Logger.log(`Purged ${purged} planners`);
   return { purged };
+}
+
+/**
+ * Saturday Evening Checklist Reminders.
+ * Checks for Sunday sacrament preparation assignments and alerts leadership / queues logs.
+ */
+function checkSaturdayChecklistReminders() {
+  const today = new Date();
+  // Check if today is Saturday (getDay() === 6) or test run
+  const isSaturday = today.getDay() === 6;
+  
+  const allChecklists = dbReadAll('CHECKLISTS');
+  const pendingAssigned = allChecklists.filter(c => 
+    c.responsible && 
+    c.responsible.trim().length > 0 && 
+    (c.status === 'PENDING' || c.status === 'false')
+  );
+
+  if (isSaturday && pendingAssigned.length > 0) {
+    notifyRoles(['ADMIN', 'BISHOPRIC'], 'SATURDAY_CHECKLIST_REMINDER',
+      'Sunday Prep Reminder',
+      `There are ${pendingAssigned.length} Sunday morning preparation tasks assigned for tomorrow.`,
+      { count: pendingAssigned.length });
+  }
+
+  return { checked: allChecklists.length, pendingAssigned: pendingAssigned.length, isSaturday: isSaturday };
 }
 
 /**

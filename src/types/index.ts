@@ -535,7 +535,7 @@ export interface Activity {
 
 // ─── Checklist ────────────────────────────────────────────────────────────────
 
-export type ChecklistStatus = 'PENDING' | 'IN_PROGRESS' | 'DONE';
+export type ChecklistStatus = 'PENDING' | 'IN_PROGRESS' | 'DONE' | boolean;
 
 export interface ChecklistItem {
   checklist_id: string;
@@ -547,9 +547,34 @@ export interface ChecklistItem {
   status: ChecklistStatus;
   updated_by: string;
   updated_date: string;
+  category?: string;
+  phone?: string;
+  notes?: string;
+}
+
+export interface ChecklistWeekAggregate {
+  week_id: string;
+  week_label: string;
+  date: string;
+  totalTasks: number;
+  doneTasks: number;
+  progressPct: number;
+  status: 'Ready ✓' | 'In Progress' | 'Pending' | 'Not Started';
+  conducting?: string;
+  venue?: string;
+  time?: string;
 }
 
 // ─── Todo ─────────────────────────────────────────────────────────────────────
+
+export type TodoCategory =
+  | 'SUNDAY_PREP'
+  | 'BUILDING_MAINTENANCE'
+  | 'YOUTH_INTERVIEWS'
+  | 'WELFARE'
+  | 'MUSIC'
+  | 'ADMIN'
+  | 'GENERAL';
 
 export type TodoPriority = 'HIGH' | 'MEDIUM' | 'LOW';
 export type TodoStatus = 'OPEN' | 'IN_PROGRESS' | 'DONE' | 'CANCELLED';
@@ -558,11 +583,14 @@ export interface Todo {
   todo_id: string;
   title: string;
   details: string;
+  category?: TodoCategory | string;
   due_date: string;
   priority: TodoPriority;
   status: TodoStatus;
   assigned_to_user_id: string;
+  assigned_to_name?: string;
   created_by_user_id: string;
+  created_by_name?: string;
   planner_id: string;
   week_id: string;
   created_date: string;
