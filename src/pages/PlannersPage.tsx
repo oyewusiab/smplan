@@ -33,6 +33,18 @@ const YEARS = Array.from({ length: 5 }, (_, i) => ({
   label: String(currentYear - 1 + i),
 }));
 
+export function getSundaysInMonth(year: number, month: number): Date[] {
+  const sundays: Date[] = [];
+  const daysInMonth = new Date(year, month, 0).getDate();
+  for (let day = 1; day <= daysInMonth; day++) {
+    const d = new Date(year, month - 1, day);
+    if (d.getDay() === 0) { // 0 = Sunday
+      sundays.push(d);
+    }
+  }
+  return sundays;
+}
+
 export function PlannersPage() {
   const { session, can } = useAuthStore();
   const navigate = useNavigate();
@@ -487,7 +499,7 @@ export function PlannersPage() {
       >
         <div className="space-y-4">
           <p className="text-xs text-slate-500">
-            Select the target month and year. Conducting officer will automatically be set to <strong>{session?.preferred_name || session?.name || 'Initiating Leader'}</strong>.
+            Select the target month and year. All Sunday dates (4 or 5 weeks) and meeting agendas will be <strong>automatically calculated and pre-populated</strong>.
           </p>
           <div className="grid grid-cols-2 gap-4">
             <Select
@@ -505,6 +517,35 @@ export function PlannersPage() {
               onChange={(e) => setForm({ ...form, year: e.target.value })}
             />
           </div>
+
+          {/* Auto-Populated Sundays Preview */}
+          {(() => {
+            const previewSundays = getSundaysInMonth(Number(form.year), Number(form.month));
+            return (
+              <div className="p-3.5 bg-blue-50/80 border border-blue-200 rounded-xl space-y-2 text-xs text-blue-900">
+                <div className="flex items-center justify-between font-semibold">
+                  <span className="flex items-center gap-1.5">
+                    <span>📅</span> Auto-Populated Sunday Schedule
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-2xs font-bold bg-blue-200 text-blue-800">
+                    {previewSundays.length} Sundays
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+                  {previewSundays.map((sDate, i) => (
+                    <div key={i} className="p-2 bg-white rounded-lg border border-blue-100 shadow-2xs">
+                      <p className="font-bold text-slate-800">
+                        Week {i + 1} {i === 0 ? '· Fast Sunday' : ''}
+                      </p>
+                      <p className="text-slate-500 font-mono text-2xs mt-0.5">
+                        {format(sDate, 'EEEE, MMM d')}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </Modal>
 

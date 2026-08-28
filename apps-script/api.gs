@@ -77,20 +77,110 @@ function handleCreatePlanner(body) {
   const session = requirePermission(body.token, 'PLANNER_CREATE');
   validateRequired(body, ['month', 'year', 'unit_name']);
   
+  const m = sanitizeNumber(body.month);
+  const y = sanitizeNumber(body.year);
+
   // Check for duplicate
   const existing = dbFind('PLANNERS', p =>
-    Number(p.month) === Number(body.month) && Number(p.year) === Number(body.year)
+    Number(p.month) === m && Number(p.year) === y
   );
-  if (existing.length > 0) throw new Error(`A planner for ${body.month}/${body.year} already exists.`);
+  if (existing.length > 0) throw new Error(`A planner for ${m}/${y} already exists.`);
   
+  const plannerId = generateId('PLN');
+  const conducting = sanitizeString(body.conducting_officer || session.name || '');
+  const unit = sanitizeString(body.unit_name);
+
+  // Auto-calculate all Sundays in the selected month & year (4 or 5 Sundays)
+  const initialAgendas = [];
+  const daysInMonth = new Date(y, m, 0).getDate();
+  let weekNum = 1;
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const d = new Date(y, m - 1, day);
+    if (d.getDay() === 0) { // 0 = Sunday
+      const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const isFirstWeek = (weekNum === 1);
+      const agenda = {
+        agenda_id: generateId('AGN'),
+        planner_id: plannerId,
+        week_id: 'week_' + weekNum,
+        ward_branch: unit,
+        stake_district: '',
+        date: dateStr,
+        type_of_meeting: isFirstWeek ? 'FAST_SUNDAY' : 'SACRAMENT',
+        other_meeting_specify: '',
+        presiding: 'Bishop',
+        presiding_position: '',
+        conducting: conducting,
+        conducting_position: '',
+        music_director: '',
+        choir_director: '',
+        organist: '',
+        start_time: '10:00',
+        venue_override: '',
+        meeting_time_override: '',
+        is_canceled: false,
+        cancel_reason: '',
+        prelude_music: '',
+        greetings_welcome: '',
+        acknowledgements: '',
+        ward_branch_business: '',
+        stake_district_business: '',
+        naming_blessing: '',
+        confirmation_bestowal: '',
+        opening_hymn: '',
+        opening_hymn_number: '',
+        opening_prayer: '',
+        opening_prayer_gender: '',
+        opening_prayer_prefix: '',
+        sacrament_hymn: '',
+        sacrament_hymn_number: '',
+        special_music: '',
+        speakers: JSON.stringify(isFirstWeek ? [] : [
+          { name: '', gender: 'M', topic: '', scripture_ref: '', talk_link: '' },
+          { name: '', gender: 'F', topic: '', scripture_ref: '', talk_link: '' },
+          { name: '', gender: 'M', topic: '', scripture_ref: '', talk_link: '' },
+        ]),
+        sacrament_duties: JSON.stringify({ preparing: [], blessing: [], passing: [] }),
+        closing_hymn: '',
+        closing_hymn_number: '',
+        closing_prayer: '',
+        closing_prayer_gender: '',
+        closing_prayer_prefix: '',
+        postlude_music: '',
+        announcements: '',
+        releases: '',
+        calls: '',
+        baptized_children: '',
+        aaronic_ordinations: '',
+        aaronic_advancements: '',
+        achievements: '',
+        babies: '',
+        confirmations: '',
+        fellowships: '',
+        week_notes: '',
+        state: 'DRAFT',
+        archive_method: '',
+        archive_date: '',
+        created_by: session.user_id,
+        created_date: now(),
+        updated_date: now(),
+      };
+
+      initialAgendas.push(agenda);
+      dbInsert('AGENDAS', agenda);
+      weekNum++;
+    }
+  }
+
   const planner = {
-    planner_id: generateId('PLN'),
-    month: sanitizeNumber(body.month),
-    year: sanitizeNumber(body.year),
+    planner_id: plannerId,
+    month: m,
+    year: y,
     state: 'DRAFT',
-    conducting_officer: sanitizeString(body.conducting_officer || session.name || ''),
-    weeks: '[]',
-    unit_name: sanitizeString(body.unit_name),
+    conducting_officer: conducting,
+    weeks: JSON.stringify(initialAgendas),
+    unit_name: unit,
     created_by: session.user_id,
     created_date: now(),
     updated_date: now(),
