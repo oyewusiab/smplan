@@ -68,6 +68,7 @@ export interface Planner {
   music_status: string;
   archive_method: ArchiveMethod | '';
   archive_date: string;
+  sacrament_administration?: string;
 }
 
 // ─── Agenda & Speakers ────────────────────────────────────────────────────────

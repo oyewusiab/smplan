@@ -485,9 +485,21 @@ function handleSavePlannerWorkspace(body) {
     }
   });
 
-  // Always update PLANNERS.weeks and purge cache
+  // Aggregate sacrament administration across all weeks for the dedicated PLANNERS.sacrament_administration column
+  const sacramentAdminMap = {};
+  savedAgendas.forEach(ag => {
+    const raw = ag.sacrament_duties || ag.sacrament;
+    try {
+      sacramentAdminMap[ag.week_id] = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch(e) {
+      sacramentAdminMap[ag.week_id] = raw;
+    }
+  });
+
+  // Always update PLANNERS.weeks, PLANNERS.sacrament_administration and purge cache
   dbUpdate('PLANNERS', 'planner_id', body.planner_id, {
     weeks: JSON.stringify(savedAgendas),
+    sacrament_administration: JSON.stringify(sacramentAdminMap),
     updated_date: now(),
   });
 

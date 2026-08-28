@@ -186,6 +186,16 @@ export function PlannerDetailPage() {
           fetchedAgendas = generateSundaysForMonth(pl.year, pl.month, pl.unit_name, pl.conducting_officer);
         }
 
+        // Check sacrament_administration column from PLANNERS row
+        let sacramentAdminFromPlanner: Record<string, unknown> = {};
+        if (pl.sacrament_administration) {
+          try {
+            sacramentAdminFromPlanner = typeof pl.sacrament_administration === 'string'
+              ? JSON.parse(pl.sacrament_administration)
+              : (pl.sacrament_administration as Record<string, unknown>);
+          } catch { /* ignore parse error */ }
+        }
+
         // Normalize loaded agendas (self-heal Saturday timezone shifts, clean 1899 times, and serialize JSON fields)
         const normalizedAgendas = fetchedAgendas.map((a, idx) => {
           let cleanDate = a.date || '';
@@ -205,7 +215,16 @@ export function PlannerDetailPage() {
             cleanTime = '10:00';
           }
 
-          const rawDuties = a.sacrament_duties || (a as { sacrament?: unknown }).sacrament || '{}';
+          let rawDuties = a.sacrament_duties || (a as { sacrament?: unknown }).sacrament || '{}';
+          const dutiesFromPlannerCol = sacramentAdminFromPlanner[a.week_id] || sacramentAdminFromPlanner[`week_${idx + 1}`] || sacramentAdminFromPlanner[cleanDate];
+
+          // If duties is currently empty or placeholder, check if planner's sacrament_administration column has it
+          const dutiesObj = getSacramentDuties(a);
+          const hasExistingEntries = dutiesObj.preparing.some(Boolean) || dutiesObj.blessing.some(Boolean) || dutiesObj.passing.some(Boolean);
+          if (!hasExistingEntries && dutiesFromPlannerCol) {
+            rawDuties = dutiesFromPlannerCol;
+          }
+
           const serializedDuties = typeof rawDuties === 'object' ? JSON.stringify(rawDuties) : String(rawDuties || '{}');
 
           return {
