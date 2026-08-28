@@ -431,7 +431,7 @@ function handleSavePlannerWorkspace(body) {
       sacrament_hymn_number: sanitizeString(agData.sacrament_hymn_number || ''),
       special_music: sanitizeString(agData.special_music || ''),
       speakers: typeof agData.speakers === 'object' ? JSON.stringify(agData.speakers) : sanitizeString(agData.speakers || '[]'),
-      sacrament_duties: typeof agData.sacrament_duties === 'object' ? JSON.stringify(agData.sacrament_duties) : sanitizeString(agData.sacrament_duties || '{}'),
+      sacrament_duties: typeof (agData.sacrament_duties || agData.sacrament) === 'object' ? JSON.stringify(agData.sacrament_duties || agData.sacrament) : sanitizeString(agData.sacrament_duties || agData.sacrament || '{}'),
       closing_hymn: sanitizeString(agData.closing_hymn || ''),
       closing_hymn_number: sanitizeString(agData.closing_hymn_number || ''),
       closing_prayer: sanitizeString(agData.closing_prayer || ''),

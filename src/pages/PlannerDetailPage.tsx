@@ -406,17 +406,19 @@ export function PlannerDetailPage() {
 
   // Sacrament Duties helpers (Preparing, Blessing, Passing)
   const getSacramentDuties = (agenda: Agenda): { preparing: string[]; blessing: string[]; passing: string[] } => {
+    if (!agenda) return { preparing: [''], blessing: [''], passing: [''] };
     try {
-      if (typeof agenda.sacrament_duties === 'object' && agenda.sacrament_duties !== null) {
-        const parsed = agenda.sacrament_duties as { preparing?: string[]; blessing?: string[]; passing?: string[] };
+      const raw = agenda.sacrament_duties || (agenda as { sacrament?: unknown }).sacrament;
+      if (typeof raw === 'object' && raw !== null) {
+        const parsed = raw as { preparing?: string[]; blessing?: string[]; passing?: string[] };
         return {
           preparing: Array.isArray(parsed.preparing) && parsed.preparing.length > 0 ? parsed.preparing : [''],
           blessing: Array.isArray(parsed.blessing) && parsed.blessing.length > 0 ? parsed.blessing : [''],
           passing: Array.isArray(parsed.passing) && parsed.passing.length > 0 ? parsed.passing : [''],
         };
       }
-      if (typeof agenda.sacrament_duties === 'string' && agenda.sacrament_duties.trim()) {
-        const parsed = JSON.parse(agenda.sacrament_duties);
+      if (typeof raw === 'string' && raw.trim() && raw.trim() !== '{}') {
+        const parsed = JSON.parse(raw);
         if (parsed && typeof parsed === 'object') {
           return {
             preparing: Array.isArray(parsed.preparing) && parsed.preparing.length > 0 ? parsed.preparing : [''],
@@ -429,29 +431,51 @@ export function PlannerDetailPage() {
     return { preparing: [''], blessing: [''], passing: [''] };
   };
 
-  const updateSacramentDuties = (agendaIndex: number, duties: { preparing: string[]; blessing: string[]; passing: string[] }) => {
-    updateAgendaField(agendaIndex, { sacrament_duties: JSON.stringify(duties) });
+  const updateSacramentDuties = (
+    agendaIndex: number,
+    updater: (prevDuties: { preparing: string[]; blessing: string[]; passing: string[] }) => { preparing: string[]; blessing: string[]; passing: string[] }
+  ) => {
+    setHasUnsavedChanges(true);
+    setAgendas(prev => {
+      const next = [...prev];
+      const currentAg = next[agendaIndex];
+      if (!currentAg) return prev;
+      const currentDuties = getSacramentDuties(currentAg);
+      const newDuties = updater(currentDuties);
+      next[agendaIndex] = {
+        ...currentAg,
+        sacrament_duties: JSON.stringify(newDuties),
+      };
+      return next;
+    });
   };
 
   const addSacramentDutyPerson = (agendaIndex: number, category: 'preparing' | 'blessing' | 'passing') => {
-    const current = getSacramentDuties(agendas[agendaIndex]);
-    const updated = { ...current, [category]: [...current[category], ''] };
-    updateSacramentDuties(agendaIndex, updated);
+    updateSacramentDuties(agendaIndex, current => ({
+      ...current,
+      [category]: [...current[category], ''],
+    }));
   };
 
   const removeSacramentDutyPerson = (agendaIndex: number, category: 'preparing' | 'blessing' | 'passing', pIdx: number) => {
-    const current = getSacramentDuties(agendas[agendaIndex]);
-    const list = current[category].filter((_, i) => i !== pIdx);
-    const updated = { ...current, [category]: list.length > 0 ? list : [''] };
-    updateSacramentDuties(agendaIndex, updated);
+    updateSacramentDuties(agendaIndex, current => {
+      const list = current[category].filter((_, i) => i !== pIdx);
+      return {
+        ...current,
+        [category]: list.length > 0 ? list : [''],
+      };
+    });
   };
 
   const updateSacramentDutyPerson = (agendaIndex: number, category: 'preparing' | 'blessing' | 'passing', pIdx: number, val: string) => {
-    const current = getSacramentDuties(agendas[agendaIndex]);
-    const list = [...current[category]];
-    list[pIdx] = val;
-    const updated = { ...current, [category]: list };
-    updateSacramentDuties(agendaIndex, updated);
+    updateSacramentDuties(agendaIndex, current => {
+      const list = [...current[category]];
+      list[pIdx] = val;
+      return {
+        ...current,
+        [category]: list,
+      };
+    });
   };
 
   // Conflict detector: check if member was assigned recently in this planner or historical
