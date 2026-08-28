@@ -42,6 +42,8 @@ function getCachePolicy(action: string): { ttlMs: number; storage: 'localStorage
     case 'LIST_PLANNERS':
     case 'GET_PLANNER':
     case 'LIST_AGENDAS':
+    case 'LIST_OTHER_AGENDAS':
+    case 'GET_OTHER_AGENDA':
     case 'LIST_ASSIGNMENTS':
     case 'LIST_BULLETINS':
     case 'LIST_ACTIVITIES':
@@ -97,6 +99,8 @@ function autoInvalidateOnMutation(action: string) {
     invalidateClientCache('LIST_PLANNERS');
     invalidateClientCache('GET_PLANNER');
     invalidateClientCache('LIST_AGENDAS');
+    invalidateClientCache('LIST_OTHER_AGENDAS');
+    invalidateClientCache('GET_OTHER_AGENDA');
     invalidateClientCache('LIST_ASSIGNMENTS');
     invalidateClientCache('GET_MEMBERS_ANALYTICS');
   } else if (action.includes('MEMBER')) {
@@ -296,6 +300,31 @@ export const agendasApi = {
 
   delete: (token: string, agenda_id: string) =>
     post(withTokenBody(token, { action: 'DELETE_AGENDA', agenda_id })),
+};
+
+// ─── Other Agendas (Bishopric, Ward Council, Youth Council, Other Meetings) ──
+
+export const otherAgendasApi = {
+  list: (token: string, filter?: { meeting_type?: string; state?: string }, options?: { forceRefresh?: boolean }) =>
+    get(withToken(token, { action: 'LIST_OTHER_AGENDAS', ...(filter?.meeting_type ? { meeting_type: filter.meeting_type } : {}), ...(filter?.state ? { state: filter.state } : {}) }), options),
+
+  get: (token: string, other_agenda_id: string, options?: { forceRefresh?: boolean }) =>
+    get(withToken(token, { action: 'GET_OTHER_AGENDA', other_agenda_id }), options),
+
+  create: (token: string, data: Record<string, unknown>) =>
+    post(withTokenBody(token, { action: 'CREATE_OTHER_AGENDA', ...data })),
+
+  update: (token: string, data: Record<string, unknown>) =>
+    post(withTokenBody(token, { action: 'UPDATE_OTHER_AGENDA', ...data })),
+
+  approve: (token: string, other_agenda_id: string) =>
+    post(withTokenBody(token, { action: 'APPROVE_OTHER_AGENDA', other_agenda_id })),
+
+  sendEmails: (token: string, other_agenda_id: string) =>
+    post(withTokenBody(token, { action: 'SEND_OTHER_AGENDA_EMAILS', other_agenda_id })),
+
+  delete: (token: string, other_agenda_id: string) =>
+    post(withTokenBody(token, { action: 'DELETE_OTHER_AGENDA', other_agenda_id })),
 };
 
 // ─── Assignments ─────────────────────────────────────────────────────────────

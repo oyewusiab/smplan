@@ -21,6 +21,7 @@ const SHEET_SCHEMAS = {
   HYMNS: ['number','title','type','theme','updated_date'],
   MEMBERS_LIST: ['member_id','name','gender','age','phone','email','organisation','status','birth_date','calling','priesthood_office','household_id','notes','created_date','updated_date','total_assignments','spoken_count','prayers_count','last_assigned_date','readiness_score'],
   NOTIFICATIONS: ['notification_id','to_user_id','type','title','body','meta','read','created_date'],
+  OTHER_AGENDAS: ['other_agenda_id','meeting_type','meeting_type_other','title','date','start_time','end_time','venue','presiding','presiding_role','conducting','conducting_role','opening_hymn','opening_prayer','spiritual_thought_by','spiritual_thought_topic','closing_prayer','attendees','topics','assignments','general_notes','state','created_by','created_by_name','created_date','approved_by','approved_by_name','approved_date','email_sent_count','updated_date'],
   PLANNERS: ['planner_id','month','year','state','conducting_officer','weeks','unit_name','created_by','created_date','updated_date','music_status','archive_method','archive_date','sacrament_administration'],
   PLANNER_APPROVAL_REQUESTS: ['request_id','planner_id','status','requested_by','created_date','decided_by','decided_date','comment'],
   REMINDERS: ['reminder_id','planner_id','week_id','assignment_id','to_person','to_user_id','channel','title','body','scheduled_for_date','status','created_by_user_id','created_date','sent_date'],
@@ -50,6 +51,11 @@ function initializeDatabase() {
       sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
       sheet.setFrozenRows(1);
       results.push(`CREATED: ${sheetName}`);
+    } else if (sheet.getLastColumn() === 0 || sheet.getLastRow() === 0) {
+      sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+      sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+      sheet.setFrozenRows(1);
+      results.push(`INITIALIZED HEADERS: ${sheetName}`);
     } else {
       // Validate existing headers
       const existingHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];

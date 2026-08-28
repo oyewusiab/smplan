@@ -3262,3 +3262,464 @@ function handleMaintenanceAlignDatabase(body) {
   auditLog(session.user_id, 'ALIGN_DATABASE', 'SYSTEM', 'all', null, res, 'OK');
   return { ok: true, data: res };
 }
+
+// ─── Other Ward Meetings Agendas Handlers ─────────────────────────────────────
+
+function handleListOtherAgendas(params) {
+  const session = requirePermission(params.token, 'OTHER_AGENDA_VIEW');
+  let list = dbReadAll('OTHER_AGENDAS');
+
+  // Draft Privacy: non-admin/bishopric users only see their own drafts + all submitted/approved
+  if (session.role !== 'ADMIN' && session.role !== 'BISHOPRIC') {
+    list = list.filter(a => a.state !== 'DRAFT' || a.created_by === session.user_id);
+  }
+
+  // Filter by meeting_type if provided
+  if (params.meeting_type) {
+    list = list.filter(a => a.meeting_type === params.meeting_type);
+  }
+
+  // Filter by state if provided
+  if (params.state) {
+    list = list.filter(a => a.state === params.state);
+  }
+
+  // Sort chronologically descending
+  list.sort((a, b) => {
+    const dateA = a.date || '';
+    const dateB = b.date || '';
+    return dateB.localeCompare(dateA);
+  });
+
+  return { ok: true, data: list };
+}
+
+function handleGetOtherAgenda(params) {
+  const session = requirePermission(params.token, 'OTHER_AGENDA_VIEW');
+  validateRequired(params, ['other_agenda_id']);
+  const agenda = dbFindOne('OTHER_AGENDAS', 'other_agenda_id', params.other_agenda_id);
+  if (!agenda) throw new Error('Agenda not found');
+
+  return { ok: true, data: agenda };
+}
+
+function handleCreateOtherAgenda(body) {
+  const session = requirePermission(body.token, 'OTHER_AGENDA_CREATE');
+  validateRequired(body, ['meeting_type', 'date', 'title']);
+
+  const agendaId = generateId('OTH');
+  const isDirectApprove = body.state === 'APPROVED' && (session.role === 'ADMIN' || session.role === 'BISHOPRIC');
+  const state = isDirectApprove ? 'APPROVED' : (body.state || 'DRAFT');
+
+  const record = {
+    other_agenda_id: agendaId,
+    meeting_type: sanitizeString(body.meeting_type),
+    meeting_type_other: sanitizeString(body.meeting_type_other || ''),
+    title: sanitizeString(body.title),
+    date: sanitizeString(body.date),
+    start_time: sanitizeString(body.start_time || '7:00 AM'),
+    end_time: sanitizeString(body.end_time || '8:00 AM'),
+    venue: sanitizeString(body.venue || "Bishop's Office / Council Room"),
+    presiding: sanitizeString(body.presiding || ''),
+    presiding_role: sanitizeString(body.presiding_role || 'Bishop'),
+    conducting: sanitizeString(body.conducting || ''),
+    conducting_role: sanitizeString(body.conducting_role || '1st Counselor'),
+    opening_hymn: sanitizeString(body.opening_hymn || ''),
+    opening_prayer: sanitizeString(body.opening_prayer || ''),
+    spiritual_thought_by: sanitizeString(body.spiritual_thought_by || ''),
+    spiritual_thought_topic: sanitizeString(body.spiritual_thought_topic || ''),
+    closing_prayer: sanitizeString(body.closing_prayer || ''),
+    attendees: typeof body.attendees === 'string' ? body.attendees : JSON.stringify(body.attendees || []),
+    topics: typeof body.topics === 'string' ? body.topics : JSON.stringify(body.topics || []),
+    assignments: typeof body.assignments === 'string' ? body.assignments : JSON.stringify(body.assignments || []),
+    general_notes: sanitizeString(body.general_notes || ''),
+    state: state,
+    created_by: session.user_id,
+    created_by_name: session.name,
+    created_date: new Date().toISOString(),
+    approved_by: isDirectApprove ? session.user_id : '',
+    approved_by_name: isDirectApprove ? session.name : '',
+    approved_date: isDirectApprove ? new Date().toISOString() : '',
+    email_sent_count: 0,
+    updated_date: new Date().toISOString(),
+  };
+
+  dbCreate('OTHER_AGENDAS', record);
+  auditLog(session.user_id, 'CREATE', 'OTHER_AGENDAS', agendaId, null, record, 'OK');
+
+  let emailSummary = null;
+  if (state === 'APPROVED') {
+    emailSummary = sendOtherAgendaNotifications(record);
+    if (emailSummary && emailSummary.sentCount > 0) {
+      dbUpdate('OTHER_AGENDAS', 'other_agenda_id', agendaId, {
+        email_sent_count: emailSummary.sentCount,
+        updated_date: new Date().toISOString(),
+      });
+    }
+  }
+
+  return { ok: true, data: record, emailSummary: emailSummary };
+}
+
+function handleUpdateOtherAgenda(body) {
+  const session = requirePermission(body.token, 'OTHER_AGENDA_EDIT');
+  validateRequired(body, ['other_agenda_id']);
+
+  const existing = dbFindOne('OTHER_AGENDAS', 'other_agenda_id', body.other_agenda_id);
+  if (!existing) throw new Error('Agenda not found');
+
+  const patch = {
+    updated_date: new Date().toISOString(),
+  };
+
+  if (body.meeting_type !== undefined) patch.meeting_type = sanitizeString(body.meeting_type);
+  if (body.meeting_type_other !== undefined) patch.meeting_type_other = sanitizeString(body.meeting_type_other);
+  if (body.title !== undefined) patch.title = sanitizeString(body.title);
+  if (body.date !== undefined) patch.date = sanitizeString(body.date);
+  if (body.start_time !== undefined) patch.start_time = sanitizeString(body.start_time);
+  if (body.end_time !== undefined) patch.end_time = sanitizeString(body.end_time);
+  if (body.venue !== undefined) patch.venue = sanitizeString(body.venue);
+  if (body.presiding !== undefined) patch.presiding = sanitizeString(body.presiding);
+  if (body.presiding_role !== undefined) patch.presiding_role = sanitizeString(body.presiding_role);
+  if (body.conducting !== undefined) patch.conducting = sanitizeString(body.conducting);
+  if (body.conducting_role !== undefined) patch.conducting_role = sanitizeString(body.conducting_role);
+  if (body.opening_hymn !== undefined) patch.opening_hymn = sanitizeString(body.opening_hymn);
+  if (body.opening_prayer !== undefined) patch.opening_prayer = sanitizeString(body.opening_prayer);
+  if (body.spiritual_thought_by !== undefined) patch.spiritual_thought_by = sanitizeString(body.spiritual_thought_by);
+  if (body.spiritual_thought_topic !== undefined) patch.spiritual_thought_topic = sanitizeString(body.spiritual_thought_topic);
+  if (body.closing_prayer !== undefined) patch.closing_prayer = sanitizeString(body.closing_prayer);
+  if (body.attendees !== undefined) patch.attendees = typeof body.attendees === 'string' ? body.attendees : JSON.stringify(body.attendees);
+  if (body.topics !== undefined) patch.topics = typeof body.topics === 'string' ? body.topics : JSON.stringify(body.topics);
+  if (body.assignments !== undefined) patch.assignments = typeof body.assignments === 'string' ? body.assignments : JSON.stringify(body.assignments);
+  if (body.general_notes !== undefined) patch.general_notes = sanitizeString(body.general_notes);
+  if (body.state !== undefined) patch.state = sanitizeString(body.state);
+
+  const updated = dbUpdate('OTHER_AGENDAS', 'other_agenda_id', body.other_agenda_id, patch);
+  auditLog(session.user_id, 'UPDATE', 'OTHER_AGENDAS', body.other_agenda_id, existing, updated, 'OK');
+
+  return { ok: true, data: updated };
+}
+
+function handleApproveOtherAgenda(body) {
+  const session = requirePermission(body.token, 'OTHER_AGENDA_APPROVE');
+  validateRequired(body, ['other_agenda_id']);
+
+  const existing = dbFindOne('OTHER_AGENDAS', 'other_agenda_id', body.other_agenda_id);
+  if (!existing) throw new Error('Agenda not found');
+
+  const patch = {
+    state: 'APPROVED',
+    approved_by: session.user_id,
+    approved_by_name: session.name,
+    approved_date: new Date().toISOString(),
+    updated_date: new Date().toISOString(),
+  };
+
+  const updated = dbUpdate('OTHER_AGENDAS', 'other_agenda_id', body.other_agenda_id, patch);
+
+  // Send automated email notifications to all members with assignments / roles
+  const emailSummary = sendOtherAgendaNotifications(updated);
+  if (emailSummary && emailSummary.sentCount > 0) {
+    dbUpdate('OTHER_AGENDAS', 'other_agenda_id', body.other_agenda_id, {
+      email_sent_count: (existing.email_sent_count || 0) + emailSummary.sentCount,
+    });
+  }
+
+  // Notify the creator if different from approver
+  if (existing.created_by && existing.created_by !== session.user_id) {
+    createNotification(
+      existing.created_by,
+      'AGENDA_APPROVED',
+      'Meeting Agenda Approved',
+      `Your agenda for "${existing.title}" on ${existing.date} has been approved by ${session.name}. Automated notification emails have been dispatched.`,
+      { other_agenda_id: body.other_agenda_id }
+    );
+  }
+
+  auditLog(session.user_id, 'APPROVE', 'OTHER_AGENDAS', body.other_agenda_id, existing, updated, 'OK');
+  return { ok: true, data: updated, emailSummary: emailSummary };
+}
+
+function handleSendOtherAgendaEmails(body) {
+  const session = requirePermission(body.token, 'OTHER_AGENDA_EDIT');
+  validateRequired(body, ['other_agenda_id']);
+
+  const existing = dbFindOne('OTHER_AGENDAS', 'other_agenda_id', body.other_agenda_id);
+  if (!existing) throw new Error('Agenda not found');
+
+  const emailSummary = sendOtherAgendaNotifications(existing);
+  if (emailSummary && emailSummary.sentCount > 0) {
+    dbUpdate('OTHER_AGENDAS', 'other_agenda_id', body.other_agenda_id, {
+      email_sent_count: (existing.email_sent_count || 0) + emailSummary.sentCount,
+      updated_date: new Date().toISOString(),
+    });
+  }
+
+  return { ok: true, emailSummary: emailSummary };
+}
+
+function handleDeleteOtherAgenda(body) {
+  const session = requirePermission(body.token, 'OTHER_AGENDA_DELETE');
+  validateRequired(body, ['other_agenda_id']);
+
+  const existing = dbFindOne('OTHER_AGENDAS', 'other_agenda_id', body.other_agenda_id);
+  if (!existing) throw new Error('Agenda not found');
+
+  dbDelete('OTHER_AGENDAS', 'other_agenda_id', body.other_agenda_id);
+  auditLog(session.user_id, 'DELETE', 'OTHER_AGENDAS', body.other_agenda_id, existing, null, 'OK');
+
+  return { ok: true };
+}
+
+/**
+ * Sends automated HTML notification emails to attendees and assignees for an approved Other Agenda.
+ */
+function sendOtherAgendaNotifications(agenda) {
+  const allMembers = dbReadAll('MEMBERS_LIST');
+  const memberMap = {};
+  allMembers.forEach(m => {
+    if (m.name) {
+      memberMap[m.name.trim().toLowerCase()] = m;
+    }
+  });
+
+  const getEmailForName = (name) => {
+    if (!name) return '';
+    const clean = name.replace(/^(Brother|Sister|Elder|Bishop|President)\s+/i, '').trim().toLowerCase();
+    const found = memberMap[clean] || memberMap[name.trim().toLowerCase()];
+    return (found && found.email) ? found.email.trim() : '';
+  };
+
+  let assignmentsList = [];
+  try {
+    if (typeof agenda.assignments === 'string') {
+      assignmentsList = JSON.parse(agenda.assignments || '[]');
+    } else if (Array.isArray(agenda.assignments)) {
+      assignmentsList = agenda.assignments;
+    }
+  } catch (e) {
+    assignmentsList = [];
+  }
+
+  let topicsList = [];
+  try {
+    if (typeof agenda.topics === 'string') {
+      topicsList = JSON.parse(agenda.topics || '[]');
+    } else if (Array.isArray(agenda.topics)) {
+      topicsList = agenda.topics;
+    }
+  } catch (e) {
+    topicsList = [];
+  }
+
+  const recipients = {}; // email -> { name, roles: [], assignments: [] }
+
+  // 1. Check Opening Prayer
+  if (agenda.opening_prayer) {
+    const em = getEmailForName(agenda.opening_prayer);
+    if (em) {
+      if (!recipients[em]) recipients[em] = { name: agenda.opening_prayer, roles: [], assignments: [] };
+      recipients[em].roles.push('Opening Prayer');
+    }
+  }
+
+  // 2. Check Spiritual Thought
+  if (agenda.spiritual_thought_by) {
+    const em = getEmailForName(agenda.spiritual_thought_by);
+    if (em) {
+      if (!recipients[em]) recipients[em] = { name: agenda.spiritual_thought_by, roles: [], assignments: [] };
+      recipients[em].roles.push(`Spiritual Thought (${agenda.spiritual_thought_topic || 'Gospel Topic'})`);
+    }
+  }
+
+  // 3. Check Closing Prayer
+  if (agenda.closing_prayer) {
+    const em = getEmailForName(agenda.closing_prayer);
+    if (em) {
+      if (!recipients[em]) recipients[em] = { name: agenda.closing_prayer, roles: [], assignments: [] };
+      recipients[em].roles.push('Closing Prayer');
+    }
+  }
+
+  // 4. Check Assignments
+  assignmentsList.forEach(item => {
+    const assigneeName = item.assignee || '';
+    let email = (item.assignee_email || '').trim();
+    if (!email && assigneeName) {
+      email = getEmailForName(assigneeName);
+    }
+
+    if (email && email.includes('@')) {
+      if (!recipients[email]) {
+        recipients[email] = { name: assigneeName || 'Ward Leader', roles: [], assignments: [] };
+      }
+      recipients[email].assignments.push({
+        task: item.task || 'Assigned Item',
+        dueDate: item.due_date || 'Next Meeting',
+        notes: item.notes || '',
+      });
+    }
+  });
+
+  const meetingTypeLabels = {
+    BISHOPRIC_MEETING: 'Bishopric Meeting',
+    WARD_COUNCIL: 'Ward Council Meeting',
+    WARD_YOUTH_COUNCIL: 'Ward Youth Council Meeting',
+    PRESIDENCY_MEETING: 'Presidency Meeting',
+    OTHER_MEETING: agenda.meeting_type_other || 'Ward Leadership Meeting',
+  };
+
+  const readableType = meetingTypeLabels[agenda.meeting_type] || agenda.title || 'Ward Meeting';
+  let sentCount = 0;
+  const sentDetails = [];
+
+  Object.entries(recipients).forEach(([email, data]) => {
+    const subject = `[Meeting Agenda & Assignment] ${readableType} — ${agenda.date}`;
+    
+    let rolesHtml = '';
+    if (data.roles.length > 0) {
+      rolesHtml = `
+        <div style="margin-bottom: 16px; padding: 14px; background-color: #f0fdf4; border-left: 4px solid #16a34a; border-radius: 6px;">
+          <h4 style="margin: 0 0 6px 0; color: #166534; font-size: 14px;">Your Meeting Assignment(s):</h4>
+          <ul style="margin: 0; padding-left: 20px; color: #14532d; font-size: 13px;">
+            ${data.roles.map(r => `<li><strong>${r}</strong></li>`).join('')}
+          </ul>
+        </div>
+      `;
+    }
+
+    let assignmentsHtml = '';
+    if (data.assignments.length > 0) {
+      assignmentsHtml = `
+        <div style="margin-bottom: 16px; padding: 14px; background-color: #eff6ff; border-left: 4px solid #2563eb; border-radius: 6px;">
+          <h4 style="margin: 0 0 8px 0; color: #1e40af; font-size: 14px;">Action Item(s) Assigned to You:</h4>
+          <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <thead>
+              <tr style="background-color: #dbeafe; color: #1e3a8a; text-align: left;">
+                <th style="padding: 6px 10px; border: 1px solid #bfdbfe;">Task / Assignment</th>
+                <th style="padding: 6px 10px; border: 1px solid #bfdbfe; width: 120px;">Target Due Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.assignments.map(a => `
+                <tr style="background-color: #ffffff;">
+                  <td style="padding: 8px 10px; border: 1px solid #bfdbfe; color: #1e293b;">
+                    <strong>${a.task}</strong>
+                    ${a.notes ? `<div style="font-size: 11px; color: #64748b; margin-top: 2px;">${a.notes}</div>` : ''}
+                  </td>
+                  <td style="padding: 8px 10px; border: 1px solid #bfdbfe; color: #1e40af; font-weight: bold;">
+                    ${a.dueDate}
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    let topicsHtml = '';
+    if (topicsList.length > 0) {
+      topicsHtml = `
+        <div style="margin-bottom: 16px;">
+          <h4 style="margin: 0 0 8px 0; color: #334155; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Agenda Discussion Topics:</h4>
+          <ol style="margin: 0; padding-left: 20px; color: #475569; font-size: 13px;">
+            ${topicsList.map(t => `
+              <li style="margin-bottom: 6px;">
+                <strong>${t.title || 'Discussion Item'}</strong> 
+                ${t.presenter ? `<span style="color: #64748b;">(Lead: ${t.presenter})</span>` : ''}
+                ${t.minutes ? `<span style="color: #94a3b8; font-size: 11px;">— ${t.minutes} mins</span>` : ''}
+                ${t.notes ? `<div style="font-size: 12px; color: #64748b; margin-top: 2px;">${t.notes}</div>` : ''}
+              </li>
+            `).join('')}
+          </ol>
+        </div>
+      `;
+    }
+
+    const htmlBody = `
+      <!DOCTYPE html>
+      <html>
+      <head><meta charset="utf-8"></head>
+      <body style="font-family: Arial, sans-serif; line-height: 1.5; color: #1e293b; background-color: #f8fafc; margin: 0; padding: 20px;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+          
+          <div style="background-color: #1e3a8a; padding: 24px; text-align: center; color: #ffffff;">
+            <h2 style="margin: 0; font-size: 20px; letter-spacing: 0.5px;">The Church of Jesus Christ of Latter-day Saints</h2>
+            <p style="margin: 6px 0 0 0; font-size: 14px; opacity: 0.9;">${readableType} Notice & Assignment</p>
+          </div>
+
+          <div style="padding: 24px;">
+            <p style="font-size: 15px; margin-top: 0;">Dear <strong>${data.name}</strong>,</p>
+            <p style="font-size: 14px; color: #475569;">
+              This is to notify you regarding the upcoming <strong>${readableType}</strong> scheduled as follows:
+            </p>
+
+            <table style="width: 100%; margin: 16px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px;">
+              <tr>
+                <td style="padding: 8px 12px; font-weight: bold; width: 120px; color: #64748b;">📅 Date:</td>
+                <td style="padding: 8px 12px; color: #0f172a; font-weight: bold;">${agenda.date}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 12px; font-weight: bold; color: #64748b;">⏰ Time:</td>
+                <td style="padding: 8px 12px; color: #0f172a;">${agenda.start_time} - ${agenda.end_time}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 12px; font-weight: bold; color: #64748b;">📍 Venue:</td>
+                <td style="padding: 8px 12px; color: #0f172a;">${agenda.venue || "Bishop's Office / Council Room"}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 12px; font-weight: bold; color: #64748b;">👤 Presiding:</td>
+                <td style="padding: 8px 12px; color: #0f172a;">${agenda.presiding || 'Bishop'} (${agenda.presiding_role || 'Bishop'})</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 12px; font-weight: bold; color: #64748b;">🗣️ Conducting:</td>
+                <td style="padding: 8px 12px; color: #0f172a;">${agenda.conducting || 'Conducting Officer'} (${agenda.conducting_role || 'Counselor'})</td>
+              </tr>
+            </table>
+
+            ${rolesHtml}
+            ${assignmentsHtml}
+            ${topicsHtml}
+
+            ${agenda.general_notes ? `
+              <div style="margin-top: 16px; padding: 12px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
+                <h5 style="margin: 0 0 4px 0; color: #475569; font-size: 12px; text-transform: uppercase;">Special Notes:</h5>
+                <p style="margin: 0; font-size: 13px; color: #334155;">${agenda.general_notes}</p>
+              </div>
+            ` : ''}
+
+            <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 13px; color: #64748b; text-align: center;">
+              <p style="margin: 0 0 4px 0;">Approved by <strong>${agenda.approved_by_name || 'Bishopric'}</strong> on ${agenda.approved_date ? agenda.approved_date.substring(0, 10) : 'Record'}.</p>
+              <p style="margin: 0; font-size: 11px;">Thank you for your dedicated service and commitment to the Lord's work.</p>
+            </div>
+          </div>
+
+        </div>
+      </body>
+      </html>
+    `;
+
+    const plainText = `
+${readableType} Notice & Assignment
+Date: ${agenda.date}
+Time: ${agenda.start_time} - ${agenda.end_time}
+Venue: ${agenda.venue}
+Presiding: ${agenda.presiding}
+Conducting: ${agenda.conducting}
+
+Dear ${data.name},
+Please review your assignments and meeting details for the upcoming ${readableType}.
+Approved by ${agenda.approved_by_name || 'Bishopric'}.
+    `.trim();
+
+    const success = sendEmail(email, subject, plainText, { html: htmlBody });
+    if (success) {
+      sentCount++;
+      sentDetails.push({ email: email, name: data.name });
+    }
+  });
+
+  return { sentCount: sentCount, details: sentDetails };
+}
+

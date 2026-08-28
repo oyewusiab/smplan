@@ -266,6 +266,14 @@ const PERMISSIONS = {
   AGENDA_EDIT:     ['ADMIN', 'BISHOPRIC'],
   AGENDA_VIEW:     ['ADMIN', 'BISHOPRIC', 'CLERK', 'SECRETARY'],
 
+  // Other Agendas (Clerk & Secretary can create & submit; Bishopric approves)
+  OTHER_AGENDA_CREATE:  ['ADMIN', 'BISHOPRIC', 'CLERK', 'SECRETARY'],
+  OTHER_AGENDA_EDIT:    ['ADMIN', 'BISHOPRIC', 'CLERK', 'SECRETARY'],
+  OTHER_AGENDA_SUBMIT:  ['ADMIN', 'BISHOPRIC', 'CLERK', 'SECRETARY'],
+  OTHER_AGENDA_APPROVE: ['ADMIN', 'BISHOPRIC'],
+  OTHER_AGENDA_VIEW:    ['ADMIN', 'BISHOPRIC', 'CLERK', 'SECRETARY'],
+  OTHER_AGENDA_DELETE:  ['ADMIN', 'BISHOPRIC'],
+
   // Music (Admin & Music Coordinator dedicated workspace)
   MUSIC_EDIT:      ['ADMIN', 'MUSIC'],
 

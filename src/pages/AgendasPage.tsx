@@ -22,6 +22,7 @@ import { parseHymn, formatHymnDisplay, formatPersonWithTitle } from '../utils/hy
 import { generateStandAgendaHtml, parseSpeakersList, parseStructuredOrLines } from '../utils/AgendaPrintEngine';
 import { AgendaDiffModal } from '../components/agenda/AgendaDiffModal';
 import { DigitalPodiumModal } from '../components/agenda/DigitalPodiumModal';
+import { OtherAgendasSection } from '../components/agenda/OtherAgendasSection';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSunday } from 'date-fns';
 import toast from 'react-hot-toast';
 
@@ -111,6 +112,7 @@ export function AgendasPage() {
   const [saving, setSaving] = useState(false);
 
   // View state: Workspace or Directory
+  const [meetingCategory, setMeetingCategory] = useState<'SACRAMENT' | 'LEADERSHIP'>('SACRAMENT');
   const [viewMode, setViewMode] = useState<'workspace' | 'directory'>('workspace');
   const [activeTab, setActiveTab] = useState<'front' | 'back'>('front');
 
@@ -717,17 +719,19 @@ export function AgendasPage() {
     <div>
       <Header
         title="Agenda"
-        subtitle="Sunday Order-of-Service Builder & 2-Page Stand Agenda Generator"
+        subtitle="Sunday Order-of-Service Builder, Leadership Meetings & Stand Agenda Generator"
         actions={
           <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant={viewMode === 'directory' ? 'primary' : 'outline'}
-              icon={<Layers className="h-4 w-4" />}
-              onClick={() => setViewMode(viewMode === 'workspace' ? 'directory' : 'workspace')}
-            >
-              {viewMode === 'workspace' ? 'Saved Agendas Directory' : 'Back to Workspace'}
-            </Button>
+            {meetingCategory === 'SACRAMENT' && (
+              <Button
+                size="sm"
+                variant={viewMode === 'directory' ? 'primary' : 'outline'}
+                icon={<Layers className="h-4 w-4" />}
+                onClick={() => setViewMode(viewMode === 'workspace' ? 'directory' : 'workspace')}
+              >
+                {viewMode === 'workspace' ? 'Saved Agendas Directory' : 'Back to Workspace'}
+              </Button>
+            )}
             <Button
               size="sm"
               variant="outline"
@@ -742,9 +746,51 @@ export function AgendasPage() {
       />
 
       <div className="p-4 lg:p-6 space-y-6">
-        {viewMode === 'directory' ? (
-          /* ==================== SAVED AGENDAS DIRECTORY ==================== */
-          <div className="space-y-4">
+        {/* Top-Level Meeting Category Tabs */}
+        <div className="flex items-center gap-2 p-1.5 bg-slate-200/80 rounded-2xl border border-slate-300/80 w-full sm:w-fit shadow-2xs">
+          <button
+            type="button"
+            onClick={() => setMeetingCategory('SACRAMENT')}
+            className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-2 ${
+              meetingCategory === 'SACRAMENT'
+                ? 'bg-white text-blue-900 shadow-xs border border-slate-300/90'
+                : 'text-slate-700 hover:text-slate-900 hover:bg-white/60'
+            }`}
+          >
+            <span className="text-base">🍷</span>
+            <span>Sacrament Meeting Agendas</span>
+            <span className="px-2 py-0.5 rounded-full text-2xs bg-blue-100 text-blue-800 font-extrabold border border-blue-200">
+              {agendas.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setMeetingCategory('LEADERSHIP')}
+            className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-2 ${
+              meetingCategory === 'LEADERSHIP'
+                ? 'bg-white text-purple-900 shadow-xs border border-slate-300/90'
+                : 'text-slate-700 hover:text-slate-900 hover:bg-white/60'
+            }`}
+          >
+            <span className="text-base">📋</span>
+            <span>Ward Leadership & Committee Agendas</span>
+            <span className="px-2 py-0.5 rounded-full text-2xs bg-purple-100 text-purple-800 font-extrabold border border-purple-200">
+              Bishopric · Council · Other
+            </span>
+          </button>
+        </div>
+
+        {meetingCategory === 'LEADERSHIP' ? (
+          <OtherAgendasSection
+            members={members}
+            unitName={planners[0]?.unit_name}
+          />
+        ) : (
+          <>
+            {viewMode === 'directory' ? (
+              /* ==================== SAVED AGENDAS DIRECTORY ==================== */
+              <div className="space-y-4">
             <div className="flex items-center justify-between gap-4">
               <div className="relative max-w-sm w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -1838,7 +1884,9 @@ export function AgendasPage() {
             )}
           </div>
         )}
-      </div>
+      </>
+    )}
+  </div>
 
       {/* LIVE PLANNER SYNC SAFETY NET MODAL */}
       {plannerWeekAgenda && (

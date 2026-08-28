@@ -220,6 +220,74 @@ export interface Agenda {
   archive_date: string;
 }
 
+// ─── Other Ward Leadership Agendas ───────────────────────────────────────────
+
+export type OtherAgendaMeetingType = 'BISHOPRIC_MEETING' | 'WARD_COUNCIL' | 'WARD_YOUTH_COUNCIL' | 'PRESIDENCY_MEETING' | 'OTHER_MEETING';
+export type OtherAgendaState = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'ARCHIVED';
+
+export interface OtherAgendaTopic {
+  id: string;
+  title: string;
+  presenter: string;
+  minutes?: number | string;
+  notes?: string;
+  category?: string;
+}
+
+export interface OtherAgendaAssignment {
+  id: string;
+  task: string;
+  assignee: string;
+  assignee_email?: string;
+  assignee_phone?: string;
+  due_date: string;
+  status: 'PENDING' | 'COMPLETED';
+  notes?: string;
+  email_sent?: boolean;
+}
+
+export interface OtherAgendaAttendee {
+  name: string;
+  calling?: string;
+  role?: string;
+  email?: string;
+  phone?: string;
+  present?: boolean;
+}
+
+export interface OtherAgenda {
+  other_agenda_id: string;
+  meeting_type: OtherAgendaMeetingType;
+  meeting_type_other?: string;
+  title: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  venue: string;
+  presiding: string;
+  presiding_role: string;
+  conducting: string;
+  conducting_role: string;
+  opening_hymn?: string;
+  opening_prayer?: string;
+  spiritual_thought_by?: string;
+  spiritual_thought_topic?: string;
+  closing_prayer?: string;
+  attendees: string | OtherAgendaAttendee[];
+  topics: string | OtherAgendaTopic[];
+  assignments: string | OtherAgendaAssignment[];
+  general_notes?: string;
+  state: OtherAgendaState;
+  created_by: string;
+  created_by_name?: string;
+  created_date: string;
+  approved_by?: string;
+  approved_by_name?: string;
+  approved_date?: string;
+  email_sent_count?: number;
+  updated_date?: string;
+}
+
 export type AssignmentStatus = 'PENDING' | 'SENT' | 'REMINDED';
 export type AssignmentRsvpStatus = 'CONFIRMED' | 'SUBSTITUTE_REQUESTED' | 'PENDING' | '';
 
