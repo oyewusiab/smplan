@@ -65,8 +65,28 @@ function handleGetPlanner(params) {
   }
 
   // Attach full agendas from AGENDAS table
-  const agendas = dbFind('AGENDAS', a => a.planner_id === params.planner_id);
+  let agendas = dbFind('AGENDAS', a => a.planner_id === params.planner_id);
+  
+  // If planner has sacrament_administration, enrich agendas
+  let sacMap = null;
+  if (planner.sacrament_administration) {
+    try {
+      sacMap = typeof planner.sacrament_administration === 'string' ? JSON.parse(planner.sacrament_administration) : planner.sacrament_administration;
+    } catch(e) {}
+  }
+
   if (agendas.length > 0) {
+    agendas.forEach((a, idx) => {
+      const rawA = a.sacrament_duties || a.sacrament;
+      const hasData = rawA && rawA !== '{}' && rawA !== '{"preparing":[],"blessing":[],"passing":[]}';
+      if (!hasData && sacMap && typeof sacMap === 'object') {
+        const found = sacMap[a.week_id] || sacMap['week_' + (idx + 1)] || sacMap[a.date] || (Array.isArray(sacMap) ? sacMap[idx] : null);
+        if (found) {
+          a.sacrament_duties = typeof found === 'object' ? JSON.stringify(found) : String(found);
+          a.sacrament = typeof found === 'object' ? found : (function() { try { return JSON.parse(a.sacrament_duties); } catch(e) { return {}; } })();
+        }
+      }
+    });
     planner.weeks = JSON.stringify(agendas);
   }
 
@@ -584,6 +604,30 @@ function handleListAgendas(params) {
   let agendas = dbReadAll('AGENDAS');
   if (params.planner_id) {
     agendas = agendas.filter(a => a.planner_id === params.planner_id);
+    
+    // Enrich from PLANNERS row if sacrament_administration is present
+    const planner = dbFindOne('PLANNERS', 'planner_id', params.planner_id);
+    if (planner && planner.sacrament_administration) {
+      let sacMap = null;
+      try {
+        sacMap = typeof planner.sacrament_administration === 'string' ? JSON.parse(planner.sacrament_administration) : planner.sacrament_administration;
+      } catch(e) {}
+
+      if (sacMap && typeof sacMap === 'object') {
+        agendas.forEach((a, idx) => {
+          const rawA = a.sacrament_duties || a.sacrament;
+          const hasData = rawA && rawA !== '{}' && rawA !== '{"preparing":[],"blessing":[],"passing":[]}';
+          if (!hasData) {
+            const foundDuties = sacMap[a.week_id] || sacMap['week_' + (idx + 1)] || sacMap[a.date] || (Array.isArray(sacMap) ? sacMap[idx] : null);
+            if (foundDuties) {
+              const strDuties = typeof foundDuties === 'object' ? JSON.stringify(foundDuties) : String(foundDuties);
+              a.sacrament_duties = strDuties;
+              a.sacrament = typeof foundDuties === 'object' ? foundDuties : (function() { try { return JSON.parse(strDuties); } catch(e) { return {}; } })();
+            }
+          }
+        });
+      }
+    }
   }
   return { ok: true, data: agendas };
 }

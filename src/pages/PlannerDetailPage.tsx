@@ -81,6 +81,28 @@ const LDS_HYMN_THEMES: Record<string, { number: number; title: string; type: 'OP
   ],
 };
 
+function parseSacramentDuties(val: unknown): { preparing: string[]; blessing: string[]; passing: string[] } | null {
+  if (!val) return null;
+  let obj = val;
+  if (typeof obj === 'string' && obj.trim() && obj.trim() !== '{}') {
+    try { obj = JSON.parse(obj); } catch { return null; }
+  }
+  if (typeof obj === 'object' && obj !== null) {
+    const rec = obj as Record<string, unknown>;
+    const prep = Array.isArray(rec.preparing) ? rec.preparing.map(String).filter(Boolean) : [];
+    const bles = Array.isArray(rec.blessing) ? rec.blessing.map(String).filter(Boolean) : [];
+    const pass = Array.isArray(rec.passing) ? rec.passing.map(String).filter(Boolean) : [];
+    if (prep.length > 0 || bles.length > 0 || pass.length > 0) {
+      return {
+        preparing: prep.length > 0 ? prep : [''],
+        blessing: bles.length > 0 ? bles : [''],
+        passing: pass.length > 0 ? pass : [''],
+      };
+    }
+  }
+  return null;
+}
+
 export function PlannerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { session, can } = useAuthStore();
@@ -187,12 +209,12 @@ export function PlannerDetailPage() {
         }
 
         // Check sacrament_administration column from PLANNERS row
-        let sacramentAdminFromPlanner: Record<string, unknown> = {};
+        let sacramentAdminFromPlanner: unknown = null;
         if (pl.sacrament_administration) {
           try {
             sacramentAdminFromPlanner = typeof pl.sacrament_administration === 'string'
               ? JSON.parse(pl.sacrament_administration)
-              : (pl.sacrament_administration as Record<string, unknown>);
+              : pl.sacrament_administration;
           } catch { /* ignore parse error */ }
         }
 
@@ -215,17 +237,26 @@ export function PlannerDetailPage() {
             cleanTime = '10:00';
           }
 
-          let rawDuties = a.sacrament_duties || (a as { sacrament?: unknown }).sacrament || '{}';
-          const dutiesFromPlannerCol = sacramentAdminFromPlanner[a.week_id] || sacramentAdminFromPlanner[`week_${idx + 1}`] || sacramentAdminFromPlanner[cleanDate];
+          // 1. Resolve sacrament duties across all possible keys
+          let resolvedDuties = parseSacramentDuties(a.sacrament_duties) ||
+                               parseSacramentDuties((a as { sacrament?: unknown }).sacrament);
 
-          // If duties is currently empty or placeholder, check if planner's sacrament_administration column has it
-          const dutiesObj = getSacramentDuties(a);
-          const hasExistingEntries = dutiesObj.preparing.some(Boolean) || dutiesObj.blessing.some(Boolean) || dutiesObj.passing.some(Boolean);
-          if (!hasExistingEntries && dutiesFromPlannerCol) {
-            rawDuties = dutiesFromPlannerCol;
+          if (!resolvedDuties && sacramentAdminFromPlanner && typeof sacramentAdminFromPlanner === 'object') {
+            const adminMap = sacramentAdminFromPlanner as Record<string, unknown>;
+            const fromMap = adminMap[a.week_id] ||
+                            adminMap[`week_${idx + 1}`] ||
+                            adminMap[cleanDate] ||
+                            (Array.isArray(sacramentAdminFromPlanner) ? sacramentAdminFromPlanner[idx] : null);
+            resolvedDuties = parseSacramentDuties(
+              (fromMap as { duties?: unknown; sacrament_duties?: unknown; sacrament?: unknown })?.duties ||
+              (fromMap as { duties?: unknown; sacrament_duties?: unknown; sacrament?: unknown })?.sacrament_duties ||
+              (fromMap as { duties?: unknown; sacrament_duties?: unknown; sacrament?: unknown })?.sacrament ||
+              fromMap
+            );
           }
 
-          const serializedDuties = typeof rawDuties === 'object' ? JSON.stringify(rawDuties) : String(rawDuties || '{}');
+          const finalDuties = resolvedDuties || { preparing: [''], blessing: [''], passing: [''] };
+          const serializedDuties = JSON.stringify(finalDuties);
 
           return {
             ...a,
@@ -234,6 +265,7 @@ export function PlannerDetailPage() {
             start_time: cleanTime,
             speakers: typeof a.speakers === 'object' ? JSON.stringify(a.speakers) : (a.speakers || '[]'),
             sacrament_duties: serializedDuties,
+            sacrament: finalDuties as unknown as string,
           };
         });
 
@@ -436,28 +468,8 @@ export function PlannerDetailPage() {
   // Sacrament Duties helpers (Preparing, Blessing, Passing)
   const getSacramentDuties = (agenda: Agenda): { preparing: string[]; blessing: string[]; passing: string[] } => {
     if (!agenda) return { preparing: [''], blessing: [''], passing: [''] };
-    try {
-      const raw = agenda.sacrament_duties || (agenda as { sacrament?: unknown }).sacrament;
-      if (typeof raw === 'object' && raw !== null) {
-        const parsed = raw as { preparing?: string[]; blessing?: string[]; passing?: string[] };
-        return {
-          preparing: Array.isArray(parsed.preparing) && parsed.preparing.length > 0 ? parsed.preparing : [''],
-          blessing: Array.isArray(parsed.blessing) && parsed.blessing.length > 0 ? parsed.blessing : [''],
-          passing: Array.isArray(parsed.passing) && parsed.passing.length > 0 ? parsed.passing : [''],
-        };
-      }
-      if (typeof raw === 'string' && raw.trim() && raw.trim() !== '{}') {
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === 'object') {
-          return {
-            preparing: Array.isArray(parsed.preparing) && parsed.preparing.length > 0 ? parsed.preparing : [''],
-            blessing: Array.isArray(parsed.blessing) && parsed.blessing.length > 0 ? parsed.blessing : [''],
-            passing: Array.isArray(parsed.passing) && parsed.passing.length > 0 ? parsed.passing : [''],
-          };
-        }
-      }
-    } catch { /* fallback */ }
-    return { preparing: [''], blessing: [''], passing: [''] };
+    const parsed = parseSacramentDuties(agenda.sacrament_duties) || parseSacramentDuties((agenda as { sacrament?: unknown }).sacrament);
+    return parsed || { preparing: [''], blessing: [''], passing: [''] };
   };
 
   const updateSacramentDuties = (
