@@ -79,6 +79,23 @@ const emptyAgenda: Partial<Agenda> = {
   state: 'DRAFT',
 };
 
+function normalizeDateStr(d: unknown): string {
+  if (!d) return '';
+  if (typeof d === 'string') {
+    if (d.includes('T')) return d.split('T')[0];
+    if (d.length >= 10 && d.includes('-')) return d.substring(0, 10);
+    try {
+      const parsed = new Date(d);
+      if (!isNaN(parsed.getTime())) return format(parsed, 'yyyy-MM-dd');
+    } catch {}
+    return d.trim();
+  }
+  if (d instanceof Date && !isNaN(d.getTime())) {
+    return format(d, 'yyyy-MM-dd');
+  }
+  return String(d);
+}
+
 export function AgendasPage() {
   const { session, can } = useAuthStore();
   const canEditAgenda = can('AGENDA_EDIT');
@@ -185,7 +202,33 @@ export function AgendasPage() {
   const plannerSundays = useMemo(() => {
     if (!selectedPlanner) return [];
     try {
-      const start = startOfMonth(new Date(selectedPlanner.year, selectedPlanner.month - 1));
+      const datesSet = new Set<string>();
+
+      // 1. From selectedPlanner.weeks
+      if (selectedPlanner.weeks) {
+        const weeksArr: Partial<Agenda>[] = typeof selectedPlanner.weeks === 'string'
+          ? JSON.parse(selectedPlanner.weeks)
+          : selectedPlanner.weeks || [];
+        weeksArr.forEach((w) => {
+          const nd = normalizeDateStr(w.date);
+          if (nd) datesSet.add(nd);
+        });
+      }
+
+      // 2. From agendas matching planner_id
+      agendas
+        .filter((a) => a.planner_id === selectedPlannerId)
+        .forEach((a) => {
+          const nd = normalizeDateStr(a.date);
+          if (nd) datesSet.add(nd);
+        });
+
+      if (datesSet.size > 0) {
+        return Array.from(datesSet).sort();
+      }
+
+      // 3. Fallback to calculating sundays for month
+      const start = startOfMonth(new Date(selectedPlanner.year, selectedPlanner.month - 1, 1));
       const end = endOfMonth(start);
       return eachDayOfInterval({ start, end })
         .filter((d) => isSunday(d))
@@ -193,7 +236,7 @@ export function AgendasPage() {
     } catch {
       return [];
     }
-  }, [selectedPlanner]);
+  }, [selectedPlanner, selectedPlannerId, agendas]);
 
   // Update selected date if not in planner's sundays
   useEffect(() => {
@@ -207,9 +250,10 @@ export function AgendasPage() {
   // Check if saved agenda exists for selected date
   const savedAgendaForDate = useMemo(() => {
     if (!selectedDate) return null;
+    const targetNorm = normalizeDateStr(selectedDate);
     return (
-      agendas.find((a) => a.planner_id === selectedPlannerId && a.date === selectedDate) ||
-      agendas.find((a) => a.date === selectedDate) ||
+      agendas.find((a) => a.planner_id === selectedPlannerId && normalizeDateStr(a.date) === targetNorm) ||
+      agendas.find((a) => normalizeDateStr(a.date) === targetNorm) ||
       null
     );
   }, [agendas, selectedDate, selectedPlannerId]);
@@ -217,23 +261,24 @@ export function AgendasPage() {
   // Requirement 1: Extract corresponding week plan from the selected Monthly Planner
   const weekPlanFromPlanner = useMemo(() => {
     if (!selectedDate) return null;
+    const targetNorm = normalizeDateStr(selectedDate);
 
-    // 1. Look in agendas table for matching planner & date
-    const fromAgendas = agendas.find(
-      (a) => a.planner_id === selectedPlannerId && a.date === selectedDate
-    ) || agendas.find((a) => a.date === selectedDate);
-    if (fromAgendas) return fromAgendas;
-
-    // 2. Look in selectedPlanner.weeks
-    if (selectedPlanner) {
+    // 1. Look in selectedPlanner.weeks
+    if (selectedPlanner && selectedPlanner.weeks) {
       try {
         const weeksArr: Partial<Agenda>[] = typeof selectedPlanner.weeks === 'string'
           ? JSON.parse(selectedPlanner.weeks)
           : selectedPlanner.weeks || [];
-        const found = weeksArr.find((w) => w.date === selectedDate);
+        const found = weeksArr.find((w) => normalizeDateStr(w.date) === targetNorm);
         if (found) return found;
       } catch {}
     }
+
+    // 2. Look in agendas table for matching planner & date
+    const fromAgendas = agendas.find(
+      (a) => a.planner_id === selectedPlannerId && normalizeDateStr(a.date) === targetNorm
+    ) || agendas.find((a) => normalizeDateStr(a.date) === targetNorm);
+    if (fromAgendas) return fromAgendas;
 
     return null;
   }, [selectedPlanner, selectedDate, selectedPlannerId, agendas]);

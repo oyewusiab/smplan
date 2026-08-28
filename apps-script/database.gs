@@ -158,6 +158,18 @@ function dbReadAll(sheetName) {
       const obj = {};
       headers.forEach((h, i) => {
         let val = row[i];
+        // Standardize Date instances from Google Sheets
+        if (val instanceof Date && !isNaN(val.getTime())) {
+          if (val.getHours() === 0 && val.getMinutes() === 0 && val.getSeconds() === 0) {
+            try {
+              val = Utilities.formatDate(val, Session.getScriptTimeZone() || 'UTC', 'yyyy-MM-dd');
+            } catch(e) {
+              val = val.toISOString().split('T')[0];
+            }
+          } else {
+            val = val.toISOString();
+          }
+        }
         // Deserialize booleans stored as strings
         if (val === 'TRUE' || val === true) val = true;
         else if (val === 'FALSE' || val === false) val = false;
