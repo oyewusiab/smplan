@@ -3393,10 +3393,22 @@ function handleUpdateOtherAgenda(body) {
   if (body.general_notes !== undefined) patch.general_notes = sanitizeString(body.general_notes);
   if (body.state !== undefined) patch.state = sanitizeString(body.state);
 
-  const updated = dbUpdate('OTHER_AGENDAS', 'other_agenda_id', body.other_agenda_id, patch);
-  auditLog(session.user_id, 'UPDATE', 'OTHER_AGENDAS', body.other_agenda_id, existing, updated, 'OK');
+  const updateResult = dbUpdate('OTHER_AGENDAS', 'other_agenda_id', body.other_agenda_id, patch);
+  const updatedAgenda = (updateResult && updateResult.updated) ? updateResult.updated : (updateResult || Object.assign({}, existing, patch));
+  auditLog(session.user_id, 'UPDATE', 'OTHER_AGENDAS', body.other_agenda_id, existing, updatedAgenda, 'OK');
 
-  return { ok: true, data: updated };
+  let emailSummary = null;
+  if (patch.state === 'APPROVED') {
+    emailSummary = sendOtherAgendaNotifications(updatedAgenda);
+    if (emailSummary && emailSummary.sentCount > 0) {
+      dbUpdate('OTHER_AGENDAS', 'other_agenda_id', body.other_agenda_id, {
+        email_sent_count: (existing.email_sent_count || 0) + emailSummary.sentCount,
+        updated_date: new Date().toISOString(),
+      });
+    }
+  }
+
+  return { ok: true, data: updatedAgenda, emailSummary: emailSummary };
 }
 
 function handleApproveOtherAgenda(body) {
@@ -3441,10 +3453,11 @@ function handleApproveOtherAgenda(body) {
     updated_date: new Date().toISOString(),
   };
 
-  const updated = dbUpdate('OTHER_AGENDAS', 'other_agenda_id', body.other_agenda_id, patch);
+  const updateResult = dbUpdate('OTHER_AGENDAS', 'other_agenda_id', body.other_agenda_id, patch);
+  const updatedAgenda = (updateResult && updateResult.updated) ? updateResult.updated : (updateResult || Object.assign({}, existing, patch));
 
   // Send automated email notifications to all members with assignments / roles
-  const emailSummary = sendOtherAgendaNotifications(updated);
+  const emailSummary = sendOtherAgendaNotifications(updatedAgenda);
   if (emailSummary && emailSummary.sentCount > 0) {
     dbUpdate('OTHER_AGENDAS', 'other_agenda_id', body.other_agenda_id, {
       email_sent_count: (existing.email_sent_count || 0) + emailSummary.sentCount,
@@ -3463,8 +3476,8 @@ function handleApproveOtherAgenda(body) {
     );
   }
 
-  auditLog(session.user_id, 'APPROVE', 'OTHER_AGENDAS', body.other_agenda_id, existing, updated, 'OK');
-  return { ok: true, data: updated, emailSummary: emailSummary };
+  auditLog(session.user_id, 'APPROVE', 'OTHER_AGENDAS', body.other_agenda_id, existing, updatedAgenda, 'OK');
+  return { ok: true, data: updatedAgenda, emailSummary: emailSummary };
 }
 
 function handleSendOtherAgendaEmails(body) {
@@ -3503,20 +3516,82 @@ function handleDeleteOtherAgenda(body) {
 /**
  * Sends automated HTML notification emails to attendees and assignees for an approved Other Agenda.
  */
-function sendOtherAgendaNotifications(agenda) {
+function sendOtherAgendaNotifications(agendaInput) {
+  let agenda = agendaInput;
+  if (!agenda) return { sentCount: 0, details: [] };
+  if (agenda.updated && typeof agenda.updated === 'object') {
+    agenda = agenda.updated;
+  }
+  if (typeof agenda === 'string') {
+    agenda = dbFindOne('OTHER_AGENDAS', 'other_agenda_id', agenda) || {};
+  }
+
   const allMembers = dbReadAll('MEMBERS_LIST');
-  const memberMap = {};
+  const allUsers = dbReadAll('USERS');
+
+  const normalize = (s) => {
+    if (!s) return '';
+    return String(s)
+      .toLowerCase()
+      .replace(/^(brother|sister|elder|bishop|president|bro\.|bro|sis\.|sis|eld\.|eld|bp\.|bp|pres\.|pres)\s+/i, '')
+      .replace(/[^a-z0-9]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
+  const emailLookup = {};
+
+  // Index members
   allMembers.forEach(m => {
-    if (m.name) {
-      memberMap[m.name.trim().toLowerCase()] = m;
+    const rawEmail = m.email || m.Email || m.EMAIL || m['Email Address'] || m['email_address'];
+    if (rawEmail && String(rawEmail).includes('@')) {
+      const cleanEmail = String(rawEmail).trim();
+      if (m.name) {
+        emailLookup[String(m.name).trim().toLowerCase()] = cleanEmail;
+        const norm = normalize(m.name);
+        if (norm) emailLookup[norm] = cleanEmail;
+      }
+    }
+  });
+
+  // Index users (ward leadership accounts)
+  allUsers.forEach(u => {
+    const rawEmail = u.email || u.Email || u.EMAIL;
+    if (rawEmail && String(rawEmail).includes('@')) {
+      const cleanEmail = String(rawEmail).trim();
+      if (u.name) {
+        emailLookup[String(u.name).trim().toLowerCase()] = cleanEmail;
+        const norm = normalize(u.name);
+        if (norm) emailLookup[norm] = cleanEmail;
+      }
+      if (u.preferred_name) {
+        emailLookup[String(u.preferred_name).trim().toLowerCase()] = cleanEmail;
+        const normP = normalize(u.preferred_name);
+        if (normP) emailLookup[normP] = cleanEmail;
+      }
+      if (u.username) {
+        emailLookup[String(u.username).trim().toLowerCase()] = cleanEmail;
+      }
     }
   });
 
   const getEmailForName = (name) => {
     if (!name) return '';
-    const clean = name.replace(/^(Brother|Sister|Elder|Bishop|President)\s+/i, '').trim().toLowerCase();
-    const found = memberMap[clean] || memberMap[name.trim().toLowerCase()];
-    return (found && found.email) ? found.email.trim() : '';
+    const exact = String(name).trim().toLowerCase();
+    if (emailLookup[exact]) return emailLookup[exact];
+
+    const norm = normalize(name);
+    if (norm && emailLookup[norm]) return emailLookup[norm];
+
+    // Substring matching
+    const keys = Object.keys(emailLookup);
+    for (let i = 0; i < keys.length; i++) {
+      const k = keys[i];
+      if (norm.length > 3 && (k.includes(norm) || norm.includes(k))) {
+        return emailLookup[k];
+      }
+    }
+    return '';
   };
 
   let assignmentsList = [];
@@ -3557,7 +3632,7 @@ function sendOtherAgendaNotifications(agenda) {
     const em = getEmailForName(agenda.spiritual_thought_by);
     if (em) {
       if (!recipients[em]) recipients[em] = { name: agenda.spiritual_thought_by, roles: [], assignments: [] };
-      recipients[em].roles.push(`Spiritual Thought (${agenda.spiritual_thought_topic || 'Gospel Topic'})`);
+      recipients[em].roles.push(`Spiritual Thought${agenda.spiritual_thought_topic ? ` (${agenda.spiritual_thought_topic})` : ''}`);
     }
   }
 
@@ -3579,7 +3654,7 @@ function sendOtherAgendaNotifications(agenda) {
     }
   }
 
-  // 4. Check Assignments
+  // 5. Check Action Items / Assignments
   assignmentsList.forEach(item => {
     const assigneeName = item.assignee || '';
     let email = (item.assignee_email || '').trim();

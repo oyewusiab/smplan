@@ -201,20 +201,45 @@ function getParam(e, key, isPost) {
 // ─── Email Utilities ──────────────────────────────────────────────────────────
 
 /**
- * Send an email via Apps Script (built-in Gmail integration).
- * Apps Script can send up to 100 emails/day on free tier.
+ * Send an email via Apps Script (built-in Gmail/MailApp integration).
+ * Apps Script can send up to 100 emails/day on standard accounts.
  */
 function sendEmail(to, subject, body, options) {
-  try {
-    MailApp.sendEmail({
-      to: to,
-      subject: subject,
-      body: body,
-      htmlBody: options && options.html ? options.html : undefined,
-    });
-    return true;
-  } catch(e) {
-    Logger.log('Email send failed to ' + to + ': ' + e.message);
+  if (!to || typeof to !== 'string' || !to.includes('@')) {
+    Logger.log('sendEmail skipped: Invalid recipient address "' + to + '"');
     return false;
+  }
+
+  const cleanTo = to.trim();
+  const mailOptions = {
+    to: cleanTo,
+    subject: subject || 'SM Planner Notification',
+    body: body || '',
+  };
+  if (options && options.html) {
+    mailOptions.htmlBody = options.html;
+  }
+  if (options && options.name) {
+    mailOptions.name = options.name;
+  }
+
+  try {
+    MailApp.sendEmail(mailOptions);
+    Logger.log('MailApp sent email successfully to: ' + cleanTo);
+    return true;
+  } catch (mailErr) {
+    Logger.log('MailApp sendEmail failed (' + mailErr.message + '), attempting GmailApp fallback...');
+    try {
+      if (options && options.html) {
+        GmailApp.sendEmail(cleanTo, subject, body, { htmlBody: options.html, name: options && options.name });
+      } else {
+        GmailApp.sendEmail(cleanTo, subject, body, { name: options && options.name });
+      }
+      Logger.log('GmailApp fallback sent email successfully to: ' + cleanTo);
+      return true;
+    } catch (gmailErr) {
+      Logger.log('All email dispatch methods failed for ' + cleanTo + ': ' + gmailErr.message);
+      return false;
+    }
   }
 }
