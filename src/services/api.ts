@@ -579,6 +579,9 @@ export const syncApi = {
   export: (token: string) =>
     get(withToken(token, { action: 'SYNC_EXPORT' })),
 
+  alignDatabase: (token: string) =>
+    post(withTokenBody(token, { action: 'MAINTENANCE_ALIGN_DATABASE' })),
+
   import: (token: string, data: Record<string, unknown>) =>
     post(withTokenBody(token, { action: 'SYNC_IMPORT', data: JSON.stringify(data) })),
 

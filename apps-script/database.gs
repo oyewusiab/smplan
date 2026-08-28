@@ -152,22 +152,37 @@ function dbReadAll(sheetName) {
   }
   
   const headers = data[0];
+  const tz = getAppTimeZone();
   const rows = data.slice(1)
     .filter(row => row.some(cell => cell !== '' && cell !== null))
     .map(row => {
       const obj = {};
       headers.forEach((h, i) => {
         let val = row[i];
-        // Standardize Date instances from Google Sheets
+        // Standardize Date and Time instances from Google Sheets
         if (val instanceof Date && !isNaN(val.getTime())) {
-          if (val.getHours() === 0 && val.getMinutes() === 0 && val.getSeconds() === 0) {
-            try {
-              val = Utilities.formatDate(val, Session.getScriptTimeZone() || 'UTC', 'yyyy-MM-dd');
-            } catch(e) {
-              val = val.toISOString().split('T')[0];
-            }
+          const yr = val.getFullYear();
+          if (yr < 1920) {
+            // Epoch 1899 represents pure Time in Google Sheets (e.g. 10:00)
+            val = Utilities.formatDate(val, tz, 'HH:mm');
           } else {
-            val = val.toISOString();
+            // Standard Date cell
+            val = Utilities.formatDate(val, tz, 'yyyy-MM-dd');
+          }
+        } else if (typeof val === 'string') {
+          // If a time column contains an 1899 ISO string, extract clean HH:mm
+          if ((h === 'start_time' || h === 'meeting_time' || h === 'time') && val.includes('1899-12-30')) {
+            const td = new Date(val);
+            if (!isNaN(td.getTime())) {
+              val = Utilities.formatDate(td, tz, 'HH:mm');
+            }
+          }
+          // If a date column contains a full ISO timestamp like "2026-09-05T23:00:00.000Z", normalize with timezone
+          else if ((h === 'date' || h === 'birth_date' || h === 'confirmation_date') && val.includes('T')) {
+            const dd = new Date(val);
+            if (!isNaN(dd.getTime())) {
+              val = Utilities.formatDate(dd, tz, 'yyyy-MM-dd');
+            }
           }
         }
         // Deserialize booleans stored as strings
@@ -408,10 +423,137 @@ function exportAllData() {
     }
   });
   
-  return {
+    return {
     ok: true,
     db_version: 1,
     ts: new Date().toISOString(),
     data: data,
   };
+}
+
+// ─── Database Self-Healing & Schema Realignment ──────────────────────────────
+
+/**
+ * Repairs historical date shifts, time formatting, and misaligned rows.
+ * Safe & idempotent: Only repairs rows with known offset patterns.
+ */
+function fixDatabaseAlignment() {
+  const ss = getSpreadsheet();
+  const tz = getAppTimeZone();
+  const results = [];
+
+  // Helper to adjust a shifted Saturday (day 6) to Sunday (day 0)
+  function fixDateToSunday(dateStr) {
+    if (!dateStr) return dateStr;
+    const match = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!match) return dateStr;
+    const y = parseInt(match[1], 10);
+    const m = parseInt(match[2], 10) - 1;
+    const d = parseInt(match[3], 10);
+    const dt = new Date(Date.UTC(y, m, d));
+    // If it's Saturday (UTC day 6), advance to Sunday (UTC day 0)
+    if (dt.getUTCDay() === 6) {
+      dt.setUTCDate(dt.getUTCDate() + 1);
+      return Utilities.formatDate(dt, 'UTC', 'yyyy-MM-dd');
+    }
+    return `${match[1]}-${match[2]}-${match[3]}`;
+  }
+
+  // Helper to fix 1899 times to clean HH:mm
+  function fixTimeStr(timeStr) {
+    if (!timeStr) return '10:00';
+    if (String(timeStr).includes('1899-12-30')) {
+      const dt = new Date(timeStr);
+      if (!isNaN(dt.getTime())) return Utilities.formatDate(dt, tz, 'HH:mm');
+    }
+    return String(timeStr);
+  }
+
+  // 1. Repair AGENDAS Sheet
+  try {
+    const agSheet = ss.getSheetByName('AGENDAS');
+    if (agSheet && agSheet.getLastRow() > 1) {
+      const data = agSheet.getDataRange().getValues();
+      const headers = data[0];
+      const dateCol = headers.indexOf('date');
+      const timeCol = headers.indexOf('start_time');
+      let changed = 0;
+
+      for (let i = 1; i < data.length; i++) {
+        if (dateCol !== -1 && data[i][dateCol]) {
+          const orig = data[i][dateCol];
+          let normalized = '';
+          if (orig instanceof Date) {
+            normalized = Utilities.formatDate(orig, tz, 'yyyy-MM-dd');
+          } else {
+            normalized = String(orig);
+          }
+          const fixed = fixDateToSunday(normalized);
+          if (fixed !== String(orig)) {
+            agSheet.getRange(i + 1, dateCol + 1).setValue(fixed);
+            changed++;
+          }
+        }
+        if (timeCol !== -1 && data[i][timeCol]) {
+          const origTime = String(data[i][timeCol]);
+          if (origTime.includes('1899-12-30') || data[i][timeCol] instanceof Date) {
+            const fixedTime = fixTimeStr(data[i][timeCol]);
+            agSheet.getRange(i + 1, timeCol + 1).setValue(fixedTime);
+            changed++;
+          }
+        }
+      }
+      results.push(`AGENDAS: Repaired ${changed} date/time values`);
+    }
+  } catch(e) {
+    results.push(`AGENDAS repair warning: ${e.message}`);
+  }
+
+  // 2. Repair PLANNERS Sheet (Embedded JSON weeks)
+  try {
+    const plSheet = ss.getSheetByName('PLANNERS');
+    if (plSheet && plSheet.getLastRow() > 1) {
+      const data = plSheet.getDataRange().getValues();
+      const headers = data[0];
+      const weeksCol = headers.indexOf('weeks');
+      let plChanged = 0;
+
+      for (let i = 1; i < data.length; i++) {
+        if (weeksCol !== -1 && data[i][weeksCol]) {
+          try {
+            const rawWeeks = data[i][weeksCol];
+            const parsed = typeof rawWeeks === 'string' ? JSON.parse(rawWeeks) : rawWeeks;
+            if (Array.isArray(parsed)) {
+              let weekModified = false;
+              parsed.forEach(ag => {
+                if (ag.date) {
+                  const fixed = fixDateToSunday(ag.date);
+                  if (fixed !== ag.date) {
+                    ag.date = fixed;
+                    weekModified = true;
+                  }
+                }
+                if (ag.start_time && String(ag.start_time).includes('1899-12-30')) {
+                  ag.start_time = fixTimeStr(ag.start_time);
+                  weekModified = true;
+                }
+              });
+              if (weekModified) {
+                plSheet.getRange(i + 1, weeksCol + 1).setValue(JSON.stringify(parsed));
+                plChanged++;
+              }
+            }
+          } catch(e) {}
+        }
+      }
+      results.push(`PLANNERS: Repaired ${plChanged} planners' embedded week dates`);
+    }
+  } catch(e) {
+    results.push(`PLANNERS repair warning: ${e.message}`);
+  }
+
+  // 3. Invalidate all caches
+  Object.keys(SHEET_SCHEMAS).forEach(s => invalidateSheetCache(s));
+  Logger.log('Self-healing alignment completed:\n' + results.join('\n'));
+  return { ok: true, results };
 }

@@ -17,7 +17,16 @@ function errorResponse(message, code) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-// ─── Input Sanitization ───────────────────────────────────────────────────────
+// ─── Input Sanitization & Timezone Safety ────────────────────────────────────
+
+function getAppTimeZone() {
+  try {
+    const ss = getSpreadsheet();
+    return ss.getSpreadsheetTimeZone() || Session.getScriptTimeZone() || 'Africa/Lagos';
+  } catch(e) {
+    return 'Africa/Lagos';
+  }
+}
 
 function sanitizeString(str) {
   if (str === null || str === undefined) return '';
@@ -32,9 +41,18 @@ function sanitizeEmail(email) {
 
 function sanitizeDate(dateStr) {
   if (!dateStr) return '';
-  const d = new Date(dateStr);
+  if (dateStr instanceof Date) {
+    return Utilities.formatDate(dateStr, getAppTimeZone(), 'yyyy-MM-dd');
+  }
+  const s = String(dateStr).trim();
+  // Extract direct YYYY-MM-DD pattern to preserve exact calendar date without UTC offset shifting
+  const match = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    return `${match[1]}-${match[2]}-${match[3]}`;
+  }
+  const d = new Date(s);
   if (isNaN(d.getTime())) return '';
-  return d.toISOString().split('T')[0];
+  return Utilities.formatDate(d, getAppTimeZone(), 'yyyy-MM-dd');
 }
 
 function sanitizeNumber(val, defaultVal) {

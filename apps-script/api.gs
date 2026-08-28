@@ -3106,3 +3106,10 @@ function handleSyncRecord(body) {
   // Record pending sync operations — processed individually
   return { ok: true };
 }
+
+function handleMaintenanceAlignDatabase(body) {
+  const session = requirePermission(body.token, 'SETTINGS_EDIT');
+  const res = fixDatabaseAlignment();
+  auditLog(session.user_id, 'ALIGN_DATABASE', 'SYSTEM', 'all', null, res, 'OK');
+  return { ok: true, data: res };
+}

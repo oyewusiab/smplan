@@ -179,7 +179,36 @@ export function PlannerDetailPage() {
           fetchedAgendas = generateSundaysForMonth(pl.year, pl.month, pl.unit_name, pl.conducting_officer);
         }
 
-        setAgendas(fetchedAgendas);
+        // Normalize loaded agendas (self-heal Saturday timezone shifts, clean 1899 times, and serialize JSON fields)
+        const normalizedAgendas = fetchedAgendas.map((a, idx) => {
+          let cleanDate = a.date || '';
+          if (cleanDate && /^\d{4}-\d{2}-\d{2}/.test(cleanDate)) {
+            const [y, m, d] = cleanDate.substring(0, 10).split('-').map(Number);
+            const dt = new Date(y, m - 1, d);
+            if (dt.getDay() === 6) { // Saturday shifted from Sunday
+              dt.setDate(dt.getDate() + 1);
+              cleanDate = format(dt, 'yyyy-MM-dd');
+            } else {
+              cleanDate = format(dt, 'yyyy-MM-dd');
+            }
+          }
+
+          let cleanTime = a.start_time || '10:00';
+          if (cleanTime.includes('1899') || cleanTime.includes('T')) {
+            cleanTime = '10:00';
+          }
+
+          return {
+            ...a,
+            week_id: a.week_id || `week_${idx + 1}`,
+            date: cleanDate,
+            start_time: cleanTime,
+            speakers: typeof a.speakers === 'object' ? JSON.stringify(a.speakers) : (a.speakers || '[]'),
+            sacrament_duties: typeof a.sacrament_duties === 'object' ? JSON.stringify(a.sacrament_duties) : (a.sacrament_duties || '{}'),
+          };
+        });
+
+        setAgendas(normalizedAgendas);
         setLastSavedTime(new Date(pl.updated_date || Date.now()));
       }
 

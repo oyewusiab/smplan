@@ -43,6 +43,21 @@ export function SettingsPage() {
   const [pingResult, setPingResult] = useState<string | null>(null);
   const [pingLoading, setPingLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
+  const [alignLoading, setAlignLoading] = useState(false);
+
+  const handleAlignDatabase = async () => {
+    if (!session) return;
+    setAlignLoading(true);
+    try {
+      const res = await syncApi.alignDatabase(session.token) as { ok: boolean; data?: { results?: string[] }; error?: string };
+      if (!res.ok) throw new Error(res.error || 'Alignment failed');
+      toast.success('Database realigned successfully! Fixed shifted Sunday dates & clean time formats.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Alignment failed');
+    } finally {
+      setAlignLoading(false);
+    }
+  };
 
   // Clerk change request modal
   const [showRequestModal, setShowRequestModal] = useState(false);
@@ -524,19 +539,19 @@ export function SettingsPage() {
           </CardBody>
         </Card>
 
-        {/* Backup & Sync (Admin / Clerk) */}
+        {/* Backup, Self-Healing & Sync (Admin / Clerk) */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
               <Database className="h-4 w-4 text-blue-600" />
-              <span className="font-semibold text-slate-900">Backup & Database Export</span>
+              <span className="font-semibold text-slate-900">Database Integrity & Backups</span>
             </div>
           </CardHeader>
           <CardBody className="space-y-4">
             <p className="text-sm text-slate-600">
-              Export a complete JSON backup of all 16 database tables for archival and disaster recovery purposes.
+              Export database archives or run self-healing realignment to automatically fix any historical date shifts, time formats, or sheet synchronizations.
             </p>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <Button
                 variant="outline"
                 icon={<Download className="h-4 w-4" />}
@@ -546,6 +561,16 @@ export function SettingsPage() {
               >
                 Export Full Backup (.JSON)
               </Button>
+              {isAdmin && (
+                <Button
+                  variant="secondary"
+                  icon={<RefreshCw className="h-4 w-4" />}
+                  onClick={handleAlignDatabase}
+                  loading={alignLoading}
+                >
+                  Run Database Realignment & Self-Healing
+                </Button>
+              )}
             </div>
           </CardBody>
         </Card>
