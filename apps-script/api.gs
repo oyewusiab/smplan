@@ -287,92 +287,120 @@ function handleSavePlannerWorkspace(body) {
     throw new Error('Invalid agendas format');
   }
 
+  const existingPlannerAgendas = dbFind('AGENDAS', a => a.planner_id === body.planner_id);
   const savedAgendas = [];
-  const savedAssignments = [];
+  const savedAgendaIds = new Set();
 
-  agendaList.forEach(agData => {
-    const existing = agData.agenda_id ? dbFindOne('AGENDAS', 'agenda_id', agData.agenda_id) : null;
-    
+  agendaList.forEach((agData, idx) => {
+    // Multi-strategy matching: 1. agenda_id (if not temp), 2. week_id, 3. date
+    let existing = null;
+    if (agData.agenda_id && !String(agData.agenda_id).startsWith('temp_')) {
+      existing = existingPlannerAgendas.find(a => a.agenda_id === agData.agenda_id) || dbFindOne('AGENDAS', 'agenda_id', agData.agenda_id);
+    }
+    if (!existing && agData.week_id) {
+      existing = existingPlannerAgendas.find(a => a.week_id === agData.week_id);
+    }
+    if (!existing && agData.date) {
+      const sanitizedD = sanitizeDate(agData.date);
+      existing = existingPlannerAgendas.find(a => a.date === sanitizedD);
+    }
+
     const agendaPayload = {
       planner_id: body.planner_id,
-      week_id: agData.week_id || generateId('WK'),
-      ward_branch: sanitizeString(agData.ward_branch || planner.unit_name),
-      stake_district: sanitizeString(agData.stake_district),
+      week_id: sanitizeString(agData.week_id || (existing ? existing.week_id : `week_${idx + 1}`)),
+      ward_branch: sanitizeString(agData.ward_branch || planner.unit_name || ''),
+      stake_district: sanitizeString(agData.stake_district || ''),
       date: sanitizeDate(agData.date),
       type_of_meeting: sanitizeString(agData.type_of_meeting || 'SACRAMENT'),
-      other_meeting_specify: sanitizeString(agData.other_meeting_specify),
-      presiding: sanitizeString(agData.presiding),
-      conducting: sanitizeString(agData.conducting || planner.conducting_officer),
-      music_director: sanitizeString(agData.music_director),
-      choir_director: sanitizeString(agData.choir_director),
-      organist: sanitizeString(agData.organist),
+      other_meeting_specify: sanitizeString(agData.other_meeting_specify || ''),
+      presiding: sanitizeString(agData.presiding || 'Bishop'),
+      presiding_position: sanitizeString(agData.presiding_position || ''),
+      conducting: sanitizeString(agData.conducting || planner.conducting_officer || ''),
+      conducting_position: sanitizeString(agData.conducting_position || ''),
+      music_director: sanitizeString(agData.music_director || ''),
+      choir_director: sanitizeString(agData.choir_director || ''),
+      organist: sanitizeString(agData.organist || ''),
       start_time: sanitizeString(agData.start_time || '10:00'),
-      venue_override: sanitizeString(agData.venue_override),
-      meeting_time_override: sanitizeString(agData.meeting_time_override),
+      venue_override: sanitizeString(agData.venue_override || ''),
+      meeting_time_override: sanitizeString(agData.meeting_time_override || ''),
       is_canceled: Boolean(agData.is_canceled),
-      cancel_reason: sanitizeString(agData.cancel_reason),
-      opening_hymn: sanitizeString(agData.opening_hymn),
-      opening_hymn_number: sanitizeString(agData.opening_hymn_number),
-      opening_prayer: sanitizeString(agData.opening_prayer),
-      opening_prayer_gender: sanitizeString(agData.opening_prayer_gender),
-      sacrament_hymn: sanitizeString(agData.sacrament_hymn),
-      sacrament_hymn_number: sanitizeString(agData.sacrament_hymn_number),
-      special_music: sanitizeString(agData.special_music),
-      speakers: typeof agData.speakers === 'object' ? JSON.stringify(agData.speakers) : sanitizeString(agData.speakers),
-      sacrament_duties: typeof agData.sacrament_duties === 'object' ? JSON.stringify(agData.sacrament_duties) : sanitizeString(agData.sacrament_duties),
-      closing_hymn: sanitizeString(agData.closing_hymn),
-      closing_hymn_number: sanitizeString(agData.closing_hymn_number),
-      closing_prayer: sanitizeString(agData.closing_prayer),
-      closing_prayer_gender: sanitizeString(agData.closing_prayer_gender),
-      week_notes: sanitizeString(agData.week_notes),
+      cancel_reason: sanitizeString(agData.cancel_reason || ''),
+      prelude_music: sanitizeString(agData.prelude_music || ''),
+      greetings_welcome: sanitizeString(agData.greetings_welcome || ''),
+      acknowledgements: sanitizeString(agData.acknowledgements || ''),
+      ward_branch_business: sanitizeString(agData.ward_branch_business || ''),
+      stake_district_business: sanitizeString(agData.stake_district_business || ''),
+      naming_blessing: sanitizeString(agData.naming_blessing || ''),
+      confirmation_bestowal: sanitizeString(agData.confirmation_bestowal || ''),
+      opening_hymn: sanitizeString(agData.opening_hymn || ''),
+      opening_hymn_number: sanitizeString(agData.opening_hymn_number || ''),
+      opening_prayer: sanitizeString(agData.opening_prayer || ''),
+      opening_prayer_gender: sanitizeString(agData.opening_prayer_gender || ''),
+      opening_prayer_prefix: sanitizeString(agData.opening_prayer_prefix || ''),
+      sacrament_hymn: sanitizeString(agData.sacrament_hymn || ''),
+      sacrament_hymn_number: sanitizeString(agData.sacrament_hymn_number || ''),
+      special_music: sanitizeString(agData.special_music || ''),
+      speakers: typeof agData.speakers === 'object' ? JSON.stringify(agData.speakers) : sanitizeString(agData.speakers || '[]'),
+      sacrament_duties: typeof agData.sacrament_duties === 'object' ? JSON.stringify(agData.sacrament_duties) : sanitizeString(agData.sacrament_duties || '{}'),
+      closing_hymn: sanitizeString(agData.closing_hymn || ''),
+      closing_hymn_number: sanitizeString(agData.closing_hymn_number || ''),
+      closing_prayer: sanitizeString(agData.closing_prayer || ''),
+      closing_prayer_gender: sanitizeString(agData.closing_prayer_gender || ''),
+      closing_prayer_prefix: sanitizeString(agData.closing_prayer_prefix || ''),
+      postlude_music: sanitizeString(agData.postlude_music || ''),
+      announcements: sanitizeString(agData.announcements || ''),
+      releases: sanitizeString(agData.releases || ''),
+      calls: sanitizeString(agData.calls || ''),
+      baptized_children: sanitizeString(agData.baptized_children || ''),
+      aaronic_ordinations: sanitizeString(agData.aaronic_ordinations || ''),
+      aaronic_advancements: sanitizeString(agData.aaronic_advancements || ''),
+      achievements: sanitizeString(agData.achievements || ''),
+      babies: sanitizeString(agData.babies || ''),
+      confirmations: sanitizeString(agData.confirmations || ''),
+      fellowships: sanitizeString(agData.fellowships || ''),
+      week_notes: sanitizeString(agData.week_notes || ''),
+      state: sanitizeString(agData.state || (existing ? existing.state : 'DRAFT')),
+      archive_method: sanitizeString(agData.archive_method || (existing ? existing.archive_method : '')),
+      archive_date: sanitizeString(agData.archive_date || (existing ? existing.archive_date : '')),
       updated_date: now(),
     };
 
     if (existing) {
+      agendaPayload.agenda_id = existing.agenda_id;
+      agendaPayload.created_by = existing.created_by || session.user_id;
+      agendaPayload.created_date = existing.created_date || now();
       dbUpdate('AGENDAS', 'agenda_id', existing.agenda_id, agendaPayload);
-      savedAgendas.push({ ...existing, ...agendaPayload });
+      savedAgendas.push(agendaPayload);
+      savedAgendaIds.add(existing.agenda_id);
     } else {
       agendaPayload.agenda_id = generateId('AGN');
       agendaPayload.created_by = session.user_id;
       agendaPayload.created_date = now();
-      agendaPayload.state = 'DRAFT';
       dbInsert('AGENDAS', agendaPayload);
       savedAgendas.push(agendaPayload);
+      savedAgendaIds.add(agendaPayload.agenda_id);
     }
 
-    // Sync Speaker assignments to ASSIGNMENTS table for member assignment stats & conflict detection
-    if (Array.isArray(agData.speakers)) {
-      agData.speakers.forEach(sp => {
-        if (sp.name && sp.name.trim()) {
-          const assignRec = {
-            planner_id: body.planner_id,
-            week_id: agendaPayload.week_id,
-            date: agendaPayload.date,
-            person: sanitizeString(sp.name),
-            role: 'SPEAKER',
-            topic: sanitizeString(sp.topic),
-            minutes: sanitizeNumber(sp.minutes, 10),
-            venue: sanitizeString(agendaPayload.venue_override),
-            meeting_time: sanitizeString(agendaPayload.meeting_time_override || agendaPayload.start_time),
-          };
-          updateMemberAssignmentStats(assignRec.person, assignRec.role, assignRec.date);
-        }
-      });
-    }
+    // Sync Speaker & Prayer assignments
+    syncAgendaAssignments(agendaPayload);
+  });
 
-    // Sync Prayer assignments
-    if (agData.opening_prayer) {
-      updateMemberAssignmentStats(agData.opening_prayer, 'OPENING_PRAYER', agendaPayload.date);
-    }
-    if (agData.closing_prayer) {
-      updateMemberAssignmentStats(agData.closing_prayer, 'CLOSING_PRAYER', agendaPayload.date);
+  // Prune any deleted agendas for this planner if week was removed
+  existingPlannerAgendas.forEach(oldAg => {
+    if (!savedAgendaIds.has(oldAg.agenda_id)) {
+      try { dbDelete('AGENDAS', 'agenda_id', oldAg.agenda_id); } catch(e) {}
     }
   });
 
+  // Always update PLANNERS.weeks and purge cache
   dbUpdate('PLANNERS', 'planner_id', body.planner_id, {
     weeks: JSON.stringify(savedAgendas),
     updated_date: now(),
   });
+
+  invalidateSheetCache('AGENDAS');
+  invalidateSheetCache('PLANNERS');
+  invalidateSheetCache('ASSIGNMENTS');
 
   auditLog(session.user_id, 'SAVE_WORKSPACE', 'PLANNERS', body.planner_id, null, { weeks_count: savedAgendas.length }, 'OK');
   return { ok: true, data: { agendas: savedAgendas } };

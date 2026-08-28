@@ -97,6 +97,9 @@ export function PlannerDetailPage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
+  const [localBackupAvailable, setLocalBackupAvailable] = useState<{ agendas: Agenda[]; timestamp: number } | null>(null);
 
   // Accordion expanded weeks tracking
   const [expandedWeeks, setExpandedWeeks] = useState<Record<number, boolean>>({ 0: true });
@@ -108,7 +111,7 @@ export function PlannerDetailPage() {
   // Printable modal state
   const [showPrintModal, setShowPrintModal] = useState(false);
 
-  // Load Planner and related data
+  // Load Planner and related data with Multi-Layer Safeguards
   const loadData = async (force = false) => {
     if (!session || !id) return;
     setLoading(true);
@@ -126,16 +129,58 @@ export function PlannerDetailPage() {
         setPlanner(pl);
 
         let fetchedAgendas: Agenda[] = [];
-        if (aRes.status === 'fulfilled' && aRes.value.ok) {
-          fetchedAgendas = aRes.value.data || [];
+
+        // 1. Primary Source: AGENDAS Table
+        if (aRes.status === 'fulfilled' && aRes.value.ok && Array.isArray(aRes.value.data) && aRes.value.data.length > 0) {
+          fetchedAgendas = aRes.value.data;
+        } 
+        
+        // 2. Secondary Safeguard: Embedded JSON weeks on the PLANNERS row
+        if (fetchedAgendas.length === 0 && pl.weeks) {
+          try {
+            const parsedWeeks = typeof pl.weeks === 'string' ? JSON.parse(pl.weeks) : pl.weeks;
+            if (Array.isArray(parsedWeeks) && parsedWeeks.length > 0) {
+              fetchedAgendas = parsedWeeks;
+            }
+          } catch { /* ignore parse error */ }
         }
 
-        // If no agendas exist yet for this planner, auto-generate 4-5 Sundays
+        // 3. Local Offline Backup Check
+        try {
+          const localDraftRaw = localStorage.getItem(`SM_DRAFT_PLANNER_${id}`);
+          if (localDraftRaw) {
+            const localDraft = JSON.parse(localDraftRaw);
+            if (localDraft && Array.isArray(localDraft.agendas) && localDraft.agendas.length > 0) {
+              // If cloud is completely empty or has no content, auto-restore local draft
+              const hasCloudContent = fetchedAgendas.some(a => 
+                (a.opening_prayer && a.opening_prayer.trim()) || 
+                (a.closing_prayer && a.closing_prayer.trim()) || 
+                (a.speakers && a.speakers.length > 20)
+              );
+              const hasLocalContent = localDraft.agendas.some((a: Agenda) => 
+                (a.opening_prayer && a.opening_prayer.trim()) || 
+                (a.closing_prayer && a.closing_prayer.trim()) || 
+                (a.speakers && a.speakers.length > 20)
+              );
+
+              if (!hasCloudContent && hasLocalContent) {
+                fetchedAgendas = localDraft.agendas;
+                setHasUnsavedChanges(true);
+                toast.success('Recovered unsaved planner draft from local storage!');
+              } else if (hasLocalContent && localDraft.timestamp > (new Date(pl.updated_date || 0).getTime() + 10000)) {
+                setLocalBackupAvailable(localDraft);
+              }
+            }
+          }
+        } catch { /* storage fallback */ }
+
+        // 4. Default Fallback: Generate empty month structure only if no existing data exists anywhere
         if (fetchedAgendas.length === 0 && pl.year && pl.month) {
           fetchedAgendas = generateSundaysForMonth(pl.year, pl.month, pl.unit_name, pl.conducting_officer);
         }
 
         setAgendas(fetchedAgendas);
+        setLastSavedTime(new Date(pl.updated_date || Date.now()));
       }
 
       if (asRes.status === 'fulfilled' && asRes.value.ok) {
@@ -156,6 +201,47 @@ export function PlannerDetailPage() {
   };
 
   useEffect(() => { loadData(); }, [session, id]);
+
+  // Debounced local backup persistence
+  useEffect(() => {
+    if (!id || loading || agendas.length === 0) return;
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem(`SM_DRAFT_PLANNER_${id}`, JSON.stringify({
+          planner_id: id,
+          agendas,
+          conducting_officer: planner?.conducting_officer,
+          unit_name: planner?.unit_name,
+          timestamp: Date.now()
+        }));
+      } catch { /* storage full */ }
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [agendas, planner, id, loading]);
+
+  // Window beforeunload prompt if unsaved changes exist
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  // Keyboard shortcut: Ctrl+S / Cmd+S to Save Workspace
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        handleSaveWorkspace();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [planner, agendas, session]);
 
   // Generate 4 to 5 Sundays for the selected Month/Year
   const generateSundaysForMonth = (year: number, month: number, unitName: string, conducting: string): Agenda[] => {
@@ -235,6 +321,7 @@ export function PlannerDetailPage() {
 
   // Update specific agenda in state
   const updateAgendaField = (index: number, patch: Partial<Agenda>) => {
+    setHasUnsavedChanges(true);
     setAgendas(prev => {
       const next = [...prev];
       next[index] = { ...next[index], ...patch };
@@ -578,11 +665,30 @@ export function PlannerDetailPage() {
         unit_name: planner.unit_name,
         music_status: planner.music_status,
         agendas: agendas,
-      }) as { ok: boolean; error?: string };
+      }) as { ok: boolean; data?: { agendas: Agenda[] }; error?: string };
 
-      if (!res.ok) throw new Error(res.error);
-      toast.success('Planner workspace saved successfully!');
-      loadData();
+      if (!res.ok) throw new Error(res.error || 'Save failed');
+
+      if (res.data?.agendas && Array.isArray(res.data.agendas) && res.data.agendas.length > 0) {
+        setAgendas(res.data.agendas);
+      }
+
+      setHasUnsavedChanges(false);
+      setLastSavedTime(new Date());
+      setLocalBackupAvailable(null);
+
+      // Keep local snapshot up to date
+      try {
+        localStorage.setItem(`SM_DRAFT_PLANNER_${planner.planner_id}`, JSON.stringify({
+          planner_id: planner.planner_id,
+          agendas: res.data?.agendas || agendas,
+          conducting_officer: planner.conducting_officer,
+          unit_name: planner.unit_name,
+          timestamp: Date.now()
+        }));
+      } catch { /* storage full */ }
+
+      toast.success('Planner workspace saved successfully to Cloud!');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Save failed');
     } finally {
@@ -674,7 +780,22 @@ export function PlannerDetailPage() {
         title={`${monthName} Sacrament Planner Workspace`}
         subtitle={`${planner.unit_name} · ${agendas.length} Sundays Configured`}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {canEdit && (
+              <div className="mr-1">
+                {hasUnsavedChanges ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                    <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                    Unsaved Changes (Ctrl+S)
+                  </span>
+                ) : lastSavedTime ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    <span className="h-2 w-2 rounded-full bg-emerald-600" />
+                    Saved to Cloud
+                  </span>
+                ) : null}
+              </div>
+            )}
             <Button size="sm" variant="outline" icon={<ArrowLeft className="h-4 w-4" />} onClick={() => navigate('/planners')}>
               Back
             </Button>
@@ -706,6 +827,41 @@ export function PlannerDetailPage() {
       />
 
       <div className="p-4 lg:p-6 space-y-6">
+
+        {/* Local Backup Recovery Alert */}
+        {localBackupAvailable && canEdit && (
+          <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between gap-3 text-xs text-amber-900 shadow-sm animate-fade-in">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+              <span>
+                <strong>Offline draft backup detected:</strong> We found changes saved locally in your browser from {format(new Date(localBackupAvailable.timestamp), 'p, MMM d')}.
+              </span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                size="xs"
+                variant="outline"
+                onClick={() => {
+                  localStorage.removeItem(`SM_DRAFT_PLANNER_${id}`);
+                  setLocalBackupAvailable(null);
+                }}
+              >
+                Dismiss
+              </Button>
+              <Button
+                size="xs"
+                onClick={() => {
+                  setAgendas(localBackupAvailable.agendas);
+                  setHasUnsavedChanges(true);
+                  setLocalBackupAvailable(null);
+                  toast.success('Restored offline planner draft!');
+                }}
+              >
+                Restore Local Draft
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Read-Only Notice Banner */}
         {isViewOnly && (

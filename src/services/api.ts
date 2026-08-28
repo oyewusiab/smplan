@@ -98,6 +98,7 @@ function autoInvalidateOnMutation(action: string) {
     invalidateClientCache('GET_PLANNER');
     invalidateClientCache('LIST_AGENDAS');
     invalidateClientCache('LIST_ASSIGNMENTS');
+    invalidateClientCache('GET_MEMBERS_ANALYTICS');
   } else if (action.includes('MEMBER')) {
     invalidateClientCache('LIST_MEMBERS');
     invalidateClientCache('GET_MEMBERS_ANALYTICS');
