@@ -103,6 +103,69 @@ function parseSacramentDuties(val: unknown): { preparing: string[]; blessing: st
   return null;
 }
 
+const WEEK_THEMES = [
+  {
+    num: 1,
+    name: 'Week 1',
+    badgeBg: 'bg-blue-600',
+    borderLeft: 'border-l-4 border-l-blue-600',
+    headerBg: 'bg-gradient-to-r from-blue-50/90 via-blue-50/30 to-white',
+    accentText: 'text-blue-700',
+    activeTabBg: 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-600/30',
+    inactiveTabBg: 'bg-blue-50 text-blue-800 hover:bg-blue-100 border border-blue-200',
+    sectionBorder: 'border-blue-200/80',
+    iconColor: 'text-blue-600',
+  },
+  {
+    num: 2,
+    name: 'Week 2',
+    badgeBg: 'bg-emerald-600',
+    borderLeft: 'border-l-4 border-l-emerald-600',
+    headerBg: 'bg-gradient-to-r from-emerald-50/90 via-emerald-50/30 to-white',
+    accentText: 'text-emerald-700',
+    activeTabBg: 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-600/30',
+    inactiveTabBg: 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200',
+    sectionBorder: 'border-emerald-200/80',
+    iconColor: 'text-emerald-600',
+  },
+  {
+    num: 3,
+    name: 'Week 3',
+    badgeBg: 'bg-purple-600',
+    borderLeft: 'border-l-4 border-l-purple-600',
+    headerBg: 'bg-gradient-to-r from-purple-50/90 via-purple-50/30 to-white',
+    accentText: 'text-purple-700',
+    activeTabBg: 'bg-purple-600 text-white shadow-sm ring-2 ring-purple-600/30',
+    inactiveTabBg: 'bg-purple-50 text-purple-800 hover:bg-purple-100 border border-purple-200',
+    sectionBorder: 'border-purple-200/80',
+    iconColor: 'text-purple-600',
+  },
+  {
+    num: 4,
+    name: 'Week 4',
+    badgeBg: 'bg-amber-600',
+    borderLeft: 'border-l-4 border-l-amber-600',
+    headerBg: 'bg-gradient-to-r from-amber-50/90 via-amber-50/30 to-white',
+    accentText: 'text-amber-700',
+    activeTabBg: 'bg-amber-600 text-white shadow-sm ring-2 ring-amber-600/30',
+    inactiveTabBg: 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200',
+    sectionBorder: 'border-amber-200/80',
+    iconColor: 'text-amber-600',
+  },
+  {
+    num: 5,
+    name: 'Week 5',
+    badgeBg: 'bg-rose-600',
+    borderLeft: 'border-l-4 border-l-rose-600',
+    headerBg: 'bg-gradient-to-r from-rose-50/90 via-rose-50/30 to-white',
+    accentText: 'text-rose-700',
+    activeTabBg: 'bg-rose-600 text-white shadow-sm ring-2 ring-rose-600/30',
+    inactiveTabBg: 'bg-rose-50 text-rose-800 hover:bg-rose-100 border border-rose-200',
+    sectionBorder: 'border-rose-200/80',
+    iconColor: 'text-rose-600',
+  },
+];
+
 export function PlannerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { session, can } = useAuthStore();
@@ -407,6 +470,28 @@ export function PlannerDetailPage() {
   // Toggle week accordion
   const toggleWeekAccordion = (idx: number) => {
     setExpandedWeeks(prev => ({ ...prev, [idx]: !prev[idx] }));
+  };
+
+  const expandAllWeeks = () => {
+    const all: Record<number, boolean> = {};
+    agendas.forEach((_, idx) => { all[idx] = true; });
+    setExpandedWeeks(all);
+  };
+
+  const collapseAllWeeks = () => {
+    const none: Record<number, boolean> = {};
+    agendas.forEach((_, idx) => { none[idx] = false; });
+    setExpandedWeeks(none);
+  };
+
+  const scrollToWeek = (idx: number) => {
+    setExpandedWeeks(prev => ({ ...prev, [idx]: true }));
+    setTimeout(() => {
+      const el = document.getElementById(`week-card-${idx}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 50);
   };
 
   // Update specific agenda in state
@@ -1047,19 +1132,78 @@ export function PlannerDetailPage() {
           </CardBody>
         </Card>
 
-        {/* Multi-Week Accordion Grid (4 to 5 Weeks) */}
+        {/* Multi-Week Workspace Header & Quick Week Navigator */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between px-1">
-            <h3 className="font-bold text-lg text-slate-900 flex items-center gap-2">
-              <BookOpen className="h-5 w-5 text-blue-600" />
-              Multi-Week Sacrament Form Builder
-            </h3>
-            <span className="text-xs text-slate-400 font-medium">
-              {agendas.length} of 5 max weeks scheduled
-            </span>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-white rounded-xl border border-slate-200 shadow-xs">
+            <div>
+              <h3 className="font-bold text-lg text-slate-900 flex items-center gap-2">
+                <BookOpen className="h-5 w-5 text-blue-600" />
+                Multi-Week Sacrament Form Builder
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Manage each Sunday's program independently. Use the quick tabs below to jump directly to any week.
+              </p>
+            </div>
+
+            {/* Expand / Collapse All Actions */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={expandAllWeeks}
+                className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
+              >
+                Expand All
+              </button>
+              <button
+                type="button"
+                onClick={collapseAllWeeks}
+                className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
+              >
+                Collapse All
+              </button>
+            </div>
           </div>
 
+          {/* Quick Week Jump Bar */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
+            {agendas.map((ag, wIdx) => {
+              const theme = WEEK_THEMES[wIdx % WEEK_THEMES.length];
+              const isExpanded = expandedWeeks[wIdx] !== false;
+              const weekReadiness = computeWeekReadiness(ag);
+              const formattedSunday = ag.date ? format(new Date(ag.date), 'MMM d') : `Wk ${wIdx + 1}`;
+
+              return (
+                <button
+                  key={wIdx}
+                  type="button"
+                  onClick={() => scrollToWeek(wIdx)}
+                  className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between gap-1 shadow-2xs ${
+                    isExpanded ? theme.activeTabBg : theme.inactiveTabBg
+                  }`}
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <span className="text-xs font-black tracking-wide uppercase">
+                      Week {wIdx + 1}
+                    </span>
+                    <span
+                      className={`px-1.5 py-0.5 rounded-full text-2xs font-extrabold ${
+                        isExpanded ? 'bg-white/20 text-white' : 'bg-white text-slate-700 border border-slate-200'
+                      }`}
+                    >
+                      {weekReadiness.percent}%
+                    </span>
+                  </div>
+                  <div className={`text-xs font-bold truncate ${isExpanded ? 'text-white/90' : 'text-slate-700'}`}>
+                    📅 {formattedSunday}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Individual Week Workspace Cards */}
           {agendas.map((ag, wIdx) => {
+            const theme = WEEK_THEMES[wIdx % WEEK_THEMES.length];
             const isExpanded = expandedWeeks[wIdx] !== false;
             const speakers = getAgendaSpeakers(ag);
             const isFT = ag.type_of_meeting === 'FAST_SUNDAY';
@@ -1067,48 +1211,57 @@ export function PlannerDetailPage() {
             const weekReadiness = computeWeekReadiness(ag);
 
             return (
-              <Card key={ag.agenda_id || wIdx} className="border border-slate-200 shadow-xs overflow-hidden">
-                
+              <Card
+                key={ag.agenda_id || wIdx}
+                id={`week-card-${wIdx}`}
+                className={`border border-slate-200 shadow-xs overflow-hidden ${theme.borderLeft} scroll-mt-20`}
+              >
                 {/* Week Header Bar */}
                 <div
                   onClick={() => toggleWeekAccordion(wIdx)}
-                  className="flex items-center justify-between px-5 py-4 bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100/70 transition"
+                  className={`flex items-center justify-between px-5 py-4 ${theme.headerBg} border-b border-slate-200 cursor-pointer hover:brightness-98 transition`}
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="flex items-center justify-center h-8 w-8 rounded-full bg-blue-600 text-white font-bold text-sm">
+                  <div className="flex items-center gap-3.5">
+                    <span className={`flex items-center justify-center h-9 w-9 rounded-full ${theme.badgeBg} text-white font-black text-sm shadow-xs`}>
                       {wIdx + 1}
                     </span>
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="font-bold text-slate-900 text-base">
-                          {ag.date ? format(new Date(ag.date), 'EEEE, MMMM d, yyyy') : `Week ${wIdx + 1}`}
+                        <span className={`px-2.5 py-0.5 rounded-md text-xs font-black tracking-wider text-white ${theme.badgeBg}`}>
+                          WEEK {wIdx + 1}
+                        </span>
+                        <h4 className="font-extrabold text-slate-900 text-base">
+                          {ag.date ? format(new Date(ag.date), 'EEEE, MMMM d, yyyy') : `Sunday Week ${wIdx + 1}`}
                         </h4>
                         {isCanceled && (
-                          <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800">
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-red-100 text-red-800 border border-red-200">
                             CANCELED
                           </span>
                         )}
                         {isFT && !isCanceled && (
-                          <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-amber-100 text-amber-900 border border-amber-200">
                             Fast & Testimony
                           </span>
                         )}
                         {/* Week Readiness Pill */}
                         <span
-                          className={`px-2 py-0.5 rounded-full text-2xs font-bold border ${weekReadiness.isReady ? 'bg-green-100 text-green-800 border-green-200' : 'bg-amber-100 text-amber-800 border-amber-200'}`}
+                          className={`px-2.5 py-0.5 rounded-full text-2xs font-extrabold border ${
+                            weekReadiness.isReady ? 'bg-green-100 text-green-800 border-green-200' : 'bg-amber-100 text-amber-800 border-amber-200'
+                          }`}
                           title={weekReadiness.missing.length > 0 ? `Missing: ${weekReadiness.missing.join(', ')}` : 'Week fully planned'}
                         >
                           {weekReadiness.percent}% {weekReadiness.isReady ? 'Ready' : `(${weekReadiness.missing.length} missing)`}
                         </span>
                       </div>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        {(ag.type_of_meeting || 'SACRAMENT').replace(/_/g, ' ')} · Conducting: {ag.conducting || planner.conducting_officer || 'TBD'}
+                      <p className="text-xs text-slate-600 mt-1 flex items-center gap-2">
+                        <span className="font-semibold text-slate-700">{(ag.type_of_meeting || 'SACRAMENT').replace(/_/g, ' ')}</span>
+                        <span>·</span>
+                        <span>Conducting: <strong>{ag.conducting || planner.conducting_officer || 'TBD'}</strong></span>
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                    
                     {/* Swap Entire Week Dropdown Menu */}
                     {canEdit && agendas.length > 1 && (
                       <select
@@ -1120,7 +1273,7 @@ export function PlannerDetailPage() {
                             handleSwapWeeks(wIdx, targetIdx);
                           }
                         }}
-                        className="text-xs font-semibold bg-white border border-slate-300 text-slate-700 rounded-lg px-2 py-1 hover:bg-slate-50 cursor-pointer focus:outline-none focus:border-blue-500"
+                        className="text-xs font-bold bg-white border border-slate-300 text-slate-700 rounded-lg px-2.5 py-1.5 hover:bg-slate-50 cursor-pointer focus:outline-none focus:border-blue-500 shadow-2xs"
                       >
                         <option value="" disabled>🔀 Swap Week...</option>
                         {agendas.map((_, otherIdx) => {
@@ -1137,7 +1290,7 @@ export function PlannerDetailPage() {
                     <button
                       title="Dispatch WhatsApp Duty Slip"
                       onClick={() => handleDispatchDutySlips(ag, wIdx + 1)}
-                      className="p-1.5 rounded-lg text-slate-500 hover:bg-green-50 hover:text-green-600 transition"
+                      className="p-2 rounded-lg text-slate-600 hover:bg-green-50 hover:text-green-700 border border-slate-200 bg-white shadow-2xs transition"
                     >
                       <Share2 className="h-4 w-4" />
                     </button>
@@ -1146,7 +1299,7 @@ export function PlannerDetailPage() {
                       <button
                         title="Remove Week"
                         onClick={() => handleRemoveWeek(wIdx)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 transition"
+                        className="p-2 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 border border-slate-200 bg-white shadow-2xs transition"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -1154,124 +1307,130 @@ export function PlannerDetailPage() {
 
                     <button
                       onClick={() => toggleWeekAccordion(wIdx)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-200 transition"
+                      className="p-2 rounded-lg text-slate-600 hover:bg-slate-200/70 border border-slate-200 bg-white shadow-2xs transition"
                     >
-                      {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                      {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                     </button>
                   </div>
                 </div>
 
                 {/* Week Editor Body */}
                 {isExpanded && (
-                  <CardBody className="p-5 space-y-6">
+                  <CardBody className="p-5 space-y-6 bg-slate-50/40">
                     
-                    {/* Row 1: Date, Presiding, Meeting Type, Time & Sacrament Toggle */}
-                    <div className="grid sm:grid-cols-12 gap-4 p-4 bg-slate-50/70 rounded-xl border border-slate-200">
-                      
-                      <div className="sm:col-span-3">
-                        <Input
-                          type="date"
-                          label="Meeting Date"
-                          disabled={!canEdit}
-                          value={ag.date}
-                          onChange={(e) => updateAgendaField(wIdx, { date: e.target.value })}
-                        />
+                    {/* Section 1: Meeting Schedule & Presiding */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-extrabold text-xs uppercase tracking-wider text-blue-900 bg-blue-100/80 px-3 py-1 rounded-md border border-blue-200/70 flex items-center gap-2">
+                          📅 1. Meeting Schedule & Presiding Officer
+                        </h4>
                       </div>
 
-                      <div className="sm:col-span-3">
-                        <Input
-                          label="Presiding Officer (Optional)"
-                          disabled={!canEdit}
-                          placeholder="e.g. Bishop Johnson / Stake President"
-                          value={ag.presiding || ''}
-                          onChange={(e) => updateAgendaField(wIdx, { presiding: e.target.value })}
-                        />
-                      </div>
+                      <div className="grid sm:grid-cols-12 gap-4 p-4.5 bg-blue-50/25 rounded-xl border border-blue-200/80 shadow-2xs">
+                        <div className="sm:col-span-3">
+                          <Input
+                            type="date"
+                            label="Meeting Date"
+                            disabled={!canEdit}
+                            value={ag.date}
+                            onChange={(e) => updateAgendaField(wIdx, { date: e.target.value })}
+                          />
+                        </div>
 
-                      <div className="sm:col-span-3">
-                        <Select
-                          label="Meeting Type"
-                          disabled={!canEdit}
-                          options={[
-                            { value: 'SACRAMENT', label: 'Normal Sacrament' },
-                            { value: 'FAST_SUNDAY', label: 'Fast & Testimony' },
-                            { value: 'COMBINED', label: 'Combined Meeting' },
-                            { value: 'STAKE_CONFERENCE', label: 'Stake Conference' },
-                            { value: 'SPECIAL', label: 'Special Meeting' },
-                            { value: 'OTHER', label: 'Others (Specified)' },
-                          ]}
-                          value={ag.type_of_meeting}
-                          onChange={(e) => updateAgendaField(wIdx, { type_of_meeting: e.target.value as MeetingType })}
-                        />
-                        {ag.type_of_meeting === 'OTHER' && (
-                          <div className="mt-2">
-                            <Input
-                              placeholder="Specify meeting type..."
+                        <div className="sm:col-span-3">
+                          <Input
+                            label="Presiding Officer (Optional)"
+                            disabled={!canEdit}
+                            placeholder="e.g. Bishop Johnson / Stake President"
+                            value={ag.presiding || ''}
+                            onChange={(e) => updateAgendaField(wIdx, { presiding: e.target.value })}
+                          />
+                        </div>
+
+                        <div className="sm:col-span-3">
+                          <Select
+                            label="Meeting Type"
+                            disabled={!canEdit}
+                            options={[
+                              { value: 'SACRAMENT', label: 'Normal Sacrament' },
+                              { value: 'FAST_SUNDAY', label: 'Fast & Testimony' },
+                              { value: 'COMBINED', label: 'Combined Meeting' },
+                              { value: 'STAKE_CONFERENCE', label: 'Stake Conference' },
+                              { value: 'SPECIAL', label: 'Special Meeting' },
+                              { value: 'OTHER', label: 'Others (Specified)' },
+                            ]}
+                            value={ag.type_of_meeting}
+                            onChange={(e) => updateAgendaField(wIdx, { type_of_meeting: e.target.value as MeetingType })}
+                          />
+                          {ag.type_of_meeting === 'OTHER' && (
+                            <div className="mt-2">
+                              <Input
+                                placeholder="Specify meeting type..."
+                                disabled={!canEdit}
+                                value={ag.other_meeting_specify || ''}
+                                onChange={(e) => updateAgendaField(wIdx, { other_meeting_specify: e.target.value })}
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="sm:col-span-3">
+                          <Input
+                            label="Venue / Time Override"
+                            disabled={!canEdit}
+                            placeholder="e.g. Main Chapel @ 10:00 AM"
+                            value={ag.meeting_time_override || ag.start_time || ''}
+                            onChange={(e) => updateAgendaField(wIdx, { meeting_time_override: e.target.value })}
+                          />
+                        </div>
+
+                        {/* On/Off Sacrament Meeting Toggle Switch */}
+                        <div className="sm:col-span-12 pt-3 border-t border-blue-200/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                          <div>
+                            <label className="text-xs font-extrabold text-slate-800 flex items-center gap-2">
+                              Sacrament Meeting Will be Held?
+                              <span className={`px-2.5 py-0.5 rounded-full text-2xs font-black ${!isCanceled ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'}`}>
+                                {!isCanceled ? 'YES — SACRAMENT HELD' : 'NO — SACRAMENT CANCELED'}
+                              </span>
+                            </label>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              Toggle OFF for Stake Conference, General Conference, Broadcasts, or Special notices.
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
                               disabled={!canEdit}
-                              value={ag.other_meeting_specify || ''}
-                              onChange={(e) => updateAgendaField(wIdx, { other_meeting_specify: e.target.value })}
+                              onClick={() => updateAgendaField(wIdx, { is_canceled: !ag.is_canceled })}
+                              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${!isCanceled ? 'bg-green-600' : 'bg-slate-300'}`}
+                            >
+                              <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${!isCanceled ? 'translate-x-5' : 'translate-x-0'}`} />
+                            </button>
+                          </div>
+                        </div>
+
+                        {isCanceled && (
+                          <div className="sm:col-span-12 mt-1">
+                            <Input
+                              label="Reason for No Sacrament Meeting (Required)"
+                              required
+                              placeholder="e.g. Stake Conference Broadcast / General Conference"
+                              disabled={!canEdit}
+                              value={ag.cancel_reason || ''}
+                              onChange={(e) => updateAgendaField(wIdx, { cancel_reason: e.target.value })}
                             />
                           </div>
                         )}
                       </div>
-
-                      <div className="sm:col-span-3">
-                        <Input
-                          label="Venue / Time Override"
-                          disabled={!canEdit}
-                          placeholder="e.g. Main Chapel @ 10:00 AM"
-                          value={ag.meeting_time_override || ag.start_time || ''}
-                          onChange={(e) => updateAgendaField(wIdx, { meeting_time_override: e.target.value })}
-                        />
-                      </div>
-
-                      {/* On/Off Sacrament Meeting Toggle Switch */}
-                      <div className="sm:col-span-12 pt-2 border-t border-slate-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                        <div>
-                          <label className="text-xs font-bold text-slate-800 flex items-center gap-2">
-                            Sacrament Meeting Will be Held?
-                            <span className={`px-2 py-0.5 rounded-full text-2xs font-extrabold ${!isCanceled ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                              {!isCanceled ? 'YES — SACRAMENT HELD' : 'NO — SACRAMENT CANCELED'}
-                            </span>
-                          </label>
-                          <p className="text-xs text-slate-500 mt-0.5">
-                            Toggle OFF for Stake Conference, General Conference, Broadcasts, or Special notices.
-                          </p>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          <button
-                            type="button"
-                            disabled={!canEdit}
-                            onClick={() => updateAgendaField(wIdx, { is_canceled: !ag.is_canceled })}
-                            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${!isCanceled ? 'bg-green-600' : 'bg-slate-300'}`}
-                          >
-                            <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${!isCanceled ? 'translate-x-5' : 'translate-x-0'}`} />
-                          </button>
-                        </div>
-                      </div>
-
-                      {isCanceled && (
-                        <div className="sm:col-span-12 mt-1">
-                          <Input
-                            label="Reason for No Sacrament Meeting (Required)"
-                            required
-                            placeholder="e.g. Stake Conference Broadcast / General Conference"
-                            disabled={!canEdit}
-                            value={ag.cancel_reason || ''}
-                            onChange={(e) => updateAgendaField(wIdx, { cancel_reason: e.target.value })}
-                          />
-                        </div>
-                      )}
-
                     </div>
 
-                    {/* If CANCELED: Hide all blocks (Speakers, Hymns, Sacrament Duties, Prayers) and display cancellation notice */}
+                    {/* If CANCELED: Hide all blocks and display cancellation notice */}
                     {isCanceled ? (
                       <div className="p-5 bg-red-50 border border-red-200 rounded-xl text-sm text-red-900 flex items-start gap-3 shadow-2xs">
                         <AlertTriangle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
                         <div className="space-y-1">
-                          <h5 className="font-bold text-red-900 text-sm uppercase tracking-wide">
+                          <h5 className="font-extrabold text-red-900 text-sm uppercase tracking-wide">
                             No Sacrament Meeting Scheduled
                           </h5>
                           <p className="text-xs text-red-800">
@@ -1284,575 +1443,584 @@ export function PlannerDetailPage() {
                       </div>
                     ) : (
                       <>
-                        {/* If Fast & Testimony Sunday: Speakers are deactivated, while Hymns, Duties & Prayers remain active */}
-                        {isFT ? (
-                          <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-900 flex items-center gap-2">
-                            <Sparkles className="h-5 w-5 text-amber-600 shrink-0" />
-                            <span><strong>Fast & Testimony Meeting:</strong> Speaker fields are deactivated while Hymns, Sacrament duties and Prayers remain active.</span>
+                        {/* Section 2: Speakers Configuration Block */}
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-extrabold text-xs uppercase tracking-wider text-purple-900 bg-purple-100/80 px-3 py-1 rounded-md border border-purple-200/70 flex items-center gap-2">
+                              🎤 2. Speakers Configuration
+                            </h4>
+                            {!isFT && canEdit && (
+                              <Button size="xs" variant="outline" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => addSpeakerToWeek(wIdx)}>
+                                Add Speaker
+                              </Button>
+                            )}
                           </div>
-                        ) : (
-                          /* Speakers Configuration Block */
-                          <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                              <h4 className="font-bold text-sm text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                                🎤 Speakers Configuration
-                              </h4>
-                              {canEdit && (
-                                <Button size="xs" variant="outline" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => addSpeakerToWeek(wIdx)}>
-                                  Add Speaker
-                                </Button>
+
+                          {isFT ? (
+                            <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-900 flex items-center gap-2 shadow-2xs">
+                              <Sparkles className="h-5 w-5 text-amber-600 shrink-0" />
+                              <span><strong>Fast & Testimony Meeting:</strong> Speaker fields are deactivated while Hymns, Sacrament duties and Prayers remain active.</span>
+                            </div>
+                          ) : (
+                            <div className="p-4.5 bg-purple-50/25 rounded-xl border border-purple-200/80 shadow-2xs space-y-4">
+                              {speakers.map((sp, sIdx) => {
+                                const conflictAlert = checkMemberConflict(sp.name, wIdx, `Speaker ${sIdx + 1}`);
+                                const currentPrefix = sp.prefix || (sp.gender === 'F' ? 'Sister' : 'Brother');
+
+                                const getPrefixBadgeStyle = (prefixVal: string) => {
+                                  switch (prefixVal) {
+                                    case 'Sister': return 'bg-pink-100 text-pink-800 border-pink-300';
+                                    case 'Elder': return 'bg-purple-100 text-purple-800 border-purple-300';
+                                    case 'Bishop': return 'bg-amber-100 text-amber-800 border-amber-300';
+                                    case 'President': return 'bg-indigo-100 text-indigo-800 border-indigo-300';
+                                    default: return 'bg-blue-100 text-blue-800 border-blue-300'; // Brother
+                                  }
+                                };
+
+                                return (
+                                  <div key={sIdx} className="p-4 bg-white rounded-xl border border-purple-200/90 shadow-2xs space-y-3.5">
+                                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs font-black text-purple-900 bg-purple-100 px-2.5 py-0.5 rounded-md border border-purple-200">
+                                          Speaker {sIdx + 1}
+                                        </span>
+                                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${getPrefixBadgeStyle(currentPrefix)}`}>
+                                          {currentPrefix}
+                                        </span>
+                                      </div>
+
+                                      {/* Drag / Reorder Buttons */}
+                                      {canEdit && (
+                                        <div className="flex items-center gap-1.5">
+                                          <button
+                                            disabled={sIdx === 0}
+                                            onClick={() => moveSpeakerOrder(wIdx, sIdx, 'up')}
+                                            className="px-2 py-0.5 text-xs font-bold bg-slate-50 border border-slate-300 rounded-md hover:bg-slate-100 disabled:opacity-30 transition"
+                                          >
+                                            ↑ Move Up
+                                          </button>
+                                          <button
+                                            disabled={sIdx === speakers.length - 1}
+                                            onClick={() => moveSpeakerOrder(wIdx, sIdx, 'down')}
+                                            className="px-2 py-0.5 text-xs font-bold bg-slate-50 border border-slate-300 rounded-md hover:bg-slate-100 disabled:opacity-30 transition"
+                                          >
+                                            ↓ Move Down
+                                          </button>
+                                          {speakers.length > 1 && (
+                                            <button
+                                              onClick={() => removeSpeakerFromWeek(wIdx, sIdx)}
+                                              className="p-1 text-slate-400 hover:text-red-600 transition"
+                                            >
+                                              <Trash2 className="h-3.5 w-3.5" />
+                                            </button>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    <div className="grid sm:grid-cols-12 gap-3.5">
+                                      {/* Prefix / Title Dropdown */}
+                                      <div className="sm:col-span-3">
+                                        <label className="block text-xs font-bold text-slate-700 mb-1">Prefix / Title</label>
+                                        <select
+                                          disabled={!canEdit}
+                                          value={currentPrefix}
+                                          onChange={(e) => {
+                                            const newPrefix = e.target.value;
+                                            const newSpeakers = [...speakers];
+                                            newSpeakers[sIdx] = {
+                                              ...newSpeakers[sIdx],
+                                              prefix: newPrefix,
+                                              gender: newPrefix === 'Sister' ? 'F' : 'M',
+                                            };
+                                            updateAgendaSpeakers(wIdx, newSpeakers);
+                                          }}
+                                          className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold focus:border-blue-500 focus:outline-none"
+                                        >
+                                          <option value="Brother">Brother</option>
+                                          <option value="Sister">Sister</option>
+                                          <option value="Elder">Elder</option>
+                                          <option value="Bishop">Bishop</option>
+                                          <option value="President">President</option>
+                                        </select>
+                                      </div>
+
+                                      {/* Speaker's Name Autocomplete */}
+                                      <div className="sm:col-span-9">
+                                        <label className="block text-xs font-bold text-slate-700 mb-1">Speaker's Name</label>
+                                        <input
+                                          type="text"
+                                          disabled={!canEdit}
+                                          placeholder="Search member list or enter full name..."
+                                          list={`members_list_${wIdx}_${sIdx}`}
+                                          value={sp.name}
+                                          onChange={(e) => {
+                                            const val = e.target.value;
+                                            const found = members.find(m => m.name.toLowerCase() === val.toLowerCase());
+                                            const newSpeakers = [...speakers];
+                                            const detectedGender = found ? (found.gender || 'M') : newSpeakers[sIdx].gender;
+                                            newSpeakers[sIdx] = {
+                                              ...newSpeakers[sIdx],
+                                              name: val,
+                                              gender: detectedGender,
+                                              prefix: newSpeakers[sIdx].prefix || (detectedGender === 'F' ? 'Sister' : 'Brother'),
+                                            };
+                                            updateAgendaSpeakers(wIdx, newSpeakers);
+                                          }}
+                                          className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium focus:border-blue-500 focus:outline-none"
+                                        />
+                                        <datalist id={`members_list_${wIdx}_${sIdx}`}>
+                                          {members.map(m => (
+                                            <option key={m.name} value={m.name}>{m.organisation ? `${m.name} (${m.organisation})` : m.name}</option>
+                                          ))}
+                                        </datalist>
+                                      </div>
+
+                                      {/* Topic */}
+                                      <div className="sm:col-span-6">
+                                        <div className="flex items-center justify-between mb-1">
+                                          <label className="block text-xs font-bold text-slate-700">Topic</label>
+                                          {canEdit && (
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                const randTopic = GENERAL_CONFERENCE_TOPICS_2026[Math.floor(Math.random() * GENERAL_CONFERENCE_TOPICS_2026.length)];
+                                                const newSpeakers = [...speakers];
+                                                newSpeakers[sIdx].topic = randTopic.topic;
+                                                newSpeakers[sIdx].scripture_ref = randTopic.ref;
+                                                newSpeakers[sIdx].talk_link = randTopic.link;
+                                                updateAgendaSpeakers(wIdx, newSpeakers);
+                                                toast.success('Suggested Conference topic applied');
+                                              }}
+                                              className="text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1"
+                                            >
+                                              <Sparkles className="h-3 w-3" /> AI Topic Suggestion
+                                            </button>
+                                          )}
+                                        </div>
+                                        <textarea
+                                          rows={2}
+                                          disabled={!canEdit}
+                                          placeholder="e.g. The Atonement of Jesus Christ and covenant path..."
+                                          value={sp.topic || ''}
+                                          onChange={(e) => {
+                                            const newSpeakers = [...speakers];
+                                            newSpeakers[sIdx].topic = e.target.value;
+                                            updateAgendaSpeakers(wIdx, newSpeakers);
+                                          }}
+                                          className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none resize-y"
+                                        />
+                                      </div>
+
+                                      {/* Scripture Reference */}
+                                      <div className="sm:col-span-6">
+                                        <label className="block text-xs font-bold text-slate-700 mb-1">Reference</label>
+                                        <textarea
+                                          rows={2}
+                                          disabled={!canEdit}
+                                          placeholder="e.g. Alma 32:21; Mosiah 4:14-15"
+                                          value={sp.scripture_ref || ''}
+                                          onChange={(e) => {
+                                            const newSpeakers = [...speakers];
+                                            newSpeakers[sIdx].scripture_ref = e.target.value;
+                                            updateAgendaSpeakers(wIdx, newSpeakers);
+                                          }}
+                                          className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none resize-y"
+                                        />
+                                      </div>
+
+                                      {/* Link to Reference */}
+                                      <div className="sm:col-span-12">
+                                        <Input
+                                          label="Link to Reference (Digital talk / Gospel Library URL)"
+                                          disabled={!canEdit}
+                                          placeholder="https://www.churchofjesuschrist.org/study/general-conference/..."
+                                          value={sp.talk_link || ''}
+                                          onChange={(e) => {
+                                            const newSpeakers = [...speakers];
+                                            newSpeakers[sIdx].talk_link = e.target.value;
+                                            updateAgendaSpeakers(wIdx, newSpeakers);
+                                          }}
+                                        />
+                                        <p className="text-2xs text-slate-400 mt-0.5">
+                                          * Visible in online assignments & planner workspace; automatically excluded from printed PDF outputs.
+                                        </p>
+                                      </div>
+                                    </div>
+
+                                    {conflictAlert && (
+                                      <div className="flex items-center gap-2 text-xs font-medium text-amber-800 bg-amber-50 p-2 rounded-lg border border-amber-200">
+                                        <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+                                        <span>{conflictAlert}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Section 3: Hymns Selection Block */}
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-extrabold text-xs uppercase tracking-wider text-emerald-900 bg-emerald-100/80 px-3 py-1 rounded-md border border-emerald-200/70 flex items-center gap-2">
+                              🎵 3. Hymns Selection
+                            </h4>
+                            {canEdit && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const firstTopic = (speakers[0]?.topic || '').toLowerCase();
+                                  if (firstTopic.includes('faith') || firstTopic.includes('testimony')) {
+                                    setSelectedThemeCategory('Faith & Testimony');
+                                  } else if (firstTopic.includes('prayer') || firstTopic.includes('revelation')) {
+                                    setSelectedThemeCategory('Prayer & Guidance');
+                                  } else if (firstTopic.includes('sabbath') || firstTopic.includes('worship')) {
+                                    setSelectedThemeCategory('Sabbath & Worship');
+                                  } else if (firstTopic.includes('restoration') || firstTopic.includes('prophet')) {
+                                    setSelectedThemeCategory('Restoration & Prophets');
+                                  } else if (firstTopic.includes('temple') || firstTopic.includes('covenant')) {
+                                    setSelectedThemeCategory('Temple & Covenants');
+                                  } else if (firstTopic.includes('gratitude') || firstTopic.includes('praise')) {
+                                    setSelectedThemeCategory('Praise & Gratitude');
+                                  } else {
+                                    setSelectedThemeCategory('Atonement & Sacrament');
+                                  }
+                                  setActiveThemeWeek(wIdx);
+                                }}
+                                className="text-xs font-bold text-emerald-800 hover:text-emerald-900 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 flex items-center gap-1.5 shadow-2xs transition"
+                              >
+                                <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+                                Match Hymns to Theme
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="grid sm:grid-cols-3 gap-4 p-4.5 bg-emerald-50/25 rounded-xl border border-emerald-200/80 shadow-2xs">
+                            {/* Opening Hymn */}
+                            <div className="bg-white p-3.5 rounded-xl border border-emerald-200/70 space-y-2 shadow-2xs">
+                              <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                <span>🎶 Opening Hymn</span>
+                              </label>
+                              <input
+                                type="text"
+                                disabled={!canEdit}
+                                placeholder="e.g. #2 The Spirit of God"
+                                list="hymns_list"
+                                value={ag.opening_hymn ? `#${ag.opening_hymn_number || ''} ${ag.opening_hymn}` : ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  const match = hymns.find(h => `#${h.number} ${h.title}`.toLowerCase() === val.toLowerCase() || h.title.toLowerCase() === val.toLowerCase());
+                                  updateAgendaField(wIdx, {
+                                    opening_hymn: match ? match.title : val,
+                                    opening_hymn_number: match ? String(match.number) : ag.opening_hymn_number,
+                                  });
+                                }}
+                                className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-emerald-500 focus:outline-none"
+                              />
+                              {checkHymnRecentlyUsed(ag.opening_hymn, wIdx) && (
+                                <p className="text-2xs font-semibold text-amber-700 bg-amber-50 p-1 rounded border border-amber-200">
+                                  ⚠️ {checkHymnRecentlyUsed(ag.opening_hymn, wIdx)}
+                                </p>
                               )}
                             </div>
 
-                        <div className="space-y-4">
-                          {speakers.map((sp, sIdx) => {
-                            const conflictAlert = checkMemberConflict(sp.name, wIdx, `Speaker ${sIdx + 1}`);
-                            const currentPrefix = sp.prefix || (sp.gender === 'F' ? 'Sister' : 'Brother');
+                            {/* Sacrament Hymn */}
+                            <div className="bg-white p-3.5 rounded-xl border border-emerald-200/70 space-y-2 shadow-2xs">
+                              <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                <span>🍞 Sacrament Hymn</span>
+                              </label>
+                              <input
+                                type="text"
+                                disabled={!canEdit}
+                                placeholder="e.g. #169 As Now We Take the Sacrament"
+                                list="hymns_list"
+                                value={ag.sacrament_hymn ? `#${ag.sacrament_hymn_number || ''} ${ag.sacrament_hymn}` : ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  const match = hymns.find(h => `#${h.number} ${h.title}`.toLowerCase() === val.toLowerCase() || h.title.toLowerCase() === val.toLowerCase());
+                                  updateAgendaField(wIdx, {
+                                    sacrament_hymn: match ? match.title : val,
+                                    sacrament_hymn_number: match ? String(match.number) : ag.sacrament_hymn_number,
+                                  });
+                                }}
+                                className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-emerald-500 focus:outline-none"
+                              />
+                              {checkHymnRecentlyUsed(ag.sacrament_hymn, wIdx) && (
+                                <p className="text-2xs font-semibold text-amber-700 bg-amber-50 p-1 rounded border border-amber-200">
+                                  ⚠️ {checkHymnRecentlyUsed(ag.sacrament_hymn, wIdx)}
+                                </p>
+                              )}
+                            </div>
 
-                            const getPrefixBadgeStyle = (prefixVal: string) => {
-                              switch (prefixVal) {
-                                case 'Sister': return 'bg-pink-100 text-pink-800 border-pink-300';
-                                case 'Elder': return 'bg-purple-100 text-purple-800 border-purple-300';
-                                case 'Bishop': return 'bg-amber-100 text-amber-800 border-amber-300';
-                                case 'President': return 'bg-indigo-100 text-indigo-800 border-indigo-300';
-                                default: return 'bg-blue-100 text-blue-800 border-blue-300'; // Brother
-                              }
-                            };
+                            {/* Closing Hymn */}
+                            <div className="bg-white p-3.5 rounded-xl border border-emerald-200/70 space-y-2 shadow-2xs">
+                              <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                <span>🎹 Closing Hymn</span>
+                              </label>
+                              <input
+                                type="text"
+                                disabled={!canEdit}
+                                placeholder="e.g. #19 We Thank Thee, O God, for a Prophet"
+                                list="hymns_list"
+                                value={ag.closing_hymn ? `#${ag.closing_hymn_number || ''} ${ag.closing_hymn}` : ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  const match = hymns.find(h => `#${h.number} ${h.title}`.toLowerCase() === val.toLowerCase() || h.title.toLowerCase() === val.toLowerCase());
+                                  updateAgendaField(wIdx, {
+                                    closing_hymn: match ? match.title : val,
+                                    closing_hymn_number: match ? String(match.number) : ag.closing_hymn_number,
+                                  });
+                                }}
+                                className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-emerald-500 focus:outline-none"
+                              />
+                              {checkHymnRecentlyUsed(ag.closing_hymn, wIdx) && (
+                                <p className="text-2xs font-semibold text-amber-700 bg-amber-50 p-1 rounded border border-amber-200">
+                                  ⚠️ {checkHymnRecentlyUsed(ag.closing_hymn, wIdx)}
+                                </p>
+                              )}
+                            </div>
 
-                            return (
-                              <div key={sIdx} className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
-                                
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xs font-bold text-slate-700 bg-slate-200 px-2 py-0.5 rounded-md">
-                                      Speaker {sIdx + 1}
-                                    </span>
-                                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${getPrefixBadgeStyle(currentPrefix)}`}>
-                                      {currentPrefix}
-                                    </span>
-                                  </div>
+                            <datalist id="hymns_list">
+                              {hymns.map(h => (
+                                <option key={h.number} value={`#${h.number} ${h.title}`} />
+                              ))}
+                            </datalist>
 
-                                  {/* Drag / Reorder Buttons */}
-                                  {canEdit && (
-                                    <div className="flex items-center gap-1">
-                                      <button
-                                        disabled={sIdx === 0}
-                                        onClick={() => moveSpeakerOrder(wIdx, sIdx, 'up')}
-                                        className="px-2 py-0.5 text-xs font-bold bg-white border border-slate-300 rounded-md hover:bg-slate-100 disabled:opacity-30"
-                                      >
-                                        ↑ Move Up
-                                      </button>
-                                      <button
-                                        disabled={sIdx === speakers.length - 1}
-                                        onClick={() => moveSpeakerOrder(wIdx, sIdx, 'down')}
-                                        className="px-2 py-0.5 text-xs font-bold bg-white border border-slate-300 rounded-md hover:bg-slate-100 disabled:opacity-30"
-                                      >
-                                        ↓ Move Down
-                                      </button>
-                                      {speakers.length > 1 && (
-                                        <button
-                                          onClick={() => removeSpeakerFromWeek(wIdx, sIdx)}
-                                          className="p-1 text-slate-400 hover:text-red-600 transition"
-                                        >
-                                          <Trash2 className="h-3.5 w-3.5" />
-                                        </button>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
+                            <datalist id="male_members_list">
+                              {members.filter(m => {
+                                const isMale = String(m.gender || '').toUpperCase() === 'M' || !m.gender;
+                                const age = getDynamicAge(m.birthdate || m.birth_date, m.age);
+                                return isMale && (age === 0 || age >= 11);
+                              }).map(m => (
+                                <option key={m.name} value={m.name}>{m.organisation ? `${m.name} (${m.organisation})` : m.name}</option>
+                              ))}
+                            </datalist>
+                          </div>
+                        </div>
 
-                                <div className="grid sm:grid-cols-12 gap-3">
-                                  
-                                  {/* Prefix / Title Dropdown */}
-                                  <div className="sm:col-span-3">
-                                    <label className="block text-xs font-semibold text-slate-700 mb-1">Prefix / Title</label>
-                                    <select
-                                      disabled={!canEdit}
-                                      value={currentPrefix}
-                                      onChange={(e) => {
-                                        const newPrefix = e.target.value;
-                                        const newSpeakers = [...speakers];
-                                        newSpeakers[sIdx] = {
-                                          ...newSpeakers[sIdx],
-                                          prefix: newPrefix,
-                                          gender: newPrefix === 'Sister' ? 'F' : 'M',
-                                        };
-                                        updateAgendaSpeakers(wIdx, newSpeakers);
-                                      }}
-                                      className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold focus:border-blue-500 focus:outline-none"
-                                    >
-                                      <option value="Brother">Brother</option>
-                                      <option value="Sister">Sister</option>
-                                      <option value="Elder">Elder</option>
-                                      <option value="Bishop">Bishop</option>
-                                      <option value="President">President</option>
-                                    </select>
-                                  </div>
+                        {/* Section 4: Sacrament Administration Block */}
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-extrabold text-xs uppercase tracking-wider text-amber-900 bg-amber-100/80 px-3 py-1 rounded-md border border-amber-200/70 flex items-center gap-2">
+                              🍷 4. Sacrament Administration (Priesthood Brethren)
+                            </h4>
+                            <span className="text-2xs font-black text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                              Male Brethren Only
+                            </span>
+                          </div>
 
-                                  {/* Speaker's Name Autocomplete (Clean without duplicate prefix) */}
-                                  <div className="sm:col-span-9">
-                                    <label className="block text-xs font-semibold text-slate-700 mb-1">Speaker's Name</label>
-                                    <input
-                                      type="text"
-                                      disabled={!canEdit}
-                                      placeholder="Search member list or enter full name..."
-                                      list={`members_list_${wIdx}_${sIdx}`}
-                                      value={sp.name}
-                                      onChange={(e) => {
-                                        const val = e.target.value;
-                                        const found = members.find(m => m.name.toLowerCase() === val.toLowerCase());
-                                        const newSpeakers = [...speakers];
-                                        const detectedGender = found ? (found.gender || 'M') : newSpeakers[sIdx].gender;
-                                        newSpeakers[sIdx] = {
-                                          ...newSpeakers[sIdx],
-                                          name: val,
-                                          gender: detectedGender,
-                                          prefix: newSpeakers[sIdx].prefix || (detectedGender === 'F' ? 'Sister' : 'Brother'),
-                                        };
-                                        updateAgendaSpeakers(wIdx, newSpeakers);
-                                      }}
-                                      className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium focus:border-blue-500 focus:outline-none"
-                                    />
-                                    <datalist id={`members_list_${wIdx}_${sIdx}`}>
-                                      {members.map(m => (
-                                        <option key={m.name} value={m.name}>{m.organisation ? `${m.name} (${m.organisation})` : m.name}</option>
-                                      ))}
-                                    </datalist>
-                                  </div>
+                          <div className="grid sm:grid-cols-3 gap-4 p-4.5 bg-amber-50/25 rounded-xl border border-amber-200/80 shadow-2xs">
+                            {(() => {
+                              const duties = getSacramentDuties(ag);
+                              return (['preparing', 'blessing', 'passing'] as const).map((cat) => {
+                                const catLabel = cat === 'preparing' ? '🥣 Preparing (Deacons/Priests)' : cat === 'blessing' ? '🥖 Blessing (Priests)' : '🍷 Passing (Aaronic Priesthood)';
+                                const list = duties[cat];
 
-                                  {/* Topic (Expandable with AI Topic Suggestion) */}
-                                  <div className="sm:col-span-6">
-                                    <div className="flex items-center justify-between mb-1">
-                                      <label className="block text-xs font-semibold text-slate-700">Topic</label>
+                                return (
+                                  <div key={cat} className="space-y-2 bg-white p-3.5 rounded-xl border border-amber-200/70 shadow-2xs">
+                                    <div className="flex items-center justify-between border-b border-amber-100 pb-1.5">
+                                      <label className="text-xs font-bold text-slate-800">
+                                        {catLabel}
+                                      </label>
                                       {canEdit && (
                                         <button
                                           type="button"
-                                          onClick={() => {
-                                            const randTopic = GENERAL_CONFERENCE_TOPICS_2026[Math.floor(Math.random() * GENERAL_CONFERENCE_TOPICS_2026.length)];
-                                            const newSpeakers = [...speakers];
-                                            newSpeakers[sIdx].topic = randTopic.topic;
-                                            newSpeakers[sIdx].scripture_ref = randTopic.ref;
-                                            newSpeakers[sIdx].talk_link = randTopic.link;
-                                            updateAgendaSpeakers(wIdx, newSpeakers);
-                                            toast.success('Suggested Conference topic applied');
-                                          }}
-                                          className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1"
+                                          onClick={() => addSacramentDutyPerson(wIdx, cat)}
+                                          className="text-xs font-bold text-amber-700 hover:text-amber-900 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 flex items-center gap-0.5 transition"
                                         >
-                                          <Sparkles className="h-3 w-3" /> AI Topic Suggestion
+                                          <Plus className="h-3 w-3" /> Add
                                         </button>
                                       )}
                                     </div>
-                                    <textarea
-                                      rows={2}
-                                      disabled={!canEdit}
-                                      placeholder="e.g. The Atonement of Jesus Christ and covenant path..."
-                                      value={sp.topic || ''}
-                                      onChange={(e) => {
-                                        const newSpeakers = [...speakers];
-                                        newSpeakers[sIdx].topic = e.target.value;
-                                        updateAgendaSpeakers(wIdx, newSpeakers);
-                                      }}
-                                      className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none resize-y"
-                                    />
+
+                                    <div className="space-y-2 pt-1">
+                                      {list.map((personName, pIdx) => (
+                                        <div key={pIdx} className="flex items-center gap-1.5">
+                                          <input
+                                            type="text"
+                                            disabled={!canEdit}
+                                            placeholder={`Member for ${cat}...`}
+                                            list="male_members_list"
+                                            value={personName}
+                                            onChange={(e) => {
+                                              let val = e.target.value;
+                                              const found = members.find(m => m.name.toLowerCase() === val.toLowerCase() && (m.gender === 'M' || !m.gender));
+                                              if (found && !val.startsWith('Brother') && !val.startsWith('Elder') && !val.startsWith('Bishop') && !val.startsWith('President')) {
+                                                val = `Brother ${found.name}`;
+                                              }
+                                              updateSacramentDutyPerson(wIdx, cat, pIdx, val);
+                                            }}
+                                            className="block w-full rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium focus:border-amber-500 focus:outline-none"
+                                          />
+                                          {canEdit && list.length > 1 && (
+                                            <button
+                                              type="button"
+                                              onClick={() => removeSacramentDutyPerson(wIdx, cat, pIdx)}
+                                              className="text-slate-400 hover:text-red-600 shrink-0 p-1"
+                                            >
+                                              <Trash2 className="h-3.5 w-3.5" />
+                                            </button>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
                                   </div>
-
-                                  {/* Scripture Reference */}
-                                  <div className="sm:col-span-6">
-                                    <label className="block text-xs font-semibold text-slate-700 mb-1">Reference</label>
-                                    <textarea
-                                      rows={2}
-                                      disabled={!canEdit}
-                                      placeholder="e.g. Alma 32:21; Mosiah 4:14-15"
-                                      value={sp.scripture_ref || ''}
-                                      onChange={(e) => {
-                                        const newSpeakers = [...speakers];
-                                        newSpeakers[sIdx].scripture_ref = e.target.value;
-                                        updateAgendaSpeakers(wIdx, newSpeakers);
-                                      }}
-                                      className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none resize-y"
-                                    />
-                                  </div>
-
-                                  {/* Link to Reference (Digital link, omitted from printed/downloaded PDF) */}
-                                  <div className="sm:col-span-12">
-                                    <Input
-                                      label="Link to Reference (Digital talk / Gospel Library URL)"
-                                      disabled={!canEdit}
-                                      placeholder="https://www.churchofjesuschrist.org/study/general-conference/..."
-                                      value={sp.talk_link || ''}
-                                      onChange={(e) => {
-                                        const newSpeakers = [...speakers];
-                                        newSpeakers[sIdx].talk_link = e.target.value;
-                                        updateAgendaSpeakers(wIdx, newSpeakers);
-                                      }}
-                                    />
-                                    <p className="text-2xs text-slate-400 mt-0.5">
-                                      * Visible in online assignments & planner workspace; automatically excluded from printed PDF outputs.
-                                    </p>
-                                  </div>
-
-                                </div>
-
-                                {/* Inline Conflict Warning Alert Badge */}
-                                {conflictAlert && (
-                                  <div className="flex items-center gap-2 text-xs font-medium text-amber-800 bg-amber-50 p-2 rounded-lg border border-amber-200">
-                                    <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
-                                    <span>{conflictAlert}</span>
-                                  </div>
-                                )}
-
-                              </div>
-                            );
-                          })}
+                                );
+                              });
+                            })()}
+                          </div>
                         </div>
-                      </div>
 
+                        {/* Section 5: Prayers Block */}
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-extrabold text-xs uppercase tracking-wider text-sky-900 bg-sky-100/80 px-3 py-1 rounded-md border border-sky-200/70 flex items-center gap-2">
+                              🙏 5. Prayers (Invocations & Benedictions)
+                            </h4>
+                          </div>
+
+                          <div className="grid sm:grid-cols-2 gap-4 p-4.5 bg-sky-50/25 rounded-xl border border-sky-200/80 shadow-2xs">
+                            {/* Invocation */}
+                            <div className="bg-white p-3.5 rounded-xl border border-sky-200/70 space-y-2.5 shadow-2xs">
+                              <label className="block text-xs font-bold text-slate-800">
+                                🕊️ Invocation (Opening Prayer)
+                              </label>
+                              <div className="grid grid-cols-12 gap-2">
+                                <div className="col-span-4">
+                                  <select
+                                    disabled={!canEdit}
+                                    value={ag.opening_prayer_prefix || (ag.opening_prayer_gender === 'F' ? 'Sister' : 'Brother')}
+                                    onChange={(e) => {
+                                      const pref = e.target.value;
+                                      updateAgendaField(wIdx, {
+                                        opening_prayer_prefix: pref,
+                                        opening_prayer_gender: pref === 'Sister' ? 'F' : 'M',
+                                      });
+                                    }}
+                                    className="block w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold focus:border-sky-500 focus:outline-none"
+                                  >
+                                    <option value="Brother">Brother</option>
+                                    <option value="Sister">Sister</option>
+                                    <option value="Elder">Elder</option>
+                                    <option value="Bishop">Bishop</option>
+                                    <option value="President">President</option>
+                                  </select>
+                                </div>
+                                <div className="col-span-8">
+                                  <input
+                                    type="text"
+                                    disabled={!canEdit}
+                                    placeholder="Search or type member name..."
+                                    list={`prayers_list_inv_${wIdx}`}
+                                    value={ag.opening_prayer || ''}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      const found = members.find(m => m.name.toLowerCase() === val.toLowerCase());
+                                      const detectedGender = found ? (found.gender || 'M') : ag.opening_prayer_gender;
+                                      updateAgendaField(wIdx, {
+                                        opening_prayer: val,
+                                        opening_prayer_gender: detectedGender,
+                                        opening_prayer_prefix: ag.opening_prayer_prefix || (detectedGender === 'F' ? 'Sister' : 'Brother'),
+                                      });
+                                    }}
+                                    className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium focus:border-sky-500 focus:outline-none"
+                                  />
+                                  <datalist id={`prayers_list_inv_${wIdx}`}>
+                                    {members.map(m => (
+                                      <option key={m.name} value={m.name}>{m.organisation ? `${m.name} (${m.organisation})` : m.name}</option>
+                                    ))}
+                                  </datalist>
+                                </div>
+                              </div>
+                              {checkMemberConflict(ag.opening_prayer, wIdx, 'Opening Prayer') && (
+                                <div className="text-xs text-amber-700 font-medium pt-1">
+                                  ⚠️ {checkMemberConflict(ag.opening_prayer, wIdx, 'Opening Prayer')}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Benediction */}
+                            <div className="bg-white p-3.5 rounded-xl border border-sky-200/70 space-y-2.5 shadow-2xs">
+                              <label className="block text-xs font-bold text-slate-800">
+                                🕊️ Benediction (Closing Prayer)
+                              </label>
+                              <div className="grid grid-cols-12 gap-2">
+                                <div className="col-span-4">
+                                  <select
+                                    disabled={!canEdit}
+                                    value={ag.closing_prayer_prefix || (ag.closing_prayer_gender === 'F' ? 'Sister' : 'Brother')}
+                                    onChange={(e) => {
+                                      const pref = e.target.value;
+                                      updateAgendaField(wIdx, {
+                                        closing_prayer_prefix: pref,
+                                        closing_prayer_gender: pref === 'Sister' ? 'F' : 'M',
+                                      });
+                                    }}
+                                    className="block w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold focus:border-sky-500 focus:outline-none"
+                                  >
+                                    <option value="Brother">Brother</option>
+                                    <option value="Sister">Sister</option>
+                                    <option value="Elder">Elder</option>
+                                    <option value="Bishop">Bishop</option>
+                                    <option value="President">President</option>
+                                  </select>
+                                </div>
+                                <div className="col-span-8">
+                                  <input
+                                    type="text"
+                                    disabled={!canEdit}
+                                    placeholder="Search or type member name..."
+                                    list={`prayers_list_ben_${wIdx}`}
+                                    value={ag.closing_prayer || ''}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      const found = members.find(m => m.name.toLowerCase() === val.toLowerCase());
+                                      const detectedGender = found ? (found.gender || 'M') : ag.closing_prayer_gender;
+                                      updateAgendaField(wIdx, {
+                                        closing_prayer: val,
+                                        closing_prayer_gender: detectedGender,
+                                        closing_prayer_prefix: ag.closing_prayer_prefix || (detectedGender === 'F' ? 'Sister' : 'Brother'),
+                                      });
+                                    }}
+                                    className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium focus:border-sky-500 focus:outline-none"
+                                  />
+                                  <datalist id={`prayers_list_ben_${wIdx}`}>
+                                    {members.map(m => (
+                                      <option key={m.name} value={m.name}>{m.organisation ? `${m.name} (${m.organisation})` : m.name}</option>
+                                    ))}
+                                  </datalist>
+                                </div>
+                              </div>
+                              {checkMemberConflict(ag.closing_prayer, wIdx, 'Closing Prayer') && (
+                                <div className="text-xs text-amber-700 font-medium pt-1">
+                                  ⚠️ {checkMemberConflict(ag.closing_prayer, wIdx, 'Closing Prayer')}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </>
                     )}
 
-                    {/* Hymns Block */}
-                    <div className="space-y-3 pt-2">
+                    {/* Section 6: Week Notes */}
+                    <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <h4 className="font-bold text-sm text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                          🎵 Hymns Block
+                        <h4 className="font-extrabold text-xs uppercase tracking-wider text-slate-800 bg-slate-200/80 px-3 py-1 rounded-md border border-slate-300/70 flex items-center gap-2">
+                          📝 6. Sunday Special Notes
                         </h4>
-                        {canEdit && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const firstTopic = (speakers[0]?.topic || '').toLowerCase();
-                              if (firstTopic.includes('faith') || firstTopic.includes('testimony')) {
-                                setSelectedThemeCategory('Faith & Testimony');
-                              } else if (firstTopic.includes('prayer') || firstTopic.includes('revelation')) {
-                                setSelectedThemeCategory('Prayer & Guidance');
-                              } else if (firstTopic.includes('sabbath') || firstTopic.includes('worship')) {
-                                setSelectedThemeCategory('Sabbath & Worship');
-                              } else if (firstTopic.includes('restoration') || firstTopic.includes('prophet')) {
-                                setSelectedThemeCategory('Restoration & Prophets');
-                              } else if (firstTopic.includes('temple') || firstTopic.includes('covenant')) {
-                                setSelectedThemeCategory('Temple & Covenants');
-                              } else if (firstTopic.includes('gratitude') || firstTopic.includes('praise')) {
-                                setSelectedThemeCategory('Praise & Gratitude');
-                              } else {
-                                setSelectedThemeCategory('Atonement & Sacrament');
-                              }
-                              setActiveThemeWeek(wIdx);
-                            }}
-                            className="text-xs font-bold text-blue-700 hover:text-blue-900 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 flex items-center gap-1.5 transition"
-                          >
-                            <Sparkles className="h-3.5 w-3.5 text-blue-600" />
-                            Match Hymns to Theme
-                          </button>
-                        )}
                       </div>
-
-                      <div className="grid sm:grid-cols-3 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                        
-                        {/* Opening Hymn */}
-                        <div>
-                          <label className="block text-xs font-semibold text-slate-700 mb-1">Opening Hymn</label>
-                          <input
-                            type="text"
-                            disabled={!canEdit}
-                            placeholder="e.g. #2 The Spirit of God"
-                            list="hymns_list"
-                            value={ag.opening_hymn ? `#${ag.opening_hymn_number || ''} ${ag.opening_hymn}` : ''}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              const match = hymns.find(h => `#${h.number} ${h.title}`.toLowerCase() === val.toLowerCase() || h.title.toLowerCase() === val.toLowerCase());
-                              updateAgendaField(wIdx, {
-                                opening_hymn: match ? match.title : val,
-                                opening_hymn_number: match ? String(match.number) : ag.opening_hymn_number,
-                              });
-                            }}
-                            className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
-                          />
-                          {checkHymnRecentlyUsed(ag.opening_hymn, wIdx) && (
-                            <p className="mt-1 text-2xs font-semibold text-amber-700 bg-amber-50 p-1 rounded border border-amber-200">
-                              ⚠️ {checkHymnRecentlyUsed(ag.opening_hymn, wIdx)}
-                            </p>
-                          )}
-                        </div>
-
-                        {/* Sacrament Hymn */}
-                        <div>
-                          <label className="block text-xs font-semibold text-slate-700 mb-1">Sacrament Hymn</label>
-                          <input
-                            type="text"
-                            disabled={!canEdit}
-                            placeholder="e.g. #169 As Now We Take the Sacrament"
-                            list="hymns_list"
-                            value={ag.sacrament_hymn ? `#${ag.sacrament_hymn_number || ''} ${ag.sacrament_hymn}` : ''}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              const match = hymns.find(h => `#${h.number} ${h.title}`.toLowerCase() === val.toLowerCase() || h.title.toLowerCase() === val.toLowerCase());
-                              updateAgendaField(wIdx, {
-                                sacrament_hymn: match ? match.title : val,
-                                sacrament_hymn_number: match ? String(match.number) : ag.sacrament_hymn_number,
-                              });
-                            }}
-                            className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
-                          />
-                          {checkHymnRecentlyUsed(ag.sacrament_hymn, wIdx) && (
-                            <p className="mt-1 text-2xs font-semibold text-amber-700 bg-amber-50 p-1 rounded border border-amber-200">
-                              ⚠️ {checkHymnRecentlyUsed(ag.sacrament_hymn, wIdx)}
-                            </p>
-                          )}
-                        </div>
-
-                        {/* Closing Hymn */}
-                        <div>
-                          <label className="block text-xs font-semibold text-slate-700 mb-1">Closing Hymn</label>
-                          <input
-                            type="text"
-                            disabled={!canEdit}
-                            placeholder="e.g. #19 We Thank Thee, O God, for a Prophet"
-                            list="hymns_list"
-                            value={ag.closing_hymn ? `#${ag.closing_hymn_number || ''} ${ag.closing_hymn}` : ''}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              const match = hymns.find(h => `#${h.number} ${h.title}`.toLowerCase() === val.toLowerCase() || h.title.toLowerCase() === val.toLowerCase());
-                              updateAgendaField(wIdx, {
-                                closing_hymn: match ? match.title : val,
-                                closing_hymn_number: match ? String(match.number) : ag.closing_hymn_number,
-                              });
-                            }}
-                            className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
-                          />
-                          {checkHymnRecentlyUsed(ag.closing_hymn, wIdx) && (
-                            <p className="mt-1 text-2xs font-semibold text-amber-700 bg-amber-50 p-1 rounded border border-amber-200">
-                              ⚠️ {checkHymnRecentlyUsed(ag.closing_hymn, wIdx)}
-                            </p>
-                          )}
-                        </div>
-
-                        <datalist id="hymns_list">
-                          {hymns.map(h => (
-                            <option key={h.number} value={`#${h.number} ${h.title}`} />
-                          ))}
-                        </datalist>
-
-                        <datalist id="male_members_list">
-                          {members.filter(m => {
-                            const isMale = String(m.gender || '').toUpperCase() === 'M' || !m.gender;
-                            const age = getDynamicAge(m.birthdate || m.birth_date, m.age);
-                            return isMale && (age === 0 || age >= 11);
-                          }).map(m => (
-                            <option key={m.name} value={m.name}>{m.organisation ? `${m.name} (${m.organisation})` : m.name}</option>
-                          ))}
-                        </datalist>
-
+                      <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs">
+                        <Textarea
+                          label="Week Special Notes (Printed on Back Page)"
+                          disabled={!canEdit}
+                          rows={2}
+                          placeholder="e.g. Stake Conference Broadcast / Fast Offering collection after meeting."
+                          value={ag.week_notes || ''}
+                          onChange={(e) => updateAgendaField(wIdx, { week_notes: e.target.value })}
+                        />
                       </div>
-                    </div>
-
-                    {/* Sacrament Administration Block (Male-Only Priesthood Brethren) */}
-                    <div className="space-y-3 pt-2">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-bold text-sm text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                          🍷 Sacrament Administration Block
-                        </h4>
-                        <span className="text-2xs font-bold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
-                          Male Brethren Only (Priesthood)
-                        </span>
-                      </div>
-
-                      <div className="grid sm:grid-cols-3 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                        {(() => {
-                          const duties = getSacramentDuties(ag);
-                          return (['preparing', 'blessing', 'passing'] as const).map((cat) => {
-                            const catLabel = cat === 'preparing' ? 'Preparing' : cat === 'blessing' ? 'Blessing' : 'Passing';
-                            const list = duties[cat];
-
-                            return (
-                              <div key={cat} className="space-y-2 bg-white p-3 rounded-lg border border-slate-200">
-                                <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
-                                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-                                    {catLabel} ({list.filter(Boolean).length})
-                                  </label>
-                                  {canEdit && (
-                                    <button
-                                      type="button"
-                                      onClick={() => addSacramentDutyPerson(wIdx, cat)}
-                                      className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-0.5"
-                                    >
-                                      <Plus className="h-3 w-3" /> Add
-                                    </button>
-                                  )}
-                                </div>
-
-                                <div className="space-y-2 pt-1">
-                                  {list.map((personName, pIdx) => (
-                                    <div key={pIdx} className="flex items-center gap-1.5">
-                                      <input
-                                        type="text"
-                                        disabled={!canEdit}
-                                        placeholder={`Male member for ${cat}...`}
-                                        list="male_members_list"
-                                        value={personName}
-                                        onChange={(e) => {
-                                          let val = e.target.value;
-                                          const found = members.find(m => m.name.toLowerCase() === val.toLowerCase() && (m.gender === 'M' || !m.gender));
-                                          if (found && !val.startsWith('Brother') && !val.startsWith('Elder') && !val.startsWith('Bishop') && !val.startsWith('President')) {
-                                            val = `Brother ${found.name}`;
-                                          }
-                                          updateSacramentDutyPerson(wIdx, cat, pIdx, val);
-                                        }}
-                                        className="block w-full rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium focus:border-blue-500 focus:outline-none"
-                                      />
-                                      {canEdit && list.length > 1 && (
-                                        <button
-                                          type="button"
-                                          onClick={() => removeSacramentDutyPerson(wIdx, cat, pIdx)}
-                                          className="text-slate-400 hover:text-red-600 shrink-0 p-1"
-                                        >
-                                          <Trash2 className="h-3.5 w-3.5" />
-                                        </button>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            );
-                          });
-                        })()}
-                      </div>
-                    </div>
-
-                    {/* Prayers Block */}
-                    <div className="space-y-3 pt-2">
-                      <h4 className="font-bold text-sm text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                        🙏 Prayers Block
-                      </h4>
-                      <div className="grid sm:grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                        
-                        {/* Invocation */}
-                        <div className="space-y-2">
-                          <label className="block text-xs font-semibold text-slate-700">Invocation (Opening Prayer)</label>
-                          <div className="grid grid-cols-12 gap-2">
-                            <div className="col-span-4">
-                              <select
-                                disabled={!canEdit}
-                                value={ag.opening_prayer_prefix || (ag.opening_prayer_gender === 'F' ? 'Sister' : 'Brother')}
-                                onChange={(e) => {
-                                  const pref = e.target.value;
-                                  updateAgendaField(wIdx, {
-                                    opening_prayer_prefix: pref,
-                                    opening_prayer_gender: pref === 'Sister' ? 'F' : 'M',
-                                  });
-                                }}
-                                className="block w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold focus:border-blue-500 focus:outline-none"
-                              >
-                                <option value="Brother">Brother</option>
-                                <option value="Sister">Sister</option>
-                                <option value="Elder">Elder</option>
-                                <option value="Bishop">Bishop</option>
-                                <option value="President">President</option>
-                              </select>
-                            </div>
-                            <div className="col-span-8">
-                              <input
-                                type="text"
-                                disabled={!canEdit}
-                                placeholder="Search or type member name..."
-                                list={`prayers_list_inv_${wIdx}`}
-                                value={ag.opening_prayer || ''}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  const found = members.find(m => m.name.toLowerCase() === val.toLowerCase());
-                                  const detectedGender = found ? (found.gender || 'M') : ag.opening_prayer_gender;
-                                  updateAgendaField(wIdx, {
-                                    opening_prayer: val,
-                                    opening_prayer_gender: detectedGender,
-                                    opening_prayer_prefix: ag.opening_prayer_prefix || (detectedGender === 'F' ? 'Sister' : 'Brother'),
-                                  });
-                                }}
-                                className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium focus:border-blue-500 focus:outline-none"
-                              />
-                              <datalist id={`prayers_list_inv_${wIdx}`}>
-                                {members.map(m => (
-                                  <option key={m.name} value={m.name}>{m.organisation ? `${m.name} (${m.organisation})` : m.name}</option>
-                                ))}
-                              </datalist>
-                            </div>
-                          </div>
-                          {checkMemberConflict(ag.opening_prayer, wIdx, 'Opening Prayer') && (
-                            <div className="text-xs text-amber-700 font-medium pt-1">
-                              ⚠️ {checkMemberConflict(ag.opening_prayer, wIdx, 'Opening Prayer')}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Benediction */}
-                        <div className="space-y-2">
-                          <label className="block text-xs font-semibold text-slate-700">Benediction (Closing Prayer)</label>
-                          <div className="grid grid-cols-12 gap-2">
-                            <div className="col-span-4">
-                              <select
-                                disabled={!canEdit}
-                                value={ag.closing_prayer_prefix || (ag.closing_prayer_gender === 'F' ? 'Sister' : 'Brother')}
-                                onChange={(e) => {
-                                  const pref = e.target.value;
-                                  updateAgendaField(wIdx, {
-                                    closing_prayer_prefix: pref,
-                                    closing_prayer_gender: pref === 'Sister' ? 'F' : 'M',
-                                  });
-                                }}
-                                className="block w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold focus:border-blue-500 focus:outline-none"
-                              >
-                                <option value="Brother">Brother</option>
-                                <option value="Sister">Sister</option>
-                                <option value="Elder">Elder</option>
-                                <option value="Bishop">Bishop</option>
-                                <option value="President">President</option>
-                              </select>
-                            </div>
-                            <div className="col-span-8">
-                              <input
-                                type="text"
-                                disabled={!canEdit}
-                                placeholder="Search or type member name..."
-                                list={`prayers_list_ben_${wIdx}`}
-                                value={ag.closing_prayer || ''}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  const found = members.find(m => m.name.toLowerCase() === val.toLowerCase());
-                                  const detectedGender = found ? (found.gender || 'M') : ag.closing_prayer_gender;
-                                  updateAgendaField(wIdx, {
-                                    closing_prayer: val,
-                                    closing_prayer_gender: detectedGender,
-                                    closing_prayer_prefix: ag.closing_prayer_prefix || (detectedGender === 'F' ? 'Sister' : 'Brother'),
-                                  });
-                                }}
-                                className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium focus:border-blue-500 focus:outline-none"
-                              />
-                              <datalist id={`prayers_list_ben_${wIdx}`}>
-                                {members.map(m => (
-                                  <option key={m.name} value={m.name}>{m.organisation ? `${m.name} (${m.organisation})` : m.name}</option>
-                                ))}
-                              </datalist>
-                            </div>
-                          </div>
-                          {checkMemberConflict(ag.closing_prayer, wIdx, 'Closing Prayer') && (
-                            <div className="text-xs text-amber-700 font-medium pt-1">
-                              ⚠️ {checkMemberConflict(ag.closing_prayer, wIdx, 'Closing Prayer')}
-                            </div>
-                          )}
-                        </div>
-
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                    {/* Week Notes */}
-                    <div className="pt-2">
-                      <Textarea
-                        label="Week Special Notes (Printed on Back Page)"
-                        disabled={!canEdit}
-                        rows={2}
-                        placeholder="e.g. Stake Conference Broadcast / Fast Offering collection after meeting."
-                        value={ag.week_notes || ''}
-                        onChange={(e) => updateAgendaField(wIdx, { week_notes: e.target.value })}
-                      />
                     </div>
 
                   </CardBody>
