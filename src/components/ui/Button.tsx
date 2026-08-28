@@ -53,9 +53,9 @@ export function Button({
       )}
     >
       {loading ? (
-        <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+        <Loader2 className="h-4 w-4 animate-spin shrink-0 pointer-events-none" />
       ) : icon ? (
-        <span className="shrink-0">{icon}</span>
+        <span className="shrink-0 pointer-events-none flex items-center">{icon}</span>
       ) : null}
       {children}
     </button>

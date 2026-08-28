@@ -4,9 +4,10 @@ import { cn } from '../../utils/cn';
 import { Button } from './Button';
 
 interface ModalProps {
-  open: boolean;
+  open?: boolean;
+  isOpen?: boolean;
   onClose: () => void;
-  title?: string;
+  title?: React.ReactNode;
   children: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   footer?: React.ReactNode;
@@ -20,9 +21,11 @@ const sizeMap = {
   '2xl': 'max-w-2xl',
 };
 
-export function Modal({ open, onClose, title, children, size = 'md', footer }: ModalProps) {
+export function Modal({ open, isOpen, onClose, title, children, size = 'md', footer }: ModalProps) {
+  const isModalOpen = Boolean(open || isOpen);
+
   useEffect(() => {
-    if (open) {
+    if (isModalOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
@@ -30,9 +33,9 @@ export function Modal({ open, onClose, title, children, size = 'md', footer }: M
     return () => {
       document.body.style.overflow = '';
     };
-  }, [open]);
+  }, [isModalOpen]);
 
-  if (!open) return null;
+  if (!isModalOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
