@@ -432,6 +432,9 @@ function handleSavePlannerWorkspace(body) {
       special_music: sanitizeString(agData.special_music || ''),
       speakers: typeof agData.speakers === 'object' ? JSON.stringify(agData.speakers) : sanitizeString(agData.speakers || '[]'),
       sacrament_duties: typeof (agData.sacrament_duties || agData.sacrament) === 'object' ? JSON.stringify(agData.sacrament_duties || agData.sacrament) : sanitizeString(agData.sacrament_duties || agData.sacrament || '{}'),
+      sacrament: typeof (agData.sacrament_duties || agData.sacrament) === 'object' ? (agData.sacrament_duties || agData.sacrament) : (function() {
+        try { return JSON.parse(agData.sacrament_duties || agData.sacrament || '{}'); } catch(e) { return {}; }
+      })(),
       closing_hymn: sanitizeString(agData.closing_hymn || ''),
       closing_hymn_number: sanitizeString(agData.closing_hymn_number || ''),
       closing_prayer: sanitizeString(agData.closing_prayer || ''),

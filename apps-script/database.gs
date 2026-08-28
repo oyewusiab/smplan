@@ -537,6 +537,15 @@ function fixDatabaseAlignment() {
                   ag.start_time = fixTimeStr(ag.start_time);
                   weekModified = true;
                 }
+                // Harmonize sacrament and sacrament_duties
+                const dutiesVal = ag.sacrament_duties || ag.sacrament;
+                if (dutiesVal) {
+                  const serialized = typeof dutiesVal === 'object' ? JSON.stringify(dutiesVal) : String(dutiesVal);
+                  if (ag.sacrament_duties !== serialized) {
+                    ag.sacrament_duties = serialized;
+                    weekModified = true;
+                  }
+                }
               });
               if (weekModified) {
                 plSheet.getRange(i + 1, weeksCol + 1).setValue(JSON.stringify(parsed));

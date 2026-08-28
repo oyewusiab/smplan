@@ -151,16 +151,23 @@ export function PlannerDetailPage() {
           if (localDraftRaw) {
             const localDraft = JSON.parse(localDraftRaw);
             if (localDraft && Array.isArray(localDraft.agendas) && localDraft.agendas.length > 0) {
+              const hasDutyData = (a: Agenda) => {
+                const duties = getSacramentDuties(a);
+                return duties.preparing.some(Boolean) || duties.blessing.some(Boolean) || duties.passing.some(Boolean);
+              };
+
               // If cloud is completely empty or has no content, auto-restore local draft
               const hasCloudContent = fetchedAgendas.some(a => 
                 (a.opening_prayer && a.opening_prayer.trim()) || 
                 (a.closing_prayer && a.closing_prayer.trim()) || 
-                (a.speakers && a.speakers.length > 20)
+                (a.speakers && a.speakers.length > 20) ||
+                hasDutyData(a)
               );
               const hasLocalContent = localDraft.agendas.some((a: Agenda) => 
                 (a.opening_prayer && a.opening_prayer.trim()) || 
                 (a.closing_prayer && a.closing_prayer.trim()) || 
-                (a.speakers && a.speakers.length > 20)
+                (a.speakers && a.speakers.length > 20) ||
+                hasDutyData(a)
               );
 
               if (!hasCloudContent && hasLocalContent) {
@@ -198,13 +205,16 @@ export function PlannerDetailPage() {
             cleanTime = '10:00';
           }
 
+          const rawDuties = a.sacrament_duties || (a as { sacrament?: unknown }).sacrament || '{}';
+          const serializedDuties = typeof rawDuties === 'object' ? JSON.stringify(rawDuties) : String(rawDuties || '{}');
+
           return {
             ...a,
             week_id: a.week_id || `week_${idx + 1}`,
             date: cleanDate,
             start_time: cleanTime,
             speakers: typeof a.speakers === 'object' ? JSON.stringify(a.speakers) : (a.speakers || '[]'),
-            sacrament_duties: typeof a.sacrament_duties === 'object' ? JSON.stringify(a.sacrament_duties) : (a.sacrament_duties || '{}'),
+            sacrament_duties: serializedDuties,
           };
         });
 
