@@ -114,6 +114,36 @@ function validateDatabase() {
 var _MEM_CACHE = {};
 
 /**
+ * Retrieves a sheet, safely ensuring schema headers are written if the sheet is empty or newly created.
+ */
+function getOrInitSheet(sheetName) {
+  const ss = getSpreadsheet();
+  let sheet = ss.getSheetByName(sheetName);
+  const schema = SHEET_SCHEMAS[sheetName];
+
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    if (schema && schema.length > 0) {
+      sheet.getRange(1, 1, 1, schema.length).setValues([schema]);
+      sheet.getRange(1, 1, 1, schema.length).setFontWeight('bold');
+      sheet.setFrozenRows(1);
+    }
+    return sheet;
+  }
+
+  // If sheet exists but is completely empty (no columns or no rows)
+  if (sheet.getLastColumn() === 0 || sheet.getLastRow() === 0) {
+    if (schema && schema.length > 0) {
+      sheet.getRange(1, 1, 1, schema.length).setValues([schema]);
+      sheet.getRange(1, 1, 1, schema.length).setFontWeight('bold');
+      sheet.setFrozenRows(1);
+    }
+  }
+
+  return sheet;
+}
+
+/**
  * Purges the in-memory and ScriptCache for a specific sheet.
  */
 function invalidateSheetCache(sheetName) {
@@ -150,7 +180,12 @@ function dbReadAll(sheetName) {
     // Fallback to direct sheet read
   }
 
-  const sheet = getSheet(sheetName);
+  const sheet = getOrInitSheet(sheetName);
+  if (sheet.getLastColumn() === 0 || sheet.getLastRow() <= 1) {
+    _MEM_CACHE[sheetName] = [];
+    return [];
+  }
+
   const data = sheet.getDataRange().getValues();
   if (data.length <= 1) {
     _MEM_CACHE[sheetName] = [];
@@ -281,8 +316,16 @@ function dbFindOne(sheetName, field, value) {
  * Insert a new row.
  */
 function dbInsert(sheetName, record) {
-  const sheet = getSheet(sheetName);
-  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const sheet = getOrInitSheet(sheetName);
+  let lastCol = sheet.getLastColumn();
+  if (lastCol === 0) {
+    const schemaHeaders = SHEET_SCHEMAS[sheetName] || Object.keys(record);
+    sheet.getRange(1, 1, 1, schemaHeaders.length).setValues([schemaHeaders]);
+    sheet.getRange(1, 1, 1, schemaHeaders.length).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+    lastCol = schemaHeaders.length;
+  }
+  const headers = sheet.getRange(1, 1, 1, Math.max(1, lastCol)).getValues()[0];
   
   const row = headers.map(h => {
     const val = record[h];
@@ -307,8 +350,19 @@ function dbCreate(sheetName, record) {
  * Update a row by primary key field+value.
  */
 function dbUpdate(sheetName, pkField, pkValue, updates) {
-  const sheet = getSheet(sheetName);
+  const sheet = getOrInitSheet(sheetName);
+  let lastCol = sheet.getLastColumn();
+  if (lastCol === 0) {
+    const schemaHeaders = SHEET_SCHEMAS[sheetName] || Object.keys(updates);
+    sheet.getRange(1, 1, 1, schemaHeaders.length).setValues([schemaHeaders]);
+    sheet.getRange(1, 1, 1, schemaHeaders.length).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+    lastCol = schemaHeaders.length;
+  }
   const data = sheet.getDataRange().getValues();
+  if (data.length <= 1) {
+    throw new Error(`Record with ${pkField}="${pkValue}" not found in ${sheetName}`);
+  }
   const headers = data[0];
   const pkCol = headers.indexOf(pkField);
   
@@ -342,8 +396,11 @@ function dbUpdate(sheetName, pkField, pkValue, updates) {
  * Delete a row by primary key.
  */
 function dbDelete(sheetName, pkField, pkValue) {
-  const sheet = getSheet(sheetName);
+  const sheet = getOrInitSheet(sheetName);
   const data = sheet.getDataRange().getValues();
+  if (data.length <= 1) {
+    throw new Error(`Record with ${pkField}="${pkValue}" not found in ${sheetName}`);
+  }
   const headers = data[0];
   const pkCol = headers.indexOf(pkField);
   
