@@ -93,7 +93,8 @@ export function PlannersPage() {
       const res = await plannersApi.list(session.token, { forceRefresh: force }) as { ok: boolean; data: Planner[] };
       if (res.ok) {
         // Planner page contains only drafted and submitted planners (archived belong on /archive)
-        setPlanners((res.data || []).filter(p => p.state !== 'ARCHIVED'));
+        // Draft privacy rule: DRAFT planners are visible ONLY to the creator/initiator until submitted
+        setPlanners((res.data || []).filter(p => p.state !== 'ARCHIVED' && (p.state !== 'DRAFT' || p.created_by === session.user_id)));
       }
     } catch {
       toast.error('Failed to load planners');

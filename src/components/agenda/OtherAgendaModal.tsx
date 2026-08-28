@@ -96,6 +96,18 @@ export function OtherAgendaModal({
 }: OtherAgendaModalProps) {
   const { session } = useAuthStore();
   const isBishopricOrAdmin = session?.role === 'ADMIN' || session?.role === 'BISHOPRIC';
+  const isBishop = (session?.role === 'ADMIN') ||
+    (session?.calling && /bishop/i.test(session.calling)) ||
+    (session?.name && /bishop/i.test(session.name)) ||
+    (!session?.calling || !/counselor/i.test(session?.calling || ''));
+
+  const isCounselor = session?.role === 'BISHOPRIC' && !isBishop;
+
+  const counselorCannotApprove = isCounselor && (
+    (agenda && agenda.created_by === session?.user_id) ||
+    (agenda && agenda.created_by_name && /bishop/i.test(agenda.created_by_name)) ||
+    (agenda && agenda.created_by_name && /counselor/i.test(agenda.created_by_name))
+  );
 
   const [meetingType, setMeetingType] = useState<OtherAgendaMeetingType>('BISHOPRIC_MEETING');
   const [meetingTypeOther, setMeetingTypeOther] = useState('');
@@ -876,20 +888,20 @@ export function OtherAgendaModal({
             Save Draft
           </Button>
 
-          {/* Submit for Approval (for clerks / secretary) */}
-          {(!isBishopricOrAdmin || agenda?.state === 'DRAFT') && (
+          {/* Submit for Approval (for clerks / secretary / counselors creating draft) */}
+          {(!isBishopricOrAdmin || isCounselor || agenda?.state === 'DRAFT') && (
             <Button
               variant="secondary"
               icon={<Send className="h-4 w-4" />}
               onClick={() => handleSubmit('SUBMIT')}
               disabled={saving}
             >
-              Submit for Approval
+              {isCounselor ? 'Submit for Bishop\'s Approval' : 'Submit for Approval'}
             </Button>
           )}
 
-          {/* Approve Agenda & Dispatch Emails (for Bishop / Bishopric) */}
-          {isBishopricOrAdmin && (
+          {/* Approve Agenda & Dispatch Emails (for Bishop / Admin, or Counselor approving clerk/secretary agenda) */}
+          {isBishopricOrAdmin && !counselorCannotApprove && (
             <Button
               variant="primary"
               icon={<CheckCircle2 className="h-4 w-4" />}

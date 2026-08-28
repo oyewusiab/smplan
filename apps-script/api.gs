@@ -29,11 +29,8 @@ function handleListPlanners(params) {
   let planners = dbReadAll('PLANNERS');
   
   // Draft Privacy Rule:
-  // DRAFT planners are visible ONLY to the user who created them (except ADMIN / BISHOPRIC who can inspect all drafts).
-  // SUBMITTED, APPROVED, and ARCHIVED planners are visible to all authorized ward leaders.
-  if (session.role !== 'ADMIN' && session.role !== 'BISHOPRIC') {
-    planners = planners.filter(p => p.state !== 'DRAFT' || p.created_by === session.user_id);
-  }
+  // When a planner is a 'draft' it stays only with the creator/initiator; no one else can see it until it is submitted.
+  planners = planners.filter(p => p.state !== 'DRAFT' || p.created_by === session.user_id);
 
   // Populate weeks array for each planner from AGENDAS table if empty or string
   const allAgendas = dbReadAll('AGENDAS');
@@ -60,8 +57,8 @@ function handleGetPlanner(params) {
   if (!planner) throw new Error('Planner not found');
 
   // Enforce draft privacy rule on single fetch
-  if (planner.state === 'DRAFT' && session.role !== 'ADMIN' && session.role !== 'BISHOPRIC' && planner.created_by !== session.user_id) {
-    throw new Error('Access denied to private draft planner');
+  if (planner.state === 'DRAFT' && planner.created_by !== session.user_id) {
+    throw new Error('This draft planner is private to its creator until submitted.');
   }
 
   // Attach full agendas from AGENDAS table
@@ -3408,6 +3405,33 @@ function handleApproveOtherAgenda(body) {
 
   const existing = dbFindOne('OTHER_AGENDAS', 'other_agenda_id', body.other_agenda_id);
   if (!existing) throw new Error('Agenda not found');
+
+  // Hierarchical Approval Validation:
+  // - Counselors cannot approve agendas created by themselves or by the Bishop.
+  // - Counselors can only approve agendas created by Clerks or Secretaries.
+  // - The Bishop (or Admin) can approve agendas created by counselors, clerks, secretaries, or directly self-approve.
+  const creatorUser = dbFindOne('USERS', 'user_id', existing.created_by);
+  const currentUser = dbFindOne('USERS', 'user_id', session.user_id);
+
+  const isCurrentBishop = (session.role === 'ADMIN') ||
+    (currentUser && currentUser.calling && /bishop/i.test(currentUser.calling)) ||
+    (session.name && /bishop/i.test(session.name)) ||
+    (!currentUser || !currentUser.calling || !/counselor/i.test(currentUser.calling));
+
+  if (!isCurrentBishop) {
+    // Current user is a Counselor
+    if (existing.created_by === session.user_id) {
+      throw new Error('Counselors cannot approve agendas created by themselves. The Bishop must approve.');
+    }
+    if ((creatorUser && creatorUser.calling && /bishop/i.test(creatorUser.calling)) ||
+        (existing.created_by_name && /bishop/i.test(existing.created_by_name))) {
+      throw new Error('Counselors cannot approve agendas created by the Bishop.');
+    }
+    if ((creatorUser && creatorUser.calling && /counselor/i.test(creatorUser.calling)) ||
+        (existing.created_by_name && /counselor/i.test(existing.created_by_name))) {
+      throw new Error('Agendas created by Bishopric counselors must be approved by the Bishop.');
+    }
+  }
 
   const patch = {
     state: 'APPROVED',

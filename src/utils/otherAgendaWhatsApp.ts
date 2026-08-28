@@ -86,6 +86,15 @@ export function formatOtherAgendaWhatsApp(agenda: OtherAgenda): string {
 }
 
 export function formatAssignmentWhatsApp(agenda: OtherAgenda, assignment: OtherAgendaAssignment): string {
+  return formatParticipantWhatsApp(agenda, assignment.assignee, [], [assignment]);
+}
+
+export function formatParticipantWhatsApp(
+  agenda: OtherAgenda,
+  participantName: string,
+  roles: string[] = [],
+  assignments: OtherAgendaAssignment[] = []
+): string {
   const meetingTypeNames: Record<string, string> = {
     BISHOPRIC_MEETING: 'Bishopric Meeting',
     WARD_COUNCIL: 'Ward Council Meeting',
@@ -96,15 +105,35 @@ export function formatAssignmentWhatsApp(agenda: OtherAgenda, assignment: OtherA
 
   const meetingName = meetingTypeNames[agenda.meeting_type] || agenda.title || 'Ward Meeting';
 
-  let text = `🕊️ *MEETING ASSIGNMENT NOTICE*\n`;
-  text += `Dear *${assignment.assignee}*,\n\n`;
-  text += `You have been assigned the following action item from the *${meetingName}*:\n\n`;
-  text += `📋 *Assignment:* ${assignment.task}\n`;
-  if (assignment.due_date) text += `🎯 *Target Due Date:* ${assignment.due_date}\n`;
-  if (assignment.notes) text += `📝 *Details/Notes:* ${assignment.notes}\n\n`;
-  text += `📅 *Meeting Date:* ${agenda.date}\n`;
-  text += `👤 *Presiding:* ${agenda.presiding}\n\n`;
-  text += `Thank you for your service and dedication to the Lord's work! 🙏`;
+  let text = `🕊️ *${meetingName.toUpperCase()} — ASSIGNMENT NOTICE*\n`;
+  text += `🏛️ *The Church of Jesus Christ of Latter-day Saints*\n\n`;
+  text += `Dear *${participantName}*,\n\n`;
+  text += `Here are your assigned responsibilities and action items for the upcoming *${meetingName}*:\n\n`;
+
+  text += `📅 *Date:* ${agenda.date}\n`;
+  text += `⏰ *Time:* ${agenda.start_time} - ${agenda.end_time}\n`;
+  text += `📍 *Venue:* ${agenda.venue || "Bishop's Office / Council Room"}\n`;
+  text += `👤 *Presiding:* ${agenda.presiding || 'Bishop'}\n\n`;
+
+  if (roles.length > 0) {
+    text += `*─── YOUR MEETING DUTIES ───*\n`;
+    roles.forEach(r => {
+      text += `✨ *${r}*\n`;
+    });
+    text += `\n`;
+  }
+
+  if (assignments.length > 0) {
+    text += `*─── ACTION ITEMS ASSIGNED TO YOU ───*\n`;
+    assignments.forEach((a, idx) => {
+      text += `✅ *Task ${idx + 1}:* ${a.task}\n`;
+      if (a.due_date) text += `   🎯 *Target Due Date:* ${a.due_date}\n`;
+      if (a.notes) text += `   📝 *Notes:* ${a.notes}\n`;
+    });
+    text += `\n`;
+  }
+
+  text += `Thank you for your faithful service and dedication to the Lord's work! 🙏`;
 
   return text;
 }

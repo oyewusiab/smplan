@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, RefreshCw, Send, Printer, Save, Plus, Trash2, ChevronDown,
@@ -758,6 +758,76 @@ export function PlannerDetailPage() {
     return null;
   };
 
+  // Compute all workspace participation & scheduling alerts across all weeks
+  const allPlannerAlerts = useMemo(() => {
+    const alerts: { weekIdx: number; weekLabel: string; role: string; personOrItem: string; message: string }[] = [];
+
+    agendas.forEach((ag, wIdx) => {
+      const weekLabel = `Week ${wIdx + 1}${ag.date ? ` (${format(new Date(ag.date), 'MMM d')})` : ''}`;
+
+      // Check Speakers
+      const sps = getAgendaSpeakers(ag);
+      sps.forEach((sp, sIdx) => {
+        if (sp.name && sp.name.trim()) {
+          const c = checkMemberConflict(sp.name, wIdx, `Speaker ${sIdx + 1}`);
+          if (c) {
+            alerts.push({
+              weekIdx: wIdx,
+              weekLabel,
+              role: `Speaker ${sIdx + 1}`,
+              personOrItem: sp.name,
+              message: c,
+            });
+          }
+        }
+      });
+
+      // Check Opening Prayer
+      if (ag.opening_prayer && ag.opening_prayer.trim()) {
+        const c = checkMemberConflict(ag.opening_prayer, wIdx, 'Opening Prayer');
+        if (c) {
+          alerts.push({
+            weekIdx: wIdx,
+            weekLabel,
+            role: 'Opening Prayer',
+            personOrItem: ag.opening_prayer,
+            message: c,
+          });
+        }
+      }
+
+      // Check Closing Prayer
+      if (ag.closing_prayer && ag.closing_prayer.trim()) {
+        const c = checkMemberConflict(ag.closing_prayer, wIdx, 'Closing Prayer');
+        if (c) {
+          alerts.push({
+            weekIdx: wIdx,
+            weekLabel,
+            role: 'Closing Prayer',
+            personOrItem: ag.closing_prayer,
+            message: c,
+          });
+        }
+      }
+
+      // Check Hymns
+      if (ag.opening_hymn) {
+        const hC = checkHymnRecentlyUsed(ag.opening_hymn, wIdx);
+        if (hC) alerts.push({ weekIdx: wIdx, weekLabel, role: 'Opening Hymn', personOrItem: ag.opening_hymn, message: hC });
+      }
+      if (ag.sacrament_hymn) {
+        const hC = checkHymnRecentlyUsed(ag.sacrament_hymn, wIdx);
+        if (hC) alerts.push({ weekIdx: wIdx, weekLabel, role: 'Sacrament Hymn', personOrItem: ag.sacrament_hymn, message: hC });
+      }
+      if (ag.closing_hymn) {
+        const hC = checkHymnRecentlyUsed(ag.closing_hymn, wIdx);
+        if (hC) alerts.push({ weekIdx: wIdx, weekLabel, role: 'Closing Hymn', personOrItem: ag.closing_hymn, message: hC });
+      }
+    });
+
+    return alerts;
+  }, [agendas, historicalAssignments]);
+
   // Add new week button handler
   const handleAddWeek = () => {
     if (agendas.length >= 5) {
@@ -1201,6 +1271,52 @@ export function PlannerDetailPage() {
             })}
           </div>
 
+          {/* Top Participation & Scheduling Alerts Overview Banner */}
+          {allPlannerAlerts.length > 0 && (
+            <div className="bg-amber-50/90 border border-amber-300 rounded-xl p-4 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-1.5 bg-amber-200 text-amber-900 rounded-lg">
+                    <AlertTriangle className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black uppercase tracking-wider text-amber-950">
+                      Participation & Scheduling Alerts ({allPlannerAlerts.length})
+                    </h4>
+                    <p className="text-2xs text-amber-800 mt-0.5">
+                      Review duplicate speaker assignments, recent participation history, and hymn repetitions across weeks.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
+                {allPlannerAlerts.map((alt, idx) => (
+                  <div
+                    key={idx}
+                    onClick={() => scrollToWeek(alt.weekIdx)}
+                    className="p-3 bg-white hover:bg-amber-50/50 rounded-xl border border-amber-200 shadow-2xs cursor-pointer hover:border-amber-400 transition group flex flex-col justify-between"
+                  >
+                    <div className="flex items-center justify-between gap-1 mb-1">
+                      <span className="text-2xs font-extrabold px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-200">
+                        {alt.weekLabel}
+                      </span>
+                      <span className="text-2xs font-bold text-blue-600 group-hover:underline transition">
+                        Jump to Week →
+                      </span>
+                    </div>
+                    <div className="text-xs font-bold text-slate-900 truncate">
+                      {alt.role}: <span className="text-amber-900 font-extrabold">{alt.personOrItem}</span>
+                    </div>
+                    <div className="text-2xs text-amber-800 font-medium mt-1.5 leading-snug">
+                      ⚠️ {alt.message}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Individual Week Workspace Cards */}
           {agendas.map((ag, wIdx) => {
             const theme = WEEK_THEMES[wIdx % WEEK_THEMES.length];
@@ -1574,6 +1690,14 @@ export function PlannerDetailPage() {
                                             <option key={m.name} value={m.name}>{m.organisation ? `${m.name} (${m.organisation})` : m.name}</option>
                                           ))}
                                         </datalist>
+
+                                        {/* Inline Alert directly under Speaker's Name input */}
+                                        {conflictAlert && (
+                                          <div className="mt-1.5 flex items-center gap-2 text-xs font-semibold text-amber-900 bg-amber-50 p-2 rounded-lg border border-amber-200 shadow-2xs">
+                                            <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+                                            <span>{conflictAlert}</span>
+                                          </div>
+                                        )}
                                       </div>
 
                                       {/* Topic */}
@@ -1647,13 +1771,6 @@ export function PlannerDetailPage() {
                                         </p>
                                       </div>
                                     </div>
-
-                                    {conflictAlert && (
-                                      <div className="flex items-center gap-2 text-xs font-medium text-amber-800 bg-amber-50 p-2 rounded-lg border border-amber-200">
-                                        <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
-                                        <span>{conflictAlert}</span>
-                                      </div>
-                                    )}
                                   </div>
                                 );
                               })}
@@ -1932,13 +2049,15 @@ export function PlannerDetailPage() {
                                       <option key={m.name} value={m.name}>{m.organisation ? `${m.name} (${m.organisation})` : m.name}</option>
                                     ))}
                                   </datalist>
+
+                                  {checkMemberConflict(ag.opening_prayer, wIdx, 'Opening Prayer') && (
+                                    <div className="mt-1.5 flex items-center gap-1.5 text-xs text-amber-800 bg-amber-50 p-2 rounded-lg border border-amber-200">
+                                      <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                                      <span>{checkMemberConflict(ag.opening_prayer, wIdx, 'Opening Prayer')}</span>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
-                              {checkMemberConflict(ag.opening_prayer, wIdx, 'Opening Prayer') && (
-                                <div className="text-xs text-amber-700 font-medium pt-1">
-                                  ⚠️ {checkMemberConflict(ag.opening_prayer, wIdx, 'Opening Prayer')}
-                                </div>
-                              )}
                             </div>
 
                             {/* Benediction */}
@@ -1991,13 +2110,15 @@ export function PlannerDetailPage() {
                                       <option key={m.name} value={m.name}>{m.organisation ? `${m.name} (${m.organisation})` : m.name}</option>
                                     ))}
                                   </datalist>
+
+                                  {checkMemberConflict(ag.closing_prayer, wIdx, 'Closing Prayer') && (
+                                    <div className="mt-1.5 flex items-center gap-1.5 text-xs text-amber-800 bg-amber-50 p-2 rounded-lg border border-amber-200">
+                                      <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                                      <span>{checkMemberConflict(ag.closing_prayer, wIdx, 'Closing Prayer')}</span>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
-                              {checkMemberConflict(ag.closing_prayer, wIdx, 'Closing Prayer') && (
-                                <div className="text-xs text-amber-700 font-medium pt-1">
-                                  ⚠️ {checkMemberConflict(ag.closing_prayer, wIdx, 'Closing Prayer')}
-                                </div>
-                              )}
                             </div>
                           </div>
                         </div>

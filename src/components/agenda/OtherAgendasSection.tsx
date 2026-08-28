@@ -9,10 +9,10 @@ import { Button } from '../ui/Button';
 import { Input, Select } from '../ui/Input';
 import { OtherAgendaModal } from './OtherAgendaModal';
 import { OtherAgendaPrintModal } from './OtherAgendaPrintModal';
+import { OtherAgendaWhatsAppModal } from './OtherAgendaWhatsAppModal';
 import type { OtherAgenda, OtherAgendaMeetingType, OtherAgendaState, Member } from '../../types';
 import { otherAgendasApi } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
-import { formatOtherAgendaWhatsApp, openWhatsApp } from '../../utils/otherAgendaWhatsApp';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 
@@ -39,6 +39,8 @@ export function OtherAgendasSection({ members, unitName }: OtherAgendasSectionPr
   const [editingAgenda, setEditingAgenda] = useState<OtherAgenda | null>(null);
   const [printModalOpen, setPrintModalOpen] = useState(false);
   const [printingAgenda, setPrintingAgenda] = useState<OtherAgenda | null>(null);
+  const [whatsAppModalOpen, setWhatsAppModalOpen] = useState(false);
+  const [whatsAppAgenda, setWhatsAppAgenda] = useState<OtherAgenda | null>(null);
 
   const loadOtherAgendas = async () => {
     if (!session) return;
@@ -152,9 +154,46 @@ export function OtherAgendasSection({ members, unitName }: OtherAgendasSectionPr
     }
   };
 
+  // Hierarchical Approval Checker:
+  // - Counselors cannot approve agendas created by themselves or by the Bishop.
+  // - Counselors can only approve agendas created by Clerks or Secretaries.
+  // - The Bishop (or Admin) can approve agendas created by counselors, clerks, secretaries, or directly self-approve.
+  const checkCanApprove = (agenda: OtherAgenda): { allowed: boolean; reason?: string } => {
+    if (!session) return { allowed: false, reason: 'Not logged in' };
+    if (session.role === 'ADMIN') return { allowed: true };
+    if (session.role !== 'BISHOPRIC') return { allowed: false, reason: 'Only Bishopric members can approve agendas' };
+
+    const isBishop = (session.calling && /bishop/i.test(session.calling)) || (session.name && /bishop/i.test(session.name)) || (!session.calling || !/counselor/i.test(session.calling));
+    
+    // Bishop can approve anything
+    if (isBishop) return { allowed: true };
+
+    // Counselor:
+    // 1. Cannot self-approve
+    if (agenda.created_by === session.user_id) {
+      return { allowed: false, reason: 'Counselors cannot approve agendas created by themselves. The Bishop must approve.' };
+    }
+    // 2. Cannot approve agenda created by the Bishop
+    if (agenda.created_by_name && /bishop/i.test(agenda.created_by_name)) {
+      return { allowed: false, reason: 'Counselors cannot approve agendas created by the Bishop.' };
+    }
+    // 3. Cannot approve another counselor's agenda
+    if (agenda.created_by_name && /counselor/i.test(agenda.created_by_name)) {
+      return { allowed: false, reason: 'Agendas created by Bishopric counselors must be approved by the Bishop.' };
+    }
+
+    return { allowed: true };
+  };
+
   // Direct Quick Approve
   const handleQuickApprove = async (agenda: OtherAgenda) => {
     if (!session) return;
+    const check = checkCanApprove(agenda);
+    if (!check.allowed) {
+      toast.error(check.reason || 'You do not have permission to approve this agenda');
+      return;
+    }
+
     if (!window.confirm(`Approve agenda for "${agenda.title}" (${agenda.date}) and send automated email notifications to all assigned leaders?`)) {
       return;
     }
@@ -214,8 +253,8 @@ export function OtherAgendasSection({ members, unitName }: OtherAgendasSectionPr
 
   // Share WhatsApp
   const handleShareWhatsApp = (agenda: OtherAgenda) => {
-    const text = formatOtherAgendaWhatsApp(agenda);
-    openWhatsApp(text);
+    setWhatsAppAgenda(agenda);
+    setWhatsAppModalOpen(true);
   };
 
   const getMeetingTypeBadge = (type: OtherAgendaMeetingType) => {
@@ -550,6 +589,19 @@ export function OtherAgendasSection({ members, unitName }: OtherAgendasSectionPr
           }}
           agenda={printingAgenda}
           unitName={unitName}
+        />
+      )}
+
+      {/* Direct WhatsApp Messaging Modal */}
+      {whatsAppModalOpen && (
+        <OtherAgendaWhatsAppModal
+          isOpen={whatsAppModalOpen}
+          onClose={() => {
+            setWhatsAppModalOpen(false);
+            setWhatsAppAgenda(null);
+          }}
+          agenda={whatsAppAgenda}
+          members={members}
         />
       )}
 
