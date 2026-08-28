@@ -332,21 +332,21 @@ export function PlannerDetailPage() {
   // Speaker helpers for agenda
   const getAgendaSpeakers = (agenda: Agenda): SpeakerItem[] => {
     try {
-      if (typeof agenda.speakers === 'string' && agenda.speakers.startsWith('[')) {
-        return JSON.parse(agenda.speakers);
+      if (Array.isArray(agenda.speakers)) {
+        return agenda.speakers;
       }
-      return [
-        { name: '', gender: 'M', topic: '' },
-        { name: '', gender: 'F', topic: '' },
-        { name: '', gender: 'M', topic: '' },
-      ];
-    } catch {
-      return [
-        { name: '', gender: 'M', topic: '' },
-        { name: '', gender: 'F', topic: '' },
-        { name: '', gender: 'M', topic: '' },
-      ];
-    }
+      if (typeof agenda.speakers === 'string' && agenda.speakers.trim()) {
+        const parsed = JSON.parse(agenda.speakers);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch { /* fallback */ }
+    return [
+      { name: '', gender: 'M', topic: '' },
+      { name: '', gender: 'F', topic: '' },
+      { name: '', gender: 'M', topic: '' },
+    ];
   };
 
   const updateAgendaSpeakers = (agendaIndex: number, speakers: SpeakerItem[]) => {
@@ -378,13 +378,23 @@ export function PlannerDetailPage() {
   // Sacrament Duties helpers (Preparing, Blessing, Passing)
   const getSacramentDuties = (agenda: Agenda): { preparing: string[]; blessing: string[]; passing: string[] } => {
     try {
-      if (typeof agenda.sacrament_duties === 'string' && agenda.sacrament_duties.startsWith('{')) {
-        const parsed = JSON.parse(agenda.sacrament_duties);
+      if (typeof agenda.sacrament_duties === 'object' && agenda.sacrament_duties !== null) {
+        const parsed = agenda.sacrament_duties as { preparing?: string[]; blessing?: string[]; passing?: string[] };
         return {
           preparing: Array.isArray(parsed.preparing) && parsed.preparing.length > 0 ? parsed.preparing : [''],
           blessing: Array.isArray(parsed.blessing) && parsed.blessing.length > 0 ? parsed.blessing : [''],
           passing: Array.isArray(parsed.passing) && parsed.passing.length > 0 ? parsed.passing : [''],
         };
+      }
+      if (typeof agenda.sacrament_duties === 'string' && agenda.sacrament_duties.trim()) {
+        const parsed = JSON.parse(agenda.sacrament_duties);
+        if (parsed && typeof parsed === 'object') {
+          return {
+            preparing: Array.isArray(parsed.preparing) && parsed.preparing.length > 0 ? parsed.preparing : [''],
+            blessing: Array.isArray(parsed.blessing) && parsed.blessing.length > 0 ? parsed.blessing : [''],
+            passing: Array.isArray(parsed.passing) && parsed.passing.length > 0 ? parsed.passing : [''],
+          };
+        }
       }
     } catch { /* fallback */ }
     return { preparing: [''], blessing: [''], passing: [''] };
@@ -688,7 +698,7 @@ export function PlannerDetailPage() {
         }));
       } catch { /* storage full */ }
 
-      toast.success('Planner workspace saved successfully to Cloud!');
+      toast.success(isDraft ? 'Planner draft saved successfully!' : 'Planner changes saved successfully to Cloud!');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Save failed');
     } finally {
@@ -812,8 +822,14 @@ export function PlannerDetailPage() {
             )}
             {canEdit && (
               <>
-                <Button size="sm" variant="secondary" icon={<Save className="h-4 w-4" />} onClick={handleSaveWorkspace} loading={saving}>
-                  Save Draft
+                <Button
+                  size="sm"
+                  variant={isDraft ? "secondary" : "primary"}
+                  icon={<Save className="h-4 w-4" />}
+                  onClick={handleSaveWorkspace}
+                  loading={saving}
+                >
+                  {isDraft ? 'Save Draft' : 'Save Changes'}
                 </Button>
                 {isDraft && (
                   <Button size="sm" icon={<Send className="h-4 w-4" />} onClick={handleSubmitPlanner}>
@@ -1766,8 +1782,13 @@ export function PlannerDetailPage() {
             </Button>
             {canEdit && (
               <>
-                <Button variant="secondary" icon={<Save className="h-4 w-4" />} onClick={handleSaveWorkspace} loading={saving}>
-                  Save Draft
+                <Button
+                  variant={isDraft ? "secondary" : "primary"}
+                  icon={<Save className="h-4 w-4" />}
+                  onClick={handleSaveWorkspace}
+                  loading={saving}
+                >
+                  {isDraft ? 'Save Draft' : 'Save Changes'}
                 </Button>
                 {isDraft && (
                   <Button icon={<Send className="h-4 w-4" />} onClick={handleSubmitPlanner}>
