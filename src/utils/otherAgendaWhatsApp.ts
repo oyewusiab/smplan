@@ -74,6 +74,7 @@ export function formatOtherAgendaWhatsApp(agenda: OtherAgenda): string {
   }
 
   text += `*─── CLOSING ───*\n`;
+  if (agenda.closing_remarks_by) text += `💬 *Closing Remarks:* ${agenda.closing_remarks_by}\n`;
   if (agenda.closing_prayer) text += `🙏 *Closing Prayer:* ${agenda.closing_prayer}\n`;
   if (agenda.general_notes) text += `📝 *Notes:* ${agenda.general_notes}\n`;
 

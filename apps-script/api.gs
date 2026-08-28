@@ -3328,6 +3328,7 @@ function handleCreateOtherAgenda(body) {
     opening_prayer: sanitizeString(body.opening_prayer || ''),
     spiritual_thought_by: sanitizeString(body.spiritual_thought_by || ''),
     spiritual_thought_topic: sanitizeString(body.spiritual_thought_topic || ''),
+    closing_remarks_by: sanitizeString(body.closing_remarks_by || ''),
     closing_prayer: sanitizeString(body.closing_prayer || ''),
     attendees: typeof body.attendees === 'string' ? body.attendees : JSON.stringify(body.attendees || []),
     topics: typeof body.topics === 'string' ? body.topics : JSON.stringify(body.topics || []),
@@ -3344,7 +3345,7 @@ function handleCreateOtherAgenda(body) {
     updated_date: new Date().toISOString(),
   };
 
-  dbCreate('OTHER_AGENDAS', record);
+  dbInsert('OTHER_AGENDAS', record);
   auditLog(session.user_id, 'CREATE', 'OTHER_AGENDAS', agendaId, null, record, 'OK');
 
   let emailSummary = null;
@@ -3387,6 +3388,7 @@ function handleUpdateOtherAgenda(body) {
   if (body.opening_prayer !== undefined) patch.opening_prayer = sanitizeString(body.opening_prayer);
   if (body.spiritual_thought_by !== undefined) patch.spiritual_thought_by = sanitizeString(body.spiritual_thought_by);
   if (body.spiritual_thought_topic !== undefined) patch.spiritual_thought_topic = sanitizeString(body.spiritual_thought_topic);
+  if (body.closing_remarks_by !== undefined) patch.closing_remarks_by = sanitizeString(body.closing_remarks_by);
   if (body.closing_prayer !== undefined) patch.closing_prayer = sanitizeString(body.closing_prayer);
   if (body.attendees !== undefined) patch.attendees = typeof body.attendees === 'string' ? body.attendees : JSON.stringify(body.attendees);
   if (body.topics !== undefined) patch.topics = typeof body.topics === 'string' ? body.topics : JSON.stringify(body.topics);
@@ -3422,6 +3424,7 @@ function handleApproveOtherAgenda(body) {
   if (emailSummary && emailSummary.sentCount > 0) {
     dbUpdate('OTHER_AGENDAS', 'other_agenda_id', body.other_agenda_id, {
       email_sent_count: (existing.email_sent_count || 0) + emailSummary.sentCount,
+      updated_date: new Date().toISOString(),
     });
   }
 
@@ -3441,7 +3444,7 @@ function handleApproveOtherAgenda(body) {
 }
 
 function handleSendOtherAgendaEmails(body) {
-  const session = requirePermission(body.token, 'OTHER_AGENDA_EDIT');
+  const session = requirePermission(body.token, 'OTHER_AGENDA_APPROVE');
   validateRequired(body, ['other_agenda_id']);
 
   const existing = dbFindOne('OTHER_AGENDAS', 'other_agenda_id', body.other_agenda_id);
@@ -3454,6 +3457,8 @@ function handleSendOtherAgendaEmails(body) {
       updated_date: new Date().toISOString(),
     });
   }
+
+  auditLog(session.user_id, 'SEND_EMAILS', 'OTHER_AGENDAS', body.other_agenda_id, null, { emailSummary }, 'OK');
 
   return { ok: true, emailSummary: emailSummary };
 }
@@ -3532,7 +3537,16 @@ function sendOtherAgendaNotifications(agenda) {
     }
   }
 
-  // 3. Check Closing Prayer
+  // 3. Check Closing Remarks
+  if (agenda.closing_remarks_by) {
+    const em = getEmailForName(agenda.closing_remarks_by);
+    if (em) {
+      if (!recipients[em]) recipients[em] = { name: agenda.closing_remarks_by, roles: [], assignments: [] };
+      recipients[em].roles.push('Closing Remarks');
+    }
+  }
+
+  // 4. Check Closing Prayer
   if (agenda.closing_prayer) {
     const em = getEmailForName(agenda.closing_prayer);
     if (em) {

@@ -112,6 +112,7 @@ export function OtherAgendaModal({
   const [openingPrayer, setOpeningPrayer] = useState('');
   const [spiritualThoughtBy, setSpiritualThoughtBy] = useState('');
   const [spiritualThoughtTopic, setSpiritualThoughtTopic] = useState('');
+  const [closingRemarksBy, setClosingRemarksBy] = useState('');
   const [closingPrayer, setClosingPrayer] = useState('');
   const [generalNotes, setGeneralNotes] = useState('');
 
@@ -137,6 +138,7 @@ export function OtherAgendaModal({
       setOpeningPrayer(agenda.opening_prayer || '');
       setSpiritualThoughtBy(agenda.spiritual_thought_by || '');
       setSpiritualThoughtTopic(agenda.spiritual_thought_topic || '');
+      setClosingRemarksBy(agenda.closing_remarks_by || '');
       setClosingPrayer(agenda.closing_prayer || '');
       setGeneralNotes(agenda.general_notes || '');
 
@@ -260,6 +262,7 @@ export function OtherAgendaModal({
       opening_prayer: openingPrayer.trim(),
       spiritual_thought_by: spiritualThoughtBy.trim(),
       spiritual_thought_topic: spiritualThoughtTopic.trim(),
+      closing_remarks_by: closingRemarksBy.trim(),
       closing_prayer: closingPrayer.trim(),
       attendees: JSON.stringify(attendees.filter(a => a.name.trim())),
       topics: JSON.stringify(topics.filter(t => t.title.trim())),
@@ -280,7 +283,7 @@ export function OtherAgendaModal({
           <span>{agenda ? 'Edit Meeting Agenda' : 'Create Leadership & Committee Agenda'}</span>
         </div>
       }
-      size="xl"
+      size="4xl"
     >
       <div className="space-y-6 max-h-[75vh] overflow-y-auto px-1 py-2">
         
@@ -809,6 +812,23 @@ export function OtherAgendaModal({
           </h4>
 
           <div className="grid sm:grid-cols-12 gap-3">
+            <div className="sm:col-span-6">
+              <label className="block text-xs font-bold text-slate-700 mb-1">Closing Remarks By</label>
+              <input
+                type="text"
+                placeholder="Presiding / Conducting Leader (e.g. Bishop, President)..."
+                list="members_list_cr"
+                value={closingRemarksBy}
+                onChange={(e) => setClosingRemarksBy(e.target.value)}
+                className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
+              />
+              <datalist id="members_list_cr">
+                {members.map(m => (
+                  <option key={m.name} value={m.name}>{m.calling ? `${m.name} (${m.calling})` : m.name}</option>
+                ))}
+              </datalist>
+            </div>
+
             <div className="sm:col-span-6">
               <label className="block text-xs font-bold text-slate-700 mb-1">Closing Prayer</label>
               <input

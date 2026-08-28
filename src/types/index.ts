@@ -272,6 +272,7 @@ export interface OtherAgenda {
   opening_prayer?: string;
   spiritual_thought_by?: string;
   spiritual_thought_topic?: string;
+  closing_remarks_by?: string;
   closing_prayer?: string;
   attendees: string | OtherAgendaAttendee[];
   topics: string | OtherAgendaTopic[];

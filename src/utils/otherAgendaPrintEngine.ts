@@ -404,6 +404,12 @@ export function generateOtherAgendaHtml(agenda: OtherAgenda, unitName?: string):
         <span>Closing Exercises & General Notes</span>
       </div>
       <div class="section-content">
+        ${agenda.closing_remarks_by ? `
+          <div class="exercise-row" style="margin-bottom: 8px;">
+            <span class="exercise-label">Closing Remarks:</span>
+            <span class="exercise-val">${agenda.closing_remarks_by}</span>
+          </div>
+        ` : ''}
         <div class="exercise-row" style="margin-bottom: 8px;">
           <span class="exercise-label">Closing Prayer:</span>
           <span class="exercise-val">${agenda.closing_prayer || 'TBD'}</span>
