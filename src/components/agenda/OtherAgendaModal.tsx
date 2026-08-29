@@ -10,6 +10,7 @@ import type {
   OtherAgenda, OtherAgendaMeetingType, OtherAgendaTopic,
   OtherAgendaAssignment, OtherAgendaAttendee, Member
 } from '../../types';
+import { formatHonorificName, getMemberDisplayWithTitle } from '../../utils/memberTitle';
 import { useAuthStore } from '../../store/authStore';
 import toast from 'react-hot-toast';
 
@@ -141,8 +142,12 @@ export function generateDefaultAttendees(type: OtherAgendaMeetingType, membersLi
       ? membersList.find(m => m.calling && t.callingMatch?.test(m.calling))
       : undefined;
 
+    const formattedName = matchedMember
+      ? formatHonorificName(matchedMember.name, matchedMember, matchedMember.gender)
+      : '';
+
     return {
-      name: matchedMember ? matchedMember.name : '',
+      name: formattedName,
       calling: t.role,
       present: true,
       email: matchedMember?.email || '',
@@ -275,7 +280,8 @@ export function OtherAgendaModal({
 
   // Helper to auto-lookup email and phone when an assignee name is typed
   const handleAssigneeChange = (index: number, name: string) => {
-    const found = members.find(m => m.name.toLowerCase() === name.toLowerCase());
+    const cleanName = name.replace(/^(brother|sister|elder|bishop|president|bro\.|bro|sis\.|sis|eld\.|eld|bp\.|bp|pres\.|pres)\s+/i, '').trim().toLowerCase();
+    const found = members.find(m => m.name.toLowerCase() === name.toLowerCase() || m.name.toLowerCase() === cleanName);
     const updated = [...assignments];
     updated[index] = {
       ...updated[index],
@@ -514,9 +520,10 @@ export function OtherAgendaModal({
                     className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium focus:border-blue-500 focus:outline-none"
                   />
                   <datalist id="members_presiding_list">
-                    {members.map(m => (
-                      <option key={m.name} value={m.name}>{m.calling ? `${m.name} (${m.calling})` : m.name}</option>
-                    ))}
+                    {members.map(m => {
+                      const titleName = formatHonorificName(m.name, m, m.gender);
+                      return <option key={m.name} value={titleName}>{m.calling ? `${titleName} (${m.calling})` : titleName}</option>;
+                    })}
                   </datalist>
                 </div>
               </div>
@@ -548,9 +555,10 @@ export function OtherAgendaModal({
                     className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium focus:border-blue-500 focus:outline-none"
                   />
                   <datalist id="members_conducting_list">
-                    {members.map(m => (
-                      <option key={m.name} value={m.name}>{m.calling ? `${m.name} (${m.calling})` : m.name}</option>
-                    ))}
+                    {members.map(m => {
+                      const titleName = formatHonorificName(m.name, m, m.gender);
+                      return <option key={m.name} value={titleName}>{m.calling ? `${titleName} (${m.calling})` : titleName}</option>;
+                    })}
                   </datalist>
                 </div>
               </div>
@@ -577,9 +585,10 @@ export function OtherAgendaModal({
                 className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
               />
               <datalist id="members_list_op">
-                {members.map(m => (
-                  <option key={m.name} value={m.name}>{m.calling ? `${m.name} (${m.calling})` : m.name}</option>
-                ))}
+                {members.map(m => {
+                  const titleName = formatHonorificName(m.name, m, m.gender);
+                  return <option key={m.name} value={titleName}>{m.calling ? `${titleName} (${m.calling})` : titleName}</option>;
+                })}
               </datalist>
             </div>
 
@@ -603,9 +612,10 @@ export function OtherAgendaModal({
                 className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
               />
               <datalist id="members_list_st">
-                {members.map(m => (
-                  <option key={m.name} value={m.name}>{m.calling ? `${m.name} (${m.calling})` : m.name}</option>
-                ))}
+                {members.map(m => {
+                  const titleName = formatHonorificName(m.name, m, m.gender);
+                  return <option key={m.name} value={titleName}>{m.calling ? `${titleName} (${m.calling})` : titleName}</option>;
+                })}
               </datalist>
             </div>
 
@@ -705,9 +715,10 @@ export function OtherAgendaModal({
               </div>
             ))}
             <datalist id="members_attendees_list">
-              {members.map(m => (
-                <option key={m.name} value={m.name}>{m.calling ? `${m.name} (${m.calling})` : m.name}</option>
-              ))}
+              {members.map(m => {
+                const titleName = formatHonorificName(m.name, m, m.gender);
+                return <option key={m.name} value={titleName}>{m.calling ? `${titleName} (${m.calling})` : titleName}</option>;
+              })}
             </datalist>
           </div>
         </div>
@@ -854,9 +865,10 @@ export function OtherAgendaModal({
                       className="w-full rounded-md border border-slate-300 px-2.5 py-1 text-xs focus:border-blue-500 focus:outline-none"
                     />
                     <datalist id={`members_assignee_list_${idx}`}>
-                      {members.map(m => (
-                        <option key={m.name} value={m.name}>{m.calling ? `${m.name} (${m.calling})` : m.name}</option>
-                      ))}
+                      {members.map(m => {
+                        const titleName = formatHonorificName(m.name, m, m.gender);
+                        return <option key={m.name} value={titleName}>{m.calling ? `${titleName} (${m.calling})` : titleName}</option>;
+                      })}
                     </datalist>
                   </div>
                   <div className="sm:col-span-3">

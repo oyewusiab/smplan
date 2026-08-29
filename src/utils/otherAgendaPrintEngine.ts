@@ -1,4 +1,5 @@
 import type { OtherAgenda, OtherAgendaAssignment, OtherAgendaTopic, OtherAgendaAttendee } from '../types';
+import { formatHonorificName } from './memberTitle';
 
 export function generateOtherAgendaHtml(agenda: OtherAgenda, unitName?: string): string {
   const meetingTypeNames: Record<string, string> = {
@@ -265,11 +266,11 @@ export function generateOtherAgendaHtml(agenda: OtherAgenda, unitName?: string):
       </div>
       <div class="meta-item">
         <span class="meta-label">Presiding</span>
-        <span class="meta-value">👤 ${agenda.presiding || 'Bishop'} (${agenda.presiding_role || 'Bishop'})</span>
+        <span class="meta-value">👤 ${formatHonorificName(agenda.presiding, agenda.presiding_role) || 'Bishop'} (${agenda.presiding_role || 'Bishop'})</span>
       </div>
       <div class="meta-item">
         <span class="meta-label">Conducting</span>
-        <span class="meta-value">🗣️ ${agenda.conducting || 'Conducting Officer'} (${agenda.conducting_role || 'Counselor'})</span>
+        <span class="meta-value">🗣️ ${formatHonorificName(agenda.conducting, agenda.conducting_role) || 'Conducting Officer'} (${agenda.conducting_role || 'Counselor'})</span>
       </div>
       <div class="meta-item">
         <span class="meta-label">Status</span>
@@ -294,12 +295,12 @@ export function generateOtherAgendaHtml(agenda: OtherAgenda, unitName?: string):
           ` : ''}
           <div class="exercise-row">
             <span class="exercise-label">Opening Prayer:</span>
-            <span class="exercise-val">${agenda.opening_prayer || 'TBD'}</span>
+            <span class="exercise-val">${agenda.opening_prayer ? formatHonorificName(agenda.opening_prayer) : 'TBD'}</span>
           </div>
           <div class="exercise-row" style="grid-column: span 2;">
             <span class="exercise-label">Spiritual Thought:</span>
             <span class="exercise-val">
-              ${agenda.spiritual_thought_by || 'Assigned Member'} 
+              ${agenda.spiritual_thought_by ? formatHonorificName(agenda.spiritual_thought_by) : 'Assigned Member'} 
               ${agenda.spiritual_thought_topic ? `— <em>"${agenda.spiritual_thought_topic}"</em>` : ''}
             </span>
           </div>
@@ -317,7 +318,7 @@ export function generateOtherAgendaHtml(agenda: OtherAgenda, unitName?: string):
           <div class="attendees-wrap">
             ${attendeesList.map(a => `
               <span class="attendee-pill ${a.present ? 'present' : ''}">
-                ${a.present ? '✓ ' : ''}${a.name} ${a.calling ? `(${a.calling})` : ''}
+                ${a.present ? '✓ ' : ''}${formatHonorificName(a.name, a.calling)} ${a.calling ? `(${a.calling})` : ''}
               </span>
             `).join('')}
           </div>
@@ -349,7 +350,7 @@ export function generateOtherAgendaHtml(agenda: OtherAgenda, unitName?: string):
                   <strong>${t.title}</strong>
                   ${t.notes ? `<div style="font-size: 11px; color: #64748b; margin-top: 3px;">${t.notes}</div>` : ''}
                 </td>
-                <td style="font-weight: 600; color: #334155;">${t.presenter || '—'}</td>
+                <td style="font-weight: 600; color: #334155;">${t.presenter ? formatHonorificName(t.presenter) : '—'}</td>
                 <td style="text-align: right; color: #64748b; font-weight: 600;">${t.minutes ? `${t.minutes}m` : '—'}</td>
               </tr>
             `).join('') : `
@@ -386,7 +387,7 @@ export function generateOtherAgendaHtml(agenda: OtherAgenda, unitName?: string):
                   <strong>${a.task}</strong>
                   ${a.notes ? `<div style="font-size: 11px; color: #64748b; margin-top: 2px;">${a.notes}</div>` : ''}
                 </td>
-                <td style="font-weight: 700; color: #1e3a8a;">${a.assignee}</td>
+                <td style="font-weight: 700; color: #1e3a8a;">${formatHonorificName(a.assignee)}</td>
                 <td style="font-weight: 600; color: #b45309;">${a.due_date || 'Next Meeting'}</td>
               </tr>
             `).join('') : `
@@ -408,12 +409,12 @@ export function generateOtherAgendaHtml(agenda: OtherAgenda, unitName?: string):
         ${agenda.closing_remarks_by ? `
           <div class="exercise-row" style="margin-bottom: 8px;">
             <span class="exercise-label">Closing Remarks:</span>
-            <span class="exercise-val">${agenda.closing_remarks_by}</span>
+            <span class="exercise-val">${formatHonorificName(agenda.closing_remarks_by)}</span>
           </div>
         ` : ''}
         <div class="exercise-row" style="margin-bottom: 8px;">
           <span class="exercise-label">Closing Prayer:</span>
-          <span class="exercise-val">${agenda.closing_prayer || 'TBD'}</span>
+          <span class="exercise-val">${agenda.closing_prayer ? formatHonorificName(agenda.closing_prayer) : 'TBD'}</span>
         </div>
         ${agenda.general_notes ? `
           <div style="margin-top: 8px; font-size: 12px; color: #475569; background: #f8fafc; padding: 8px 10px; border-radius: 4px; border-left: 3px solid #cbd5e1;">
@@ -425,9 +426,9 @@ export function generateOtherAgendaHtml(agenda: OtherAgenda, unitName?: string):
 
     <!-- Footer -->
     <div class="footer-block">
-      <span>Created by: ${agenda.created_by_name || 'Clerk / Secretary'} on ${agenda.created_date ? agenda.created_date.substring(0, 10) : 'Record'}</span>
+      <span>Created by: ${formatHonorificName(agenda.created_by_name) || 'Clerk / Secretary'} on ${agenda.created_date ? agenda.created_date.substring(0, 10) : 'Record'}</span>
       <span>
-        ${agenda.approved_by_name ? `Approved by: <strong>${agenda.approved_by_name}</strong> (${agenda.approved_date ? agenda.approved_date.substring(0, 10) : ''})` : 'Pending Bishopric Approval'}
+        ${agenda.approved_by_name ? `Approved by: <strong>${formatHonorificName(agenda.approved_by_name)}</strong> (${agenda.approved_date ? agenda.approved_date.substring(0, 10) : ''})` : 'Pending Bishopric Approval'}
       </span>
     </div>
 

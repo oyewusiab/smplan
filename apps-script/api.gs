@@ -3630,13 +3630,63 @@ function sendOtherAgendaNotifications(agendaInput) {
     topicsList = [];
   }
 
+  const formatHonorificName = (rawName, memberRecord, genderFallback) => {
+    if (!rawName || !String(rawName).trim()) return '';
+    const trimmed = String(rawName).trim();
+    // If it already starts with an honorific prefix, normalize and return
+    const prefixMatch = trimmed.match(/^(brother|sister|elder|bishop|president|bro\.|bro|sis\.|sis|eld\.|eld|bp\.|bp|pres\.|pres)\s+/i);
+    if (prefixMatch) {
+      const rawPrefix = prefixMatch[1].toLowerCase();
+      const restOfName = trimmed.substring(prefixMatch[0].length).trim();
+      let std = 'Brother';
+      if (rawPrefix.startsWith('sis')) std = 'Sister';
+      else if (rawPrefix.startsWith('eld')) std = 'Elder';
+      else if (rawPrefix.startsWith('bp') || rawPrefix.startsWith('bishop')) std = 'Bishop';
+      else if (rawPrefix.startsWith('pres')) std = 'President';
+      else if (rawPrefix.startsWith('bro')) std = 'Brother';
+      return std + ' ' + restOfName;
+    }
+
+    let calling = '';
+    let gender = genderFallback || '';
+    if (typeof memberRecord === 'string') {
+      calling = memberRecord;
+    } else if (memberRecord && typeof memberRecord === 'object') {
+      calling = memberRecord.calling || '';
+      if (!gender && memberRecord.gender) gender = memberRecord.gender;
+    }
+
+    if (calling) {
+      if (/bishop/i.test(calling)) return 'Bishop ' + trimmed;
+      if (/stake president|district president|branch president|mission president/i.test(calling)) return 'President ' + trimmed;
+      if (/relief society|young women|primary/i.test(calling)) return 'Sister ' + trimmed;
+      if (/elders quorum|high priest/i.test(calling)) return 'Brother ' + trimmed;
+    }
+
+    if (gender) {
+      if (String(gender).toUpperCase().startsWith('F')) return 'Sister ' + trimmed;
+      if (String(gender).toUpperCase().startsWith('M')) return 'Brother ' + trimmed;
+    }
+
+    return 'Brother ' + trimmed;
+  };
+
+  const getMemberRecordForName = (name) => {
+    if (!name) return null;
+    const clean = normalize(name);
+    return allMembers.find(m => normalize(m.name) === clean) ||
+           allUsers.find(u => normalize(u.name) === clean || normalize(u.preferred_name) === clean);
+  };
+
   const recipients = {}; // email -> { name, roles: [], assignments: [] }
 
   // 1. Check Opening Prayer
   if (agenda.opening_prayer) {
     const em = getEmailForName(agenda.opening_prayer);
     if (em) {
-      if (!recipients[em]) recipients[em] = { name: agenda.opening_prayer, roles: [], assignments: [] };
+      const rec = getMemberRecordForName(agenda.opening_prayer);
+      const hName = formatHonorificName(agenda.opening_prayer, rec);
+      if (!recipients[em]) recipients[em] = { name: hName, roles: [], assignments: [] };
       recipients[em].roles.push('Opening Prayer');
     }
   }
@@ -3645,7 +3695,9 @@ function sendOtherAgendaNotifications(agendaInput) {
   if (agenda.spiritual_thought_by) {
     const em = getEmailForName(agenda.spiritual_thought_by);
     if (em) {
-      if (!recipients[em]) recipients[em] = { name: agenda.spiritual_thought_by, roles: [], assignments: [] };
+      const rec = getMemberRecordForName(agenda.spiritual_thought_by);
+      const hName = formatHonorificName(agenda.spiritual_thought_by, rec);
+      if (!recipients[em]) recipients[em] = { name: hName, roles: [], assignments: [] };
       recipients[em].roles.push(`Spiritual Thought${agenda.spiritual_thought_topic ? ` (${agenda.spiritual_thought_topic})` : ''}`);
     }
   }
@@ -3654,7 +3706,9 @@ function sendOtherAgendaNotifications(agendaInput) {
   if (agenda.closing_remarks_by) {
     const em = getEmailForName(agenda.closing_remarks_by);
     if (em) {
-      if (!recipients[em]) recipients[em] = { name: agenda.closing_remarks_by, roles: [], assignments: [] };
+      const rec = getMemberRecordForName(agenda.closing_remarks_by);
+      const hName = formatHonorificName(agenda.closing_remarks_by, rec);
+      if (!recipients[em]) recipients[em] = { name: hName, roles: [], assignments: [] };
       recipients[em].roles.push('Closing Remarks');
     }
   }
@@ -3663,7 +3717,9 @@ function sendOtherAgendaNotifications(agendaInput) {
   if (agenda.closing_prayer) {
     const em = getEmailForName(agenda.closing_prayer);
     if (em) {
-      if (!recipients[em]) recipients[em] = { name: agenda.closing_prayer, roles: [], assignments: [] };
+      const rec = getMemberRecordForName(agenda.closing_prayer);
+      const hName = formatHonorificName(agenda.closing_prayer, rec);
+      if (!recipients[em]) recipients[em] = { name: hName, roles: [], assignments: [] };
       recipients[em].roles.push('Closing Prayer');
     }
   }
@@ -3677,8 +3733,10 @@ function sendOtherAgendaNotifications(agendaInput) {
     }
 
     if (email && email.includes('@')) {
+      const rec = getMemberRecordForName(assigneeName);
+      const hName = formatHonorificName(assigneeName, rec);
       if (!recipients[email]) {
-        recipients[email] = { name: assigneeName || 'Ward Leader', roles: [], assignments: [] };
+        recipients[email] = { name: hName || 'Ward Leader', roles: [], assignments: [] };
       }
       recipients[email].assignments.push({
         task: item.task || 'Assigned Item',
@@ -3709,8 +3767,10 @@ function sendOtherAgendaNotifications(agendaInput) {
       }
 
       if (email && email.includes('@')) {
+        const rec = getMemberRecordForName(attName);
+        const hName = formatHonorificName(attName, att.calling || rec);
         if (!recipients[email]) {
-          recipients[email] = { name: attName, roles: [], assignments: [], isAttendee: true };
+          recipients[email] = { name: hName, roles: [], assignments: [], isAttendee: true };
         } else {
           recipients[email].isAttendee = true;
         }
@@ -3785,7 +3845,7 @@ function sendOtherAgendaNotifications(agendaInput) {
             ${topicsList.map(t => `
               <li style="margin-bottom: 6px;">
                 <strong>${t.title || 'Discussion Item'}</strong> 
-                ${t.presenter ? `<span style="color: #64748b;">(Lead: ${t.presenter})</span>` : ''}
+                ${t.presenter ? `<span style="color: #64748b;">(Lead: ${formatHonorificName(t.presenter)})</span>` : ''}
                 ${t.minutes ? `<span style="color: #94a3b8; font-size: 11px;">— ${t.minutes} mins</span>` : ''}
                 ${t.notes ? `<div style="font-size: 12px; color: #64748b; margin-top: 2px;">${t.notes}</div>` : ''}
               </li>
@@ -3835,11 +3895,11 @@ function sendOtherAgendaNotifications(agendaInput) {
               </tr>
               <tr>
                 <td style="padding: 8px 12px; font-weight: bold; color: #64748b;">👤 Presiding:</td>
-                <td style="padding: 8px 12px; color: #0f172a;">${agenda.presiding || 'Bishop'} (${agenda.presiding_role || 'Bishop'})</td>
+                <td style="padding: 8px 12px; color: #0f172a;">${formatHonorificName(agenda.presiding, agenda.presiding_role) || 'Bishop'} (${agenda.presiding_role || 'Bishop'})</td>
               </tr>
               <tr>
                 <td style="padding: 8px 12px; font-weight: bold; color: #64748b;">🗣️ Conducting:</td>
-                <td style="padding: 8px 12px; color: #0f172a;">${agenda.conducting || 'Conducting Officer'} (${agenda.conducting_role || 'Counselor'})</td>
+                <td style="padding: 8px 12px; color: #0f172a;">${formatHonorificName(agenda.conducting, agenda.conducting_role) || 'Conducting Officer'} (${agenda.conducting_role || 'Counselor'})</td>
               </tr>
             </table>
 
@@ -3855,7 +3915,7 @@ function sendOtherAgendaNotifications(agendaInput) {
             ` : ''}
 
             <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 13px; color: #64748b; text-align: center;">
-              <p style="margin: 0 0 4px 0;">Approved by <strong>${agenda.approved_by_name || 'Bishopric'}</strong> on ${agenda.approved_date ? agenda.approved_date.substring(0, 10) : 'Record'}.</p>
+              <p style="margin: 0 0 4px 0;">Approved by <strong>${formatHonorificName(agenda.approved_by_name) || 'Bishopric'}</strong> on ${agenda.approved_date ? agenda.approved_date.substring(0, 10) : 'Record'}.</p>
               <p style="margin: 0; font-size: 11px;">Thank you for your dedicated service and commitment to the Lord's work.</p>
             </div>
           </div>
@@ -3866,16 +3926,17 @@ function sendOtherAgendaNotifications(agendaInput) {
     `;
 
     const plainText = `
-${readableType} Notice & Assignment
+${meetingTypeHeading}
+Ward: OBANTOKO WARD
 Date: ${agenda.date}
 Time: ${agenda.start_time} - ${agenda.end_time}
 Venue: ${agenda.venue}
-Presiding: ${agenda.presiding}
-Conducting: ${agenda.conducting}
+Presiding: ${formatHonorificName(agenda.presiding, agenda.presiding_role)}
+Conducting: ${formatHonorificName(agenda.conducting, agenda.conducting_role)}
 
 Dear ${data.name},
 Please review your assignments and meeting details for the upcoming ${readableType}.
-Approved by ${agenda.approved_by_name || 'Bishopric'}.
+Approved by ${formatHonorificName(agenda.approved_by_name) || 'Bishopric'}.
     `.trim();
 
     const success = sendEmail(email, subject, plainText, { html: htmlBody });

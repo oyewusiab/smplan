@@ -1,4 +1,5 @@
 import type { OtherAgenda, OtherAgendaAssignment, OtherAgendaTopic } from '../types';
+import { formatHonorificName } from './memberTitle';
 
 export function formatOtherAgendaWhatsApp(agenda: OtherAgenda): string {
   const meetingTypeNames: Record<string, string> = {
@@ -40,14 +41,14 @@ export function formatOtherAgendaWhatsApp(agenda: OtherAgenda): string {
   text += `📅 *Date:* ${agenda.date}\n`;
   text += `⏰ *Time:* ${agenda.start_time} - ${agenda.end_time}\n`;
   text += `📍 *Venue:* ${agenda.venue || "Bishop's Office / Council Room"}\n`;
-  text += `👤 *Presiding:* ${agenda.presiding || 'Bishop'} (${agenda.presiding_role || 'Bishop'})\n`;
-  text += `🗣️ *Conducting:* ${agenda.conducting || 'Conducting Officer'} (${agenda.conducting_role || 'Counselor'})\n\n`;
+  text += `👤 *Presiding:* ${formatHonorificName(agenda.presiding, agenda.presiding_role) || 'Bishop'} (${agenda.presiding_role || 'Bishop'})\n`;
+  text += `🗣️ *Conducting:* ${formatHonorificName(agenda.conducting, agenda.conducting_role) || 'Conducting Officer'} (${agenda.conducting_role || 'Counselor'})\n\n`;
 
   text += `*─── OPENING EXERCISES ───*\n`;
   if (agenda.opening_hymn) text += `🎵 *Opening Hymn:* ${agenda.opening_hymn}\n`;
-  if (agenda.opening_prayer) text += `🙏 *Opening Prayer:* ${agenda.opening_prayer}\n`;
+  if (agenda.opening_prayer) text += `🙏 *Opening Prayer:* ${formatHonorificName(agenda.opening_prayer)}\n`;
   if (agenda.spiritual_thought_by) {
-    text += `💡 *Spiritual Thought:* ${agenda.spiritual_thought_by}${agenda.spiritual_thought_topic ? ` — "${agenda.spiritual_thought_topic}"` : ''}\n`;
+    text += `💡 *Spiritual Thought:* ${formatHonorificName(agenda.spiritual_thought_by)}${agenda.spiritual_thought_topic ? ` — "${agenda.spiritual_thought_topic}"` : ''}\n`;
   }
   text += `\n`;
 
@@ -55,7 +56,7 @@ export function formatOtherAgendaWhatsApp(agenda: OtherAgenda): string {
     text += `*─── AGENDA DISCUSSION TOPICS ───*\n`;
     topicsList.forEach((t, idx) => {
       text += `${idx + 1}. *${t.title}*`;
-      if (t.presenter) text += ` _(Lead: ${t.presenter})_`;
+      if (t.presenter) text += ` _(Lead: ${formatHonorificName(t.presenter)})_`;
       if (t.minutes) text += ` [${t.minutes}m]`;
       text += `\n`;
       if (t.notes) text += `   • ${t.notes}\n`;
@@ -67,7 +68,7 @@ export function formatOtherAgendaWhatsApp(agenda: OtherAgenda): string {
     text += `*─── ACTION ITEMS & ASSIGNMENTS ───*\n`;
     assignmentsList.forEach((a, idx) => {
       text += `✅ *Task ${idx + 1}:* ${a.task}\n`;
-      text += `   👤 *Assigned To:* ${a.assignee}\n`;
+      text += `   👤 *Assigned To:* ${formatHonorificName(a.assignee)}\n`;
       if (a.due_date) text += `   🎯 *Due Date:* ${a.due_date}\n`;
       if (a.notes) text += `   📝 *Notes:* ${a.notes}\n`;
     });
@@ -75,12 +76,12 @@ export function formatOtherAgendaWhatsApp(agenda: OtherAgenda): string {
   }
 
   text += `*─── CLOSING ───*\n`;
-  if (agenda.closing_remarks_by) text += `💬 *Closing Remarks:* ${agenda.closing_remarks_by}\n`;
-  if (agenda.closing_prayer) text += `🙏 *Closing Prayer:* ${agenda.closing_prayer}\n`;
+  if (agenda.closing_remarks_by) text += `💬 *Closing Remarks:* ${formatHonorificName(agenda.closing_remarks_by)}\n`;
+  if (agenda.closing_prayer) text += `🙏 *Closing Prayer:* ${formatHonorificName(agenda.closing_prayer)}\n`;
   if (agenda.general_notes) text += `📝 *Notes:* ${agenda.general_notes}\n`;
 
   if (agenda.state === 'APPROVED') {
-    text += `\n✨ _Approved by ${agenda.approved_by_name || 'Bishopric'}_`;
+    text += `\n✨ _Approved by ${formatHonorificName(agenda.approved_by_name) || 'Bishopric'}_\n`;
   }
 
   return text;
@@ -105,17 +106,18 @@ export function formatParticipantWhatsApp(
   };
 
   const meetingName = meetingTypeNames[agenda.meeting_type] || agenda.title || 'Ward Meeting';
+  const honorificParticipant = formatHonorificName(participantName);
 
   let text = `🏛️ *THE CHURCH OF JESUS CHRIST OF LATTER-DAY SAINTS*\n`;
   text += `🏛️ *Ward:* ${agenda.venue ? (agenda.venue.includes('Ward') ? agenda.venue : 'OBANTOKO WARD') : 'OBANTOKO WARD'}\n`;
   text += `📋 *Meeting type:* ${meetingName.endsWith('Agenda') ? meetingName : `${meetingName} Agenda`}\n\n`;
-  text += `Dear *${participantName}*,\n\n`;
+  text += `Dear *${honorificParticipant}*,\n\n`;
   text += `Here are your assigned responsibilities and action items for the upcoming *${meetingName}*:\n\n`;
 
   text += `📅 *Date:* ${agenda.date}\n`;
   text += `⏰ *Time:* ${agenda.start_time} - ${agenda.end_time}\n`;
   text += `📍 *Venue:* ${agenda.venue || "Bishop's Office / Council Room"}\n`;
-  text += `👤 *Presiding:* ${agenda.presiding || 'Bishop'}\n\n`;
+  text += `👤 *Presiding:* ${formatHonorificName(agenda.presiding, agenda.presiding_role) || 'Bishop'}\n\n`;
 
   if (roles.length > 0) {
     text += `*─── YOUR MEETING DUTIES ───*\n`;
