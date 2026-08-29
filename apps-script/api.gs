@@ -3526,6 +3526,10 @@ function sendOtherAgendaNotifications(agendaInput) {
     agenda = dbFindOne('OTHER_AGENDAS', 'other_agenda_id', agenda) || {};
   }
 
+  // Ensure fresh sheet data by invalidating cached members and users
+  invalidateSheetCache('MEMBERS_LIST');
+  invalidateSheetCache('USERS');
+
   const allMembers = dbReadAll('MEMBERS_LIST');
   const allUsers = dbReadAll('USERS');
 
@@ -3539,38 +3543,48 @@ function sendOtherAgendaNotifications(agendaInput) {
       .trim();
   };
 
+  // Helper to extract email regardless of column name casing or spaces (e.g. email, Email, EMAIL, Email Address, E-mail)
+  const extractEmailFromObj = (obj) => {
+    if (!obj || typeof obj !== 'object') return '';
+    for (const key in obj) {
+      if (key.trim().toLowerCase().includes('email')) {
+        const val = String(obj[key] || '').trim();
+        if (val.includes('@')) return val;
+      }
+    }
+    return '';
+  };
+
   const emailLookup = {};
 
   // Index members
   allMembers.forEach(m => {
-    const rawEmail = m.email || m.Email || m.EMAIL || m['Email Address'] || m['email_address'];
-    if (rawEmail && String(rawEmail).includes('@')) {
-      const cleanEmail = String(rawEmail).trim();
+    const rawEmail = extractEmailFromObj(m);
+    if (rawEmail) {
       if (m.name) {
-        emailLookup[String(m.name).trim().toLowerCase()] = cleanEmail;
+        emailLookup[String(m.name).trim().toLowerCase()] = rawEmail;
         const norm = normalize(m.name);
-        if (norm) emailLookup[norm] = cleanEmail;
+        if (norm) emailLookup[norm] = rawEmail;
       }
     }
   });
 
   // Index users (ward leadership accounts)
   allUsers.forEach(u => {
-    const rawEmail = u.email || u.Email || u.EMAIL;
-    if (rawEmail && String(rawEmail).includes('@')) {
-      const cleanEmail = String(rawEmail).trim();
+    const rawEmail = extractEmailFromObj(u);
+    if (rawEmail) {
       if (u.name) {
-        emailLookup[String(u.name).trim().toLowerCase()] = cleanEmail;
+        emailLookup[String(u.name).trim().toLowerCase()] = rawEmail;
         const norm = normalize(u.name);
-        if (norm) emailLookup[norm] = cleanEmail;
+        if (norm) emailLookup[norm] = rawEmail;
       }
       if (u.preferred_name) {
-        emailLookup[String(u.preferred_name).trim().toLowerCase()] = cleanEmail;
+        emailLookup[String(u.preferred_name).trim().toLowerCase()] = rawEmail;
         const normP = normalize(u.preferred_name);
-        if (normP) emailLookup[normP] = cleanEmail;
+        if (normP) emailLookup[normP] = rawEmail;
       }
       if (u.username) {
-        emailLookup[String(u.username).trim().toLowerCase()] = cleanEmail;
+        emailLookup[String(u.username).trim().toLowerCase()] = rawEmail;
       }
     }
   });
@@ -3836,3 +3850,45 @@ Approved by ${agenda.approved_by_name || 'Bishopric'}.
   return { sentCount: sentCount, details: sentDetails };
 }
 
+/**
+ * Diagnostic & Authorization Helper for Google Apps Script.
+ * Select this function in the Apps Script editor and click "Run" to:
+ * 1. Trigger Google's one-time OAuth email authorization prompt ("Review permissions" -> "Allow").
+ * 2. Send a test meeting agenda email to the current logged-in Google account.
+ */
+function testSendOtherAgendaEmail() {
+  const activeUserEmail = Session.getActiveUser().getEmail() || Session.getEffectiveUser().getEmail();
+  Logger.log('Target test recipient email: ' + activeUserEmail);
+
+  if (!activeUserEmail) {
+    Logger.log('Could not determine active user email. Sending to default test address.');
+  }
+
+  const testAgenda = {
+    title: 'Ward Leadership Test Agenda',
+    meeting_type: 'WARD_COUNCIL',
+    date: Utilities.formatDate(new Date(), getAppTimeZone(), 'yyyy-MM-dd'),
+    start_time: '07:30',
+    end_time: '08:30',
+    venue: "Bishop's Office",
+    presiding: 'Bishop',
+    conducting: '1st Counselor',
+    opening_prayer: 'Test Member',
+    spiritual_thought_by: 'Test Leader',
+    spiritual_thought_topic: 'Ministering with Love',
+    closing_remarks_by: 'Bishop',
+    closing_prayer: 'Test Member',
+    general_notes: 'This is a test email sent from SM Planner Apps Script to verify email permissions and delivery.',
+    topics: [
+      { title: 'Welcome and Come, Follow Me Spiritual Foundation', presenter: 'Bishop', minutes: 10, notes: 'Introductory discussion' }
+    ],
+    assignments: [
+      { task: 'Action item delivery test', assignee: 'Test Member', assignee_email: activeUserEmail, due_date: 'Next Sunday', notes: 'Verification test' }
+    ]
+  };
+
+  const result = sendOtherAgendaNotifications(testAgenda);
+  Logger.log('=== TEST RESULT ===');
+  Logger.log(JSON.stringify(result, null, 2));
+  return result;
+}
