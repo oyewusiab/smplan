@@ -33,8 +33,9 @@ export function formatOtherAgendaWhatsApp(agenda: OtherAgenda): string {
     assignmentsList = [];
   }
 
-  let text = `📋 *${meetingName.toUpperCase()} — AGENDA*\n`;
-  text += `🏛️ *The Church of Jesus Christ of Latter-day Saints*\n\n`;
+  let text = `🏛️ *THE CHURCH OF JESUS CHRIST OF LATTER-DAY SAINTS*\n`;
+  text += `🏛️ *Ward:* ${agenda.venue ? (agenda.venue.includes('Ward') ? agenda.venue : 'OBANTOKO WARD') : 'OBANTOKO WARD'}\n`;
+  text += `📋 *Meeting type:* ${meetingName.endsWith('Agenda') ? meetingName : `${meetingName} Agenda`}\n\n`;
 
   text += `📅 *Date:* ${agenda.date}\n`;
   text += `⏰ *Time:* ${agenda.start_time} - ${agenda.end_time}\n`;
@@ -105,8 +106,9 @@ export function formatParticipantWhatsApp(
 
   const meetingName = meetingTypeNames[agenda.meeting_type] || agenda.title || 'Ward Meeting';
 
-  let text = `🕊️ *${meetingName.toUpperCase()} — ASSIGNMENT NOTICE*\n`;
-  text += `🏛️ *The Church of Jesus Christ of Latter-day Saints*\n\n`;
+  let text = `🏛️ *THE CHURCH OF JESUS CHRIST OF LATTER-DAY SAINTS*\n`;
+  text += `🏛️ *Ward:* ${agenda.venue ? (agenda.venue.includes('Ward') ? agenda.venue : 'OBANTOKO WARD') : 'OBANTOKO WARD'}\n`;
+  text += `📋 *Meeting type:* ${meetingName.endsWith('Agenda') ? meetingName : `${meetingName} Agenda`}\n\n`;
   text += `Dear *${participantName}*,\n\n`;
   text += `Here are your assigned responsibilities and action items for the upcoming *${meetingName}*:\n\n`;
 

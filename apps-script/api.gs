@@ -3688,6 +3688,36 @@ function sendOtherAgendaNotifications(agendaInput) {
     }
   });
 
+  // 6. Check Attendees & Leadership Roll (so all listed attendees receive a full copy of the agenda)
+  let attendeesList = [];
+  try {
+    if (typeof agenda.attendees === 'string') {
+      attendeesList = JSON.parse(agenda.attendees || '[]');
+    } else if (Array.isArray(agenda.attendees)) {
+      attendeesList = agenda.attendees;
+    }
+  } catch (e) {
+    attendeesList = [];
+  }
+
+  attendeesList.forEach(att => {
+    if (att.name && att.name.trim()) {
+      const attName = att.name.trim();
+      let email = (att.email || '').trim();
+      if (!email) {
+        email = getEmailForName(attName);
+      }
+
+      if (email && email.includes('@')) {
+        if (!recipients[email]) {
+          recipients[email] = { name: attName, roles: [], assignments: [], isAttendee: true };
+        } else {
+          recipients[email].isAttendee = true;
+        }
+      }
+    }
+  });
+
   const meetingTypeLabels = {
     BISHOPRIC_MEETING: 'Bishopric Meeting',
     WARD_COUNCIL: 'Ward Council Meeting',
@@ -3697,11 +3727,12 @@ function sendOtherAgendaNotifications(agendaInput) {
   };
 
   const readableType = meetingTypeLabels[agenda.meeting_type] || agenda.title || 'Ward Meeting';
+  const meetingTypeHeading = readableType.endsWith('Agenda') ? readableType : `${readableType} Agenda`;
   let sentCount = 0;
   const sentDetails = [];
 
   Object.entries(recipients).forEach(([email, data]) => {
-    const subject = `[Meeting Agenda & Assignment] ${readableType} — ${agenda.date}`;
+    const subject = `[${meetingTypeHeading}] ${agenda.date}`;
     
     let rolesHtml = '';
     if (data.roles.length > 0) {
@@ -3771,15 +3802,22 @@ function sendOtherAgendaNotifications(agendaInput) {
       <body style="font-family: Arial, sans-serif; line-height: 1.5; color: #1e293b; background-color: #f8fafc; margin: 0; padding: 20px;">
         <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
           
-          <div style="background-color: #1e3a8a; padding: 24px; text-align: center; color: #ffffff;">
-            <h2 style="margin: 0; font-size: 20px; letter-spacing: 0.5px;">The Church of Jesus Christ of Latter-day Saints</h2>
-            <p style="margin: 6px 0 0 0; font-size: 14px; opacity: 0.9;">${readableType} Notice & Assignment</p>
+          <div style="background-color: #1e3a8a; padding: 22px; text-align: center; color: #ffffff;">
+            <div style="font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #93c5fd; margin-bottom: 6px;">
+              The Church of Jesus Christ of Latter-day Saints
+            </div>
+            <div style="font-size: 17px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">
+              Ward: OBANTOKO WARD
+            </div>
+            <div style="font-size: 15px; font-weight: 700; color: #ffffff;">
+              Meeting type: ${meetingTypeHeading}
+            </div>
           </div>
 
           <div style="padding: 24px;">
             <p style="font-size: 15px; margin-top: 0;">Dear <strong>${data.name}</strong>,</p>
             <p style="font-size: 14px; color: #475569;">
-              This is to notify you regarding the upcoming <strong>${readableType}</strong> scheduled as follows:
+              This is to provide you with the official meeting agenda and assignments for the upcoming <strong>${readableType}</strong>:
             </p>
 
             <table style="width: 100%; margin: 16px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px;">

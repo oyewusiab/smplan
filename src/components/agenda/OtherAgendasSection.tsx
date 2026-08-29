@@ -434,10 +434,15 @@ export function OtherAgendasSection({ members, unitName }: OtherAgendasSectionPr
                   
                   {/* Top Badges & Meta */}
                   <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-1">
-                      {getMeetingTypeBadge(item.meeting_type)}
-                      <h3 className="font-extrabold text-slate-900 text-base mt-1">
-                        {item.title}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="px-2 py-0.5 rounded text-3xs font-extrabold uppercase bg-blue-900 text-white tracking-wider">
+                          Ward: {unitName ? (unitName.toUpperCase().endsWith('WARD') || unitName.toUpperCase().endsWith('BRANCH') ? unitName.toUpperCase() : `${unitName.toUpperCase()} WARD`) : 'OBANTOKO WARD'}
+                        </span>
+                        {getMeetingTypeBadge(item.meeting_type)}
+                      </div>
+                      <h3 className="font-extrabold text-slate-900 text-base">
+                        Meeting type: {item.title.endsWith('Agenda') ? item.title : `${item.title} Agenda`}
                       </h3>
                     </div>
                     <div>

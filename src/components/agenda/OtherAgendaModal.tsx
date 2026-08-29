@@ -86,6 +86,70 @@ const DEFAULT_TEMPLATES: Record<OtherAgendaMeetingType, { title: string; venue: 
   },
 };
 
+export const DEFAULT_MEETING_ROLLS: Record<OtherAgendaMeetingType, { role: string; callingMatch?: RegExp }[]> = {
+  BISHOPRIC_MEETING: [
+    { role: 'Bishop', callingMatch: /bishop/i },
+    { role: '1st Counselor', callingMatch: /1st counselor|first counselor/i },
+    { role: '2nd Counselor', callingMatch: /2nd counselor|second counselor/i },
+    { role: 'Ward Clerk', callingMatch: /ward clerk|clerk/i },
+    { role: 'Executive Secretary', callingMatch: /executive secretary|secretary/i },
+    { role: 'Assistant Ward Clerk', callingMatch: /assistant.*clerk/i },
+  ],
+  WARD_COUNCIL: [
+    { role: 'Bishop', callingMatch: /bishop/i },
+    { role: '1st Counselor', callingMatch: /1st counselor|first counselor/i },
+    { role: '2nd Counselor', callingMatch: /2nd counselor|second counselor/i },
+    { role: 'Ward Clerk', callingMatch: /ward clerk|clerk/i },
+    { role: 'Executive Secretary', callingMatch: /executive secretary/i },
+    { role: 'Elders Quorum President', callingMatch: /elders quorum president|eq president/i },
+    { role: 'Relief Society President', callingMatch: /relief society president|rs president/i },
+    { role: 'Young Women President', callingMatch: /young women president|yw president/i },
+    { role: 'Primary President', callingMatch: /primary president/i },
+    { role: 'Sunday School President', callingMatch: /sunday school president|ss president/i },
+    { role: 'Ward Mission Leader', callingMatch: /mission leader/i },
+    { role: 'Ward Temple & Family History Leader', callingMatch: /temple.*family history/i },
+  ],
+  WARD_YOUTH_COUNCIL: [
+    { role: 'Bishop', callingMatch: /bishop/i },
+    { role: '1st Counselor (Bishopric)', callingMatch: /1st counselor/i },
+    { role: '2nd Counselor (Bishopric)', callingMatch: /2nd counselor/i },
+    { role: 'Young Women President', callingMatch: /young women president|yw president/i },
+    { role: 'Priests Quorum 1st Assistant', callingMatch: /priests.*assistant/i },
+    { role: 'Teachers Quorum President', callingMatch: /teachers quorum president/i },
+    { role: 'Deacons Quorum President', callingMatch: /deacons quorum president/i },
+    { role: 'YW 16-18 Class President', callingMatch: /yw.*class president/i },
+    { role: 'YW 14-15 Class President', callingMatch: /yw.*class president/i },
+    { role: 'YW 12-13 Class President', callingMatch: /yw.*class president/i },
+  ],
+  PRESIDENCY_MEETING: [
+    { role: 'President', callingMatch: /president/i },
+    { role: '1st Counselor', callingMatch: /1st counselor|first counselor/i },
+    { role: '2nd Counselor', callingMatch: /2nd counselor|second counselor/i },
+    { role: 'Secretary', callingMatch: /secretary/i },
+  ],
+  OTHER_MEETING: [
+    { role: 'Presiding Officer', callingMatch: /bishop|president/i },
+    { role: 'Conducting Officer', callingMatch: /counselor|director/i },
+    { role: 'Secretary / Recorder', callingMatch: /secretary|clerk/i },
+  ],
+};
+
+export function generateDefaultAttendees(type: OtherAgendaMeetingType, membersList: Member[]): OtherAgendaAttendee[] {
+  const template = DEFAULT_MEETING_ROLLS[type] || DEFAULT_MEETING_ROLLS.OTHER_MEETING;
+  return template.map(t => {
+    const matchedMember = t.callingMatch
+      ? membersList.find(m => m.calling && t.callingMatch?.test(m.calling))
+      : undefined;
+
+    return {
+      name: matchedMember ? matchedMember.name : '',
+      calling: t.role,
+      present: true,
+      email: matchedMember?.email || '',
+    };
+  });
+}
+
 export function OtherAgendaModal({
   isOpen,
   onClose,
@@ -183,7 +247,7 @@ export function OtherAgendaModal({
     }
   }, [agenda, isOpen]);
 
-  const applyTemplate = (type: OtherAgendaMeetingType) => {
+  const applyTemplate = (type: OtherAgendaMeetingType, loadDefaultRoll = true) => {
     const template = DEFAULT_TEMPLATES[type];
     setMeetingType(type);
     setTitle(template.title);
@@ -191,6 +255,9 @@ export function OtherAgendaModal({
     setStartTime(template.startTime);
     setEndTime(template.endTime);
     setTopics(template.topics);
+    if (loadDefaultRoll) {
+      setAttendees(generateDefaultAttendees(type, members));
+    }
     setAssignments([
       { id: '1', task: '', assignee: '', assignee_email: '', assignee_phone: '', due_date: '', status: 'PENDING' }
     ]);
@@ -199,7 +266,7 @@ export function OtherAgendaModal({
   const handleMeetingTypeChange = (newType: OtherAgendaMeetingType) => {
     setMeetingType(newType);
     if (!agenda) {
-      applyTemplate(newType);
+      applyTemplate(newType, true);
     } else {
       const template = DEFAULT_TEMPLATES[newType];
       setTitle(template.title);
@@ -555,13 +622,33 @@ export function OtherAgendaModal({
 
         {/* Section 3: Attendees & Roll */}
         <div className="space-y-3 p-4 bg-slate-50 rounded-xl border border-slate-200">
-          <div className="flex items-center justify-between">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-              👥 3. Attendees & Leadership Roll ({attendees.length})
-            </h4>
-            <Button size="xs" variant="outline" icon={<Plus className="h-3 w-3" />} onClick={handleAddAttendee}>
-              Add Attendee
-            </Button>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                👥 3. Attendees & Leadership Roll ({attendees.length})
+              </h4>
+              <p className="text-2xs text-slate-500 mt-0.5">
+                All members listed in this roll will receive an email copy of the agenda upon approval.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const defaultList = generateDefaultAttendees(meetingType, members);
+                  setAttendees(defaultList);
+                  toast.success(`Loaded standard ${meetingType.replace(/_/g, ' ')} leadership roll (${defaultList.length} leaders)`);
+                }}
+                className="px-2.5 py-1 text-xs font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-lg transition flex items-center gap-1 shadow-2xs cursor-pointer"
+                title="Load standard leadership roll for this meeting type"
+              >
+                <Sparkles className="h-3.5 w-3.5 text-blue-600" />
+                <span>Load Default Roll</span>
+              </button>
+              <Button size="xs" variant="outline" icon={<Plus className="h-3 w-3" />} onClick={handleAddAttendee}>
+                Add Attendee
+              </Button>
+            </div>
           </div>
 
           <div className="space-y-2">

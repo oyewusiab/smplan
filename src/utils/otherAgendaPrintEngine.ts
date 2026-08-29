@@ -77,27 +77,28 @@ export function generateOtherAgendaHtml(agenda: OtherAgenda, unitName?: string):
       border-bottom: 2px solid #1e3a8a;
       padding-bottom: 12px;
       margin-bottom: 16px;
-    }
     .church-title {
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 700;
       letter-spacing: 1px;
       text-transform: uppercase;
-      color: #1e3a8a;
+      color: #64748b;
       margin-bottom: 4px;
     }
-    .meeting-title {
-      font-size: 20px;
+    .ward-title {
+      font-size: 16px;
       font-weight: 800;
-      color: #0f172a;
+      color: #1e3a8a;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      margin-bottom: 4px;
+      margin-bottom: 2px;
     }
-    .unit-subtitle {
-      font-size: 13px;
-      color: #64748b;
-      font-weight: 600;
+    .meeting-title {
+      font-size: 19px;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
     }
     
     .meta-grid {
@@ -244,8 +245,8 @@ export function generateOtherAgendaHtml(agenda: OtherAgenda, unitName?: string):
     <!-- Header -->
     <div class="header-block">
       <div class="church-title">The Church of Jesus Christ of Latter-day Saints</div>
-      <div class="meeting-title">${meetingName}</div>
-      <div class="unit-subtitle">${unitName || 'Ward Leadership'} · Official Meeting Agenda</div>
+      <div class="ward-title">Ward: ${unitName ? (unitName.toUpperCase().endsWith('WARD') || unitName.toUpperCase().endsWith('BRANCH') ? unitName.toUpperCase() : `${unitName.toUpperCase()} WARD`) : 'OBANTOKO WARD'}</div>
+      <div class="meeting-title">Meeting type: ${meetingName.endsWith('Agenda') ? meetingName : `${meetingName} Agenda`}</div>
     </div>
 
     <!-- Metadata Grid -->
