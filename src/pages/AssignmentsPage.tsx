@@ -75,23 +75,27 @@ export function AssignmentsPage() {
     if (!session) return;
     setLoading(true);
     try {
-      const [aRes, mRes, pRes, sRes] = await Promise.allSettled([
-        assignmentsApi.list(session.token, selectedPlannerId || undefined) as Promise<{ ok: boolean; data: Assignment[] }>,
-        membersApi.list(session.token) as Promise<{ ok: boolean; data: Member[] }>,
+      const [pRes, mRes, sRes] = await Promise.allSettled([
         plannersApi.list(session.token) as Promise<{ ok: boolean; data: Planner[] }>,
+        membersApi.list(session.token) as Promise<{ ok: boolean; data: Member[] }>,
         assignmentsApi.getSecretaryInfo(session.token) as Promise<{ ok: boolean; data: any }>,
       ]);
 
-      if (aRes.status === 'fulfilled' && aRes.value.ok) setAssignments(aRes.value.data || []);
-      if (mRes.status === 'fulfilled' && mRes.value.ok) setMembers(mRes.value.data || []);
+      let initialPlId = selectedPlannerId;
       if (pRes.status === 'fulfilled' && pRes.value.ok) {
         const plList = pRes.value.data || [];
         setPlanners(plList);
         const submitted = plList.filter(p => p.state === 'SUBMITTED');
-        if (!selectedPlannerId && submitted.length > 0) {
-          setSelectedPlannerId(submitted[0].planner_id);
+        if (!initialPlId && submitted.length > 0) {
+          initialPlId = submitted[0].planner_id;
+          setSelectedPlannerId(initialPlId);
+        } else if (!initialPlId && plList.length > 0) {
+          initialPlId = plList[0].planner_id;
+          setSelectedPlannerId(initialPlId);
         }
       }
+
+      if (mRes.status === 'fulfilled' && mRes.value.ok) setMembers(mRes.value.data || []);
       if (sRes.status === 'fulfilled' && sRes.value.ok && sRes.value.data) {
         const defaultName = session?.role === 'SECRETARY' ? (session.name || session.preferred_name) : sRes.value.data.name;
         setSecretaryInfo({
@@ -106,6 +110,12 @@ export function AssignmentsPage() {
           name: session.name || session.preferred_name || 'Ward Executive Secretary',
           calling: 'Ward Executive Secretary',
         }));
+      }
+
+      // Fetch assignments specifically for the selected planner (or all)
+      const aRes = await assignmentsApi.list(session.token, initialPlId || undefined) as { ok: boolean; data: Assignment[] };
+      if (aRes && aRes.ok) {
+        setAssignments(aRes.data || []);
       }
     } catch {
       toast.error('Failed to load assignments');
@@ -365,7 +375,38 @@ export function AssignmentsPage() {
   // Filtered list
   const filteredAssignments = useMemo(() => {
     const today = startOfDay(new Date());
+    const currentPl = planners.find(p => p.planner_id === selectedPlannerId);
+
     return assignments.filter((a) => {
+      // Planner filter: If a planner is selected, ensure assignment belongs to this planner
+      if (selectedPlannerId) {
+        const matchesId = a.planner_id === selectedPlannerId;
+        
+        let matchesMonthYear = false;
+        if (currentPl && a.date) {
+          try {
+            const d = parseISO(a.date);
+            if (isValid(d)) {
+              matchesMonthYear = d.getFullYear() === Number(currentPl.year) && (d.getMonth() + 1) === Number(currentPl.month);
+            }
+          } catch { /* fallback */ }
+        }
+
+        let matchesPlannerWeeks = false;
+        if (currentPl && currentPl.weeks && a.date) {
+          try {
+            const weeks = typeof currentPl.weeks === 'string' ? JSON.parse(currentPl.weeks) : currentPl.weeks;
+            if (Array.isArray(weeks)) {
+              matchesPlannerWeeks = weeks.some((w: any) => w && (w.date === a.date || w.week_id === a.week_id));
+            }
+          } catch { /* fallback */ }
+        }
+
+        if (!matchesId && !matchesMonthYear && !matchesPlannerWeeks) {
+          return false;
+        }
+      }
+
       // Search filter
       const q = search.toLowerCase().trim();
       const matchSearch = !q ||
@@ -406,7 +447,7 @@ export function AssignmentsPage() {
 
       return true;
     });
-  }, [assignments, search, roleFilter, statusFilter, showPastAssignments]);
+  }, [assignments, search, roleFilter, statusFilter, showPastAssignments, selectedPlannerId, planners]);
 
   // Selection handlers
   const toggleSelectAll = () => {

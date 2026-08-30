@@ -803,7 +803,19 @@ function handleListAssignments(params) {
   const session = requireAuth(params.token);
   let assignments = dbReadAll('ASSIGNMENTS');
   if (params.planner_id) {
-    assignments = assignments.filter(a => a.planner_id === params.planner_id);
+    const planner = dbFindOne('PLANNERS', 'planner_id', params.planner_id);
+    assignments = assignments.filter(a => {
+      if (a.planner_id === params.planner_id) return true;
+      if (planner && a.date) {
+        const parts = String(a.date).split('-');
+        if (parts.length >= 2) {
+          const yr = Number(parts[0]);
+          const mo = Number(parts[1]);
+          if (yr === Number(planner.year) && mo === Number(planner.month)) return true;
+        }
+      }
+      return false;
+    });
   }
 
   // Enrich with member directory contact details if phone/email are empty
