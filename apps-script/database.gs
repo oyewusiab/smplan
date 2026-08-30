@@ -114,6 +114,42 @@ function validateDatabase() {
 var _MEM_CACHE = {};
 
 /**
+ * Ensures all schema headers (and any new record keys) are present in the sheet's header row.
+ */
+function ensureSheetColumns(sheet, sheetName, additionalKeys) {
+  if (!sheet) return;
+  const schema = SHEET_SCHEMAS[sheetName] || [];
+  const allNeeded = [];
+  const seen = {};
+  
+  [...schema, ...(additionalKeys || [])].forEach(k => {
+    const trimmed = String(k || '').trim();
+    if (trimmed && !seen[trimmed]) {
+      seen[trimmed] = true;
+      allNeeded.push(trimmed);
+    }
+  });
+  
+  if (allNeeded.length === 0) return;
+
+  const lastCol = sheet.getLastColumn();
+  if (lastCol === 0) {
+    sheet.getRange(1, 1, 1, allNeeded.length).setValues([allNeeded]);
+    sheet.getRange(1, 1, 1, allNeeded.length).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+    return;
+  }
+
+  const existingHeaders = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(h => String(h).trim().toLowerCase());
+  const missingHeaders = allNeeded.filter(h => h && !existingHeaders.includes(h.toLowerCase()));
+
+  if (missingHeaders.length > 0) {
+    sheet.getRange(1, lastCol + 1, 1, missingHeaders.length).setValues([missingHeaders]);
+    sheet.getRange(1, lastCol + 1, 1, missingHeaders.length).setFontWeight('bold');
+  }
+}
+
+/**
  * Retrieves a sheet, safely ensuring schema headers are written if the sheet is empty or newly created.
  */
 function getOrInitSheet(sheetName) {
@@ -138,6 +174,8 @@ function getOrInitSheet(sheetName) {
       sheet.getRange(1, 1, 1, schema.length).setFontWeight('bold');
       sheet.setFrozenRows(1);
     }
+  } else {
+    ensureSheetColumns(sheet, sheetName);
   }
 
   return sheet;
