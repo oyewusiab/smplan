@@ -244,9 +244,10 @@ function dbReadAll(sheetName) {
       }
       if (sheetName === 'MEMBERS_LIST') {
         // Normalize birthdate / birth_date column aliases
-        const bdate = obj.birthdate || obj.birth_date || obj['Birth Date'] || obj['Birthdate'] || '';
+        const bdate = obj.birthdate || obj.birth_date || obj['date of birth'] || obj.dob || obj.birthday || '';
         obj.birthdate = bdate;
         obj.birth_date = bdate;
+        obj.birthday = bdate;
 
         // Dynamically calculate age from birthdate if available
         if (bdate) {
@@ -266,12 +267,19 @@ function dbReadAll(sheetName) {
               let age = today.getFullYear() - bDateObj.getFullYear();
               const m = today.getMonth() - bDateObj.getMonth();
               if (m < 0 || (m === 0 && today.getDate() < bDateObj.getDate())) {
-        const bdate = obj.birthdate || obj.birth_date || obj['date of birth'] || obj.dob || '';
-        const bday = obj.birthday || '';
-        obj.birthdate = bdate || bday;
-        obj.birthday = bday || bdate;
+                age--;
+              }
+              if (age >= 0 && age <= 120) {
+                obj.age = age;
+              }
+            }
+          } catch(e) { /* keep existing age */ }
+        }
+
+        // Normalize confirmation date
         const cdate = obj.confirmationdate || obj.confirmation_date || obj['date of confirmation'] || '';
         obj.confirmationdate = cdate;
+        obj.confirmation_date = cdate;
       }
       return obj;
     });
