@@ -469,6 +469,47 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp }: BulletinWebVie
           </div>
         )}
 
+        {/* 7. Full-Time Missionaries */}
+        {b.show_missionary && b.missionaries && (
+          <div className="rounded-2xl p-4 bg-white border border-slate-200 shadow-2xs space-y-1.5">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1">
+              Full-Time Missionaries
+            </span>
+            <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">
+              {b.missionaries}
+            </p>
+          </div>
+        )}
+
+        {/* 8. Digital Gospel Links & FamilySearch */}
+        {b.show_qr && (
+          <div className="rounded-2xl p-4 bg-slate-50 border border-slate-200 shadow-2xs space-y-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-600 block">
+              Digital Ward Resources
+            </span>
+            <div className="grid grid-cols-2 gap-2">
+              <a
+                href={b.qr_familysearch || 'https://www.familysearch.org'}
+                target="_blank"
+                rel="noreferrer"
+                className="p-2.5 rounded-xl bg-white border border-slate-200 hover:border-blue-400 text-slate-800 text-xs font-semibold flex items-center justify-between transition-colors shadow-2xs"
+              >
+                <span>🌳 FamilySearch</span>
+                <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+              </a>
+              <a
+                href={b.qr_gospel_library || 'https://www.churchofjesuschrist.org/study/gospel-library'}
+                target="_blank"
+                rel="noreferrer"
+                className="p-2.5 rounded-xl bg-white border border-slate-200 hover:border-blue-400 text-slate-800 text-xs font-semibold flex items-center justify-between transition-colors shadow-2xs"
+              >
+                <span>📖 Gospel Library</span>
+                <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+              </a>
+            </div>
+          </div>
+        )}
+
         {/* 7. LIVE CONGREGATION BULLETIN FEEDBACK WIDGET */}
         <div className="rounded-2xl p-5 bg-gradient-to-br from-blue-900 to-indigo-950 text-white shadow-md space-y-3.5">
           <div className="flex items-center gap-2">
