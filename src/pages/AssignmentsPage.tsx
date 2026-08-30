@@ -375,7 +375,6 @@ export function AssignmentsPage() {
 
   // Filtered list
   const filteredAssignments = useMemo(() => {
-    const today = startOfDay(new Date());
     const currentPl = planners.find(p => p.planner_id === selectedPlannerId);
 
     return assignments.filter((a) => {
