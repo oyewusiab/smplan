@@ -273,12 +273,21 @@ function dbReadAll(sheetName) {
             val = JSON.parse(val);
           }
         } catch(e) { /* keep as string */ }
-        obj[h] = val;
+        const rawKey = String(h).trim();
+        const lowerKey = rawKey.toLowerCase();
+        const normKey = lowerKey.replace(/[\s-]+/g, '_');
+        obj[rawKey] = val;
+        obj[lowerKey] = val;
+        obj[normKey] = val;
       });
       if (sheetName === 'MEMBERS_LIST' || sheetName === 'USERS') {
         const mid = obj.members_id || obj.member_id || '';
         obj.members_id = mid;
         obj.member_id = mid;
+      }
+      if (sheetName === 'USERS') {
+        const sig = obj.signature_data_url || obj.signature || obj.signaturedataurl || '';
+        obj.signature_data_url = sig;
       }
       if (sheetName === 'MEMBERS_LIST') {
         // Normalize birthdate / birth_date column aliases
@@ -346,7 +355,7 @@ function dbFind(sheetName, filterFn) {
  * Find one row by a field value.
  */
 function dbFindOne(sheetName, field, value) {
-  const fieldLower = String(field).trim().toLowerCase();
+  const fieldLower = String(field).trim().toLowerCase().replace(/[\s-]+/g, '_');
   return dbReadAll(sheetName).find(row => row[fieldLower] === value) || null;
 }
 
@@ -358,12 +367,12 @@ function dbInsert(sheetName, record) {
   ensureSheetColumns(sheet, sheetName, Object.keys(record));
   
   const lastCol = sheet.getLastColumn();
-  const headers = sheet.getRange(1, 1, 1, Math.max(1, lastCol)).getValues()[0].map(h => String(h).trim().toLowerCase());
+  const headers = sheet.getRange(1, 1, 1, Math.max(1, lastCol)).getValues()[0].map(h => String(h).trim().toLowerCase().replace(/[\s-]+/g, '_'));
   
   const row = headers.map(h => {
     let val = undefined;
     for (const key in record) {
-      if (key.toLowerCase() === h) {
+      if (key.toLowerCase().replace(/[\s-]+/g, '_') === h) {
         val = record[key];
         break;
       }
@@ -397,8 +406,8 @@ function dbUpdate(sheetName, pkField, pkValue, updates) {
     throw new Error(`Record with ${pkField}="${pkValue}" not found in ${sheetName}`);
   }
   const rawHeaders = data[0];
-  const headersLower = rawHeaders.map(h => String(h).trim().toLowerCase());
-  const pkLower = pkField.trim().toLowerCase();
+  const headersLower = rawHeaders.map(h => String(h).trim().toLowerCase().replace(/[\s-]+/g, '_'));
+  const pkLower = pkField.trim().toLowerCase().replace(/[\s-]+/g, '_');
   const pkCol = headersLower.indexOf(pkLower);
   
   if (pkCol === -1) throw new Error(`Field "${pkField}" not found in ${sheetName}`);
@@ -410,7 +419,7 @@ function dbUpdate(sheetName, pkField, pkValue, updates) {
       rawHeaders.forEach((h, j) => { oldRecord[h] = data[i][j]; });
       
       Object.entries(updates).forEach(([key, value]) => {
-        const keyLower = key.trim().toLowerCase();
+        const keyLower = key.trim().toLowerCase().replace(/[\s-]+/g, '_');
         const col = headersLower.indexOf(keyLower);
         if (col !== -1) {
           let val = value;

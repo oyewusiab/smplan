@@ -58,6 +58,7 @@ export function UserProfileModal({ open, onClose }: UserProfileModalProps) {
       const res = await usersApi.getProfile(session.token) as { ok: boolean; data: any };
       if (res.ok && res.data) {
         const u = res.data;
+        const sig = u.signature_data_url || u.signature || u.signaturedataurl || '';
         setForm({
           name: u.name || session.name || '',
           preferred_name: u.preferred_name || session.preferred_name || '',
@@ -70,7 +71,7 @@ export function UserProfileModal({ open, onClose }: UserProfileModalProps) {
           country: u.country || 'Nigeria',
           emergency_contact_name: u.emergency_contact_name || '',
           emergency_contact_phone: u.emergency_contact_phone || '',
-          signature_data_url: u.signature_data_url || '',
+          signature_data_url: sig,
           notes: u.notes || '',
           email: u.email || session.email || '',
           username: u.username || '',
