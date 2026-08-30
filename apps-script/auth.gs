@@ -277,8 +277,8 @@ const PERMISSIONS = {
   // Music (Admin & Music Coordinator dedicated workspace)
   MUSIC_EDIT:      ['ADMIN', 'MUSIC'],
 
-  // Users (Admin supreme access)
-  USER_MANAGE:     ['ADMIN'],
+  // Users (Admin supreme access + Bishopric unit oversight)
+  USER_MANAGE:     ['ADMIN', 'BISHOPRIC'],
 
   // Settings & Change Requests (Admin live edit; Clerk queue request)
   SETTINGS_EDIT:    ['ADMIN'],

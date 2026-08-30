@@ -168,14 +168,15 @@ export function UsersPage() {
 
   const handleResetPassword = async () => {
     if (!session || !resetModal || !tempPw) { toast.error('Temporary password required'); return; }
+    if (tempPw.length < 6) { toast.error('Temporary password must be at least 6 characters'); return; }
     setSaving(true);
     try {
       await usersApi.resetPassword(session.token, resetModal.user_id, tempPw);
       toast.success('Password reset — user must change on next login');
       setResetModal(null);
       setTempPw('');
-    } catch {
-      toast.error('Reset failed');
+    } catch (err: any) {
+      toast.error(err?.message || 'Reset failed');
     } finally {
       setSaving(false);
     }

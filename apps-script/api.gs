@@ -3032,7 +3032,7 @@ function handleGetProfile(params) {
 
 function handleUpdateProfile(body) {
   const session = requireAuth(body.token);
-  const targetUserId = (session.role === 'ADMIN' && body.user_id) ? body.user_id : session.user_id;
+  const targetUserId = ((session.role === 'ADMIN' || session.role === 'BISHOPRIC') && body.user_id) ? body.user_id : session.user_id;
   const user = dbFindOne('USERS', 'user_id', targetUserId);
   if (!user) throw new Error('User record not found');
 
@@ -3049,7 +3049,7 @@ function handleUpdateProfile(body) {
   if (body.emergency_contact_name !== undefined) updates.emergency_contact_name = sanitizeString(body.emergency_contact_name);
   if (body.emergency_contact_phone !== undefined) updates.emergency_contact_phone = sanitizeString(body.emergency_contact_phone);
   if (body.signature_data_url !== undefined) updates.signature_data_url = sanitizeString(body.signature_data_url);
-  if (body.notes !== undefined && session.role === 'ADMIN') updates.notes = sanitizeString(body.notes);
+  if (body.notes !== undefined && (session.role === 'ADMIN' || session.role === 'BISHOPRIC')) updates.notes = sanitizeString(body.notes);
 
   if (body.email !== undefined) {
     const email = sanitizeEmail(body.email);
@@ -3063,13 +3063,13 @@ function handleUpdateProfile(body) {
   if (body.username !== undefined) {
     const username = sanitizeString(body.username).toLowerCase();
     if (username && username !== (user.username || '').toLowerCase()) {
-      if (session.role !== 'ADMIN' && (Number(user.username_change_count) >= 1 || user.username_changed === true || user.username_changed === 'true')) {
+      if (session.role !== 'ADMIN' && session.role !== 'BISHOPRIC' && (Number(user.username_change_count) >= 1 || user.username_changed === true || user.username_changed === 'true')) {
         throw new Error('You can only update your username once by yourself. Please contact the Bishop to request further changes.');
       }
       const existing = dbFind('USERS', u => (u.username || '').toLowerCase() === username && u.user_id !== targetUserId);
       if (existing.length > 0) throw new Error('Username is already in use by another account');
       updates.username = username;
-      if (session.role !== 'ADMIN') {
+      if (session.role !== 'ADMIN' && session.role !== 'BISHOPRIC') {
         updates.username_change_count = (Number(user.username_change_count) || 0) + 1;
         updates.username_changed = true;
       }

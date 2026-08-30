@@ -106,14 +106,43 @@ export function UserProfileModal({ open, onClose }: UserProfileModalProps) {
   const handleSignatureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 1024 * 1024) {
-      toast.error('Signature file must be under 1MB');
+    if (file.size > 3 * 1024 * 1024) {
+      toast.error('Signature file must be under 3MB');
       return;
     }
     const reader = new FileReader();
     reader.onload = () => {
-      setForm((prev) => ({ ...prev, signature_data_url: reader.result as string }));
-      toast.success('Signature loaded');
+      const rawUrl = reader.result as string;
+      const img = new Image();
+      img.onload = () => {
+        const maxWidth = 450;
+        const maxHeight = 160;
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL('image/png');
+          setForm((prev) => ({ ...prev, signature_data_url: compressed }));
+          toast.success('Signature loaded');
+        } else {
+          setForm((prev) => ({ ...prev, signature_data_url: rawUrl }));
+          toast.success('Signature loaded');
+        }
+      };
+      img.onerror = () => {
+        setForm((prev) => ({ ...prev, signature_data_url: rawUrl }));
+        toast.success('Signature loaded');
+      };
+      img.src = rawUrl;
     };
     reader.readAsDataURL(file);
   };
@@ -123,7 +152,7 @@ export function UserProfileModal({ open, onClose }: UserProfileModalProps) {
 
     // Check username update restriction for non-admin
     if (
-      session.role !== 'ADMIN' &&
+      session.role !== 'ADMIN' && session.role !== 'BISHOPRIC' &&
       form.username.trim().toLowerCase() !== form.original_username.trim().toLowerCase() &&
       form.username_change_count >= 1
     ) {
@@ -174,6 +203,9 @@ export function UserProfileModal({ open, onClose }: UserProfileModalProps) {
             preferred_name: form.preferred_name,
             email: form.email,
           });
+        }
+        if (res.data && res.data.signature_data_url !== undefined) {
+          setForm((prev) => ({ ...prev, signature_data_url: res.data.signature_data_url }));
         }
         if (form.new_password) {
           setForm((prev) => ({ ...prev, current_password: '', new_password: '' }));
