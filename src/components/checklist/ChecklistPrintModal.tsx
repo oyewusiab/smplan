@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { Printer, X, CheckSquare } from 'lucide-react';
 import { Button } from '../ui/Button';
 import type { ChecklistItem } from '../../types';
+import { formatTime12h } from '../../utils/formatters';
 
 interface ChecklistPrintModalProps {
   open: boolean;
@@ -111,7 +112,7 @@ export function ChecklistPrintModal({
                 <span>•</span>
                 <span>🏛 Venue: {venue}</span>
                 <span>•</span>
-                <span>⏰ Time: {time}</span>
+                <span>⏰ Time: {formatTime12h(time)}</span>
                 {conducting && (
                   <>
                     <span>•</span>

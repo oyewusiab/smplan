@@ -5,6 +5,7 @@
  */
 
 import { format } from 'date-fns';
+import { formatTime12h } from './formatters';
 import type {
   Agenda, SpeakerItem, ReleaseItem, SustainingItem, OrdinationItem,
   AdvancementItem, BabyBlessingItem, BaptismItem, ConfirmationBestowalItem, FellowshipItem
@@ -473,7 +474,7 @@ export function generateStandAgendaHtml(agenda: Agenda): string {
 
       <div class="service-row">
         <span class="sr-label">Start time:</span>
-        <div class="sr-line" style="flex: 0 0 100px;">${agenda.start_time || '9:00 AM'}</div>
+        <div class="sr-line" style="flex: 0 0 100px;">${formatTime12h(agenda.start_time || '9:00 AM')}</div>
         <div class="sr-line"></div>
         <div class="sr-time"><div class="sr-time-box"></div><div class="sr-time-box"></div></div>
       </div>

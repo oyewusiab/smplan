@@ -33,6 +33,7 @@ import type { ChecklistItem, Planner, Agenda, Member, ChecklistWeekAggregate } f
 import { format, parseISO, isAfter, startOfDay, addDays } from 'date-fns';
 import toast from 'react-hot-toast';
 import { cn } from '../utils/cn';
+import { formatTime12h } from '../utils/formatters';
 
 // Standard 8 Sacrament Readiness Tasks
 export const STANDARD_CHECKLIST_TASKS = [
@@ -562,7 +563,7 @@ export function ChecklistsPage() {
                 <p className="text-xs md:text-sm text-blue-100/90 flex flex-wrap items-center gap-x-3 gap-y-1">
                   <span>🏛 {nextSundayFocus.agenda.venue_override || nextSundayFocus.planner.unit_name || 'Main Chapel'}</span>
                   <span>•</span>
-                  <span>⏰ {nextSundayFocus.agenda.meeting_time_override || nextSundayFocus.agenda.start_time || '9:00 AM'}</span>
+                  <span>⏰ {formatTime12h(nextSundayFocus.agenda.meeting_time_override || nextSundayFocus.agenda.start_time || '9:00 AM')}</span>
                   {nextSundayFocus.agenda.conducting && (
                     <>
                       <span>•</span>
@@ -697,7 +698,7 @@ export function ChecklistsPage() {
                     </span>
                     <span className="text-slate-300">•</span>
                     <span className="text-xs font-semibold text-slate-600">
-                      {selectedAgenda?.venue_override || selectedPlanner?.unit_name || 'Main Chapel'} • {selectedAgenda?.meeting_time_override || selectedAgenda?.start_time || '9:00 AM'}
+                      {selectedAgenda?.venue_override || selectedPlanner?.unit_name || 'Main Chapel'} • {formatTime12h(selectedAgenda?.meeting_time_override || selectedAgenda?.start_time || '9:00 AM')}
                     </span>
                   </div>
                   <h3 className="text-lg md:text-xl font-extrabold text-slate-900 mt-0.5">
@@ -1250,7 +1251,7 @@ export function ChecklistsPage() {
         dateStr={selectedAgenda?.date}
         unitName={selectedPlanner?.unit_name || 'Obantoko Ward'}
         venue={selectedAgenda?.venue_override || 'Main Chapel'}
-        time={selectedAgenda?.meeting_time_override || selectedAgenda?.start_time || '9:00 AM'}
+        time={formatTime12h(selectedAgenda?.meeting_time_override || selectedAgenda?.start_time || '9:00 AM')}
         conducting={selectedAgenda?.conducting || selectedPlanner?.conducting_officer}
       />
 
@@ -1267,7 +1268,7 @@ export function ChecklistsPage() {
         }
         unitName={selectedPlanner?.unit_name || 'Obantoko Ward'}
         venue={selectedAgenda?.venue_override || 'Chapel'}
-        time={selectedAgenda?.meeting_time_override || selectedAgenda?.start_time || '8:30 AM'}
+        time={formatTime12h(selectedAgenda?.meeting_time_override || selectedAgenda?.start_time || '8:30 AM')}
       />
     </div>
   );

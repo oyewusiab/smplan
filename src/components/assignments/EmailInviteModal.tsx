@@ -4,6 +4,7 @@ import { Button } from '../ui/Button';
 import type { Assignment } from '../../types';
 import { format, parseISO, isValid } from 'date-fns';
 import toast from 'react-hot-toast';
+import { formatTime12h } from '../../utils/formatters';
 
 interface EmailInviteModalProps {
   open: boolean;
@@ -80,7 +81,7 @@ export function EmailInviteModal({
         assignment.scripture_ref ? `• Scripture Reference: ${assignment.scripture_ref}` : '',
         assignment.minutes ? `• Time Allotted: ${assignment.minutes} minutes` : '',
         `• Venue: ${assignment.venue || 'Main Chapel'}`,
-        `• Meeting Time: ${assignment.meeting_time || '10:00 AM'}`,
+        `• Meeting Time: ${formatTime12h(assignment.meeting_time)}`,
         assignment.talk_link ? `• Study / Talk Reference Link: ${assignment.talk_link}` : '',
         '',
         `IMPORTANT INSTRUCTIONS:`,

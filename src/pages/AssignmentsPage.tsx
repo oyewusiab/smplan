@@ -12,8 +12,9 @@ import { Input, Select, Textarea } from '../components/ui/Input';
 import { useAuthStore } from '../store/authStore';
 import { assignmentsApi, membersApi, plannersApi, usersApi, agendasApi } from '../services/api';
 import type { Assignment, Member, Planner, User, AssignmentStatus, AssignmentRsvpStatus } from '../types';
-import { format, parseISO, isValid, isBefore, startOfDay } from 'date-fns';
+import { format, parseISO, isValid } from 'date-fns';
 import toast from 'react-hot-toast';
+import { formatTime12h, formatDateDisplay, isPastDate } from '../utils/formatters';
 import { AssignmentSlipPrintModal } from '../components/assignments/AssignmentSlipPrintModal';
 import { WhatsAppInviteModal } from '../components/assignments/WhatsAppInviteModal';
 import { EmailInviteModal } from '../components/assignments/EmailInviteModal';
@@ -435,14 +436,11 @@ export function AssignmentsPage() {
         return false;
       }
 
-      // Show past toggle
+      // Show past toggle: when unchecked, hide past dates
       if (!showPastAssignments && a.date) {
-        try {
-          const d = parseISO(a.date);
-          if (isValid(d) && isBefore(d, today)) {
-            return false;
-          }
-        } catch { /* keep */ }
+        if (isPastDate(a.date)) {
+          return false;
+        }
       }
 
       return true;
@@ -1052,6 +1050,7 @@ export function AssignmentsPage() {
                             <span className="font-semibold text-slate-800 flex items-center gap-1">
                               <Calendar className="h-3.5 w-3.5 text-slate-400" />
                               {formatDisplayDate(a.date)}
+                              {a.meeting_time ? <span className="text-slate-500 font-normal">({formatTime12h(a.meeting_time)})</span> : null}
                             </span>
                             {a.topic && (
                               <span className="truncate max-w-xs">

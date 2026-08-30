@@ -7,6 +7,7 @@ import type { Agenda, ReleaseItem, SustainingItem, OrdinationItem, BabyBlessingI
 import { formatHymnDisplay } from '../../utils/hymnParser';
 import { parseSpeakersList, parseStructuredOrLines } from '../../utils/AgendaPrintEngine';
 import { format } from 'date-fns';
+import { formatTime12h } from '../../utils/formatters';
 
 interface DigitalPodiumModalProps {
   open: boolean;
@@ -102,7 +103,7 @@ export function DigitalPodiumModal({ open, onClose, agenda }: DigitalPodiumModal
               {agenda.ward_branch || 'Sacrament Meeting'} — Stand Podium
             </h1>
             <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-              {formattedDate} · {agenda.start_time || '10:00 AM'}
+              {formattedDate} · {formatTime12h(agenda.start_time || '10:00 AM')}
             </p>
           </div>
         </div>
@@ -115,7 +116,7 @@ export function DigitalPodiumModal({ open, onClose, agenda }: DigitalPodiumModal
             }`}
           >
             <Clock className="h-4 w-4 text-emerald-500" />
-            <span>{format(currentTime, 'HH:mm:ss')}</span>
+            <span>{format(currentTime, 'hh:mm:ss a')}</span>
             <span className="text-xs text-slate-500 font-normal">|</span>
             <button
               onClick={() => setTimerRunning(!timerRunning)}

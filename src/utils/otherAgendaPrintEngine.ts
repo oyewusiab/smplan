@@ -1,5 +1,6 @@
 import type { OtherAgenda, OtherAgendaAssignment, OtherAgendaTopic, OtherAgendaAttendee } from '../types';
 import { formatHonorificName } from './memberTitle';
+import { formatTime12h } from './formatters';
 
 export function generateOtherAgendaHtml(agenda: OtherAgenda, unitName?: string): string {
   const meetingTypeNames: Record<string, string> = {
@@ -258,7 +259,7 @@ export function generateOtherAgendaHtml(agenda: OtherAgenda, unitName?: string):
       </div>
       <div class="meta-item">
         <span class="meta-label">Time</span>
-        <span class="meta-value">⏰ ${agenda.start_time} - ${agenda.end_time}</span>
+        <span class="meta-value">⏰ ${formatTime12h(agenda.start_time)} - ${formatTime12h(agenda.end_time)}</span>
       </div>
       <div class="meta-item">
         <span class="meta-label">Venue</span>

@@ -1,5 +1,6 @@
 import type { OtherAgenda, OtherAgendaAssignment, OtherAgendaTopic } from '../types';
 import { formatHonorificName } from './memberTitle';
+import { formatTime12h } from './formatters';
 
 export function formatOtherAgendaWhatsApp(agenda: OtherAgenda): string {
   const meetingTypeNames: Record<string, string> = {
@@ -39,7 +40,7 @@ export function formatOtherAgendaWhatsApp(agenda: OtherAgenda): string {
   text += `📋 *Meeting type:* ${meetingName.endsWith('Agenda') ? meetingName : `${meetingName} Agenda`}\n\n`;
 
   text += `📅 *Date:* ${agenda.date}\n`;
-  text += `⏰ *Time:* ${agenda.start_time} - ${agenda.end_time}\n`;
+  text += `⏰ *Time:* ${formatTime12h(agenda.start_time)} - ${formatTime12h(agenda.end_time)}\n`;
   text += `📍 *Venue:* ${agenda.venue || "Bishop's Office / Council Room"}\n`;
   text += `👤 *Presiding:* ${formatHonorificName(agenda.presiding, agenda.presiding_role) || 'Bishop'} (${agenda.presiding_role || 'Bishop'})\n`;
   text += `🗣️ *Conducting:* ${formatHonorificName(agenda.conducting, agenda.conducting_role) || 'Conducting Officer'} (${agenda.conducting_role || 'Counselor'})\n\n`;

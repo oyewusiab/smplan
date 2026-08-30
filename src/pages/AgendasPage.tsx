@@ -20,6 +20,7 @@ import type {
 } from '../types';
 import { parseHymn, formatHymnDisplay, formatPersonWithTitle } from '../utils/hymnParser';
 import { generateStandAgendaHtml, parseSpeakersList, parseStructuredOrLines } from '../utils/AgendaPrintEngine';
+import { formatTime12h } from '../utils/formatters';
 import { AgendaDiffModal } from '../components/agenda/AgendaDiffModal';
 import { DigitalPodiumModal } from '../components/agenda/DigitalPodiumModal';
 import { OtherAgendasSection } from '../components/agenda/OtherAgendasSection';
@@ -851,7 +852,7 @@ export function AgendasPage() {
                         </div>
                         <div className="flex justify-between">
                           <dt className="text-slate-400">Start Time</dt>
-                          <dd className="font-medium text-slate-800">{a.start_time || '9:00 AM'}</dd>
+                          <dd className="font-medium text-slate-800">{formatTime12h(a.start_time || '9:00 AM')}</dd>
                         </div>
                       </dl>
 

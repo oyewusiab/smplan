@@ -3,6 +3,7 @@ import { MessageSquare, Send, Copy, Check, X, Phone, User } from 'lucide-react';
 import { Button } from '../ui/Button';
 import type { ChecklistItem, Member } from '../../types';
 import toast from 'react-hot-toast';
+import { formatTime12h } from '../../utils/formatters';
 
 interface ChecklistWhatsAppModalProps {
   open: boolean;
@@ -42,7 +43,7 @@ export function ChecklistWhatsAppModal({
 
   const generateMessage = (item: ChecklistItem) => {
     const resp = item.responsible || 'Member';
-    return `Hi ${resp}, this is a friendly reminder from ${unitName} that you are assigned for *${item.task}* tomorrow (${weekLabel}) at ${time} in the ${venue}. Thank you for your faithful service! 🙏`;
+    return `Hi ${resp}, this is a friendly reminder from ${unitName} that you are assigned for *${item.task}* tomorrow (${weekLabel}) at ${formatTime12h(time)} in the ${venue}. Thank you for your faithful service! 🙏`;
   };
 
   const handleCopy = (item: ChecklistItem) => {
