@@ -44,6 +44,14 @@ export function BulletinPrintPreview({ bulletin: b }: BulletinPrintPreviewProps)
   const [pdfScale, setPdfScale] = useState(1);
   const pdfContentRef = useRef<HTMLDivElement>(null);
 
+  if (!b) {
+    return (
+      <div className="p-8 text-center text-slate-500 text-sm">
+        No bulletin selected. Please select or create a bulletin.
+      </div>
+    );
+  }
+
   const theme = getBulletinTheme(b.color_theme);
   const weekRange = getWeekDateRange(b.date, b.unit_name);
   const unitTitle = (b.unit_name || 'OBANTOKO WARD').toUpperCase();

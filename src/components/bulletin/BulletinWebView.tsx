@@ -17,9 +17,18 @@ import toast from 'react-hot-toast';
 interface BulletinWebViewProps {
   bulletin: Bulletin;
   onShareWhatsApp?: () => void;
+  onOpenFeedbackModal?: () => void;
 }
 
-export function BulletinWebView({ bulletin: b, onShareWhatsApp }: BulletinWebViewProps) {
+export function BulletinWebView({ bulletin: b, onShareWhatsApp, onOpenFeedbackModal }: BulletinWebViewProps) {
+  if (!b) {
+    return (
+      <div className="p-8 text-center text-slate-500 text-sm">
+        No bulletin selected. Please select or create a bulletin.
+      </div>
+    );
+  }
+
   const theme = getBulletinTheme(b.color_theme);
 
   // Feedback form state
@@ -644,8 +653,8 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp }: BulletinWebVie
                   <input
                     type="text"
                     placeholder="Brother/Sister..."
-                    value={memberName}
-                    onChange={(e) => setMemberName(e.target.value)}
+                    value={feedbackName}
+                    onChange={(e) => setFeedbackName(e.target.value)}
                     className="w-full text-xs rounded-xl bg-white border-0 p-2"
                   />
                 </div>
@@ -658,8 +667,8 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp }: BulletinWebVie
                 <input
                   type="text"
                   placeholder="e.g. +234 801 234 5678"
-                  value={memberPhone}
-                  onChange={(e) => setMemberPhone(e.target.value)}
+                  value={feedbackPhone}
+                  onChange={(e) => setFeedbackPhone(e.target.value)}
                   className="w-full text-xs rounded-xl bg-white border-0 p-2"
                 />
               </div>
