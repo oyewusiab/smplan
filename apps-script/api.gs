@@ -2311,48 +2311,90 @@ function handleGetBulletinDraftData(params) {
   let closingHymn = '';
   let openingPrayer = '';
   let closingPrayer = '';
-  let speakersData = '[]';
+  let speakersData = '';
   let specialMusic = '';
+  let meetingTheme = '';
 
-  if (planner && planner.weeks) {
-    try {
-      const parsedWeeks = typeof planner.weeks === 'string' ? JSON.parse(planner.weeks) : planner.weeks;
-      if (Array.isArray(parsedWeeks)) {
-        plannerWeek = parsedWeeks.find(w => w.date === targetDate) || parsedWeeks[0] || null;
-      }
-    } catch (e) {}
+  // Helper date normalizer
+  function cleanDateStr(d) {
+    if (!d) return '';
+    if (typeof d === 'string') return d.substring(0, 10);
+    if (d instanceof Date) return Utilities.formatDate(d, Session.getScriptTimeZone() || 'UTC', 'yyyy-MM-dd');
+    return String(d).substring(0, 10);
   }
 
-  let agenda = dbFindOne('AGENDAS', 'date', targetDate);
-  if (!agenda && params.planner_id) {
-    const plannerAgendas = dbFind('AGENDAS', a => a.planner_id === params.planner_id);
-    agenda = plannerAgendas.find(a => a.date === targetDate) || plannerAgendas[0] || null;
+  // A. Check agendas table first for this planner or date
+  let allAgendas = [];
+  if (params.planner_id) {
+    allAgendas = dbFind('AGENDAS', a => a.planner_id === params.planner_id);
+  }
+  let agenda = allAgendas.find(a => cleanDateStr(a.date) === targetDate) || dbFindOne('AGENDAS', 'date', targetDate);
+  if (!agenda && allAgendas.length > 0) {
+    // If target date not exact match, find closest Sunday or first agenda
+    agenda = allAgendas.find(a => cleanDateStr(a.date) === targetDate) || allAgendas[0];
   }
   if (agenda && !planner && agenda.planner_id) {
     planner = dbFindOne('PLANNERS', 'planner_id', agenda.planner_id);
   }
 
-  // Extract Sacrament Meeting Details from Planner Week (or fallback to agenda)
-  const sourceObj = plannerWeek || agenda || {};
+  // B. Check planner.weeks embedded JSON
+  if (planner && planner.weeks) {
+    try {
+      const parsedWeeks = typeof planner.weeks === 'string' ? JSON.parse(planner.weeks) : planner.weeks;
+      if (Array.isArray(parsedWeeks) && parsedWeeks.length > 0) {
+        plannerWeek = parsedWeeks.find(w => cleanDateStr(w.date) === targetDate) || parsedWeeks[0];
+      }
+    } catch (e) {}
+  }
+
+  // C. Extract Sacrament Meeting Details from Agenda or Planner Week
+  const sourceObj = agenda || plannerWeek || {};
   meetingType = sourceObj.type_of_meeting || sourceObj.meeting_type || 'SACRAMENT';
+  meetingTheme = sourceObj.other_meeting_specify || sourceObj.theme || '';
   
   if (sourceObj.opening_hymn) {
-    openingHymn = sourceObj.opening_hymn_number ? '#' + sourceObj.opening_hymn_number + ' — ' + sourceObj.opening_hymn : sourceObj.opening_hymn;
+    const num = sourceObj.opening_hymn_number ? '#' + sourceObj.opening_hymn_number + ' — ' : '';
+    openingHymn = String(sourceObj.opening_hymn).startsWith('#') ? sourceObj.opening_hymn : num + sourceObj.opening_hymn;
   }
   if (sourceObj.sacrament_hymn) {
-    sacramentHymn = sourceObj.sacrament_hymn_number ? '#' + sourceObj.sacrament_hymn_number + ' — ' + sourceObj.sacrament_hymn : sourceObj.sacrament_hymn;
+    const num = sourceObj.sacrament_hymn_number ? '#' + sourceObj.sacrament_hymn_number + ' — ' : '';
+    sacramentHymn = String(sourceObj.sacrament_hymn).startsWith('#') ? sourceObj.sacrament_hymn : num + sourceObj.sacrament_hymn;
   }
   if (sourceObj.closing_hymn) {
-    closingHymn = sourceObj.closing_hymn_number ? '#' + sourceObj.closing_hymn_number + ' — ' + sourceObj.closing_hymn : sourceObj.closing_hymn;
+    const num = sourceObj.closing_hymn_number ? '#' + sourceObj.closing_hymn_number + ' — ' : '';
+    closingHymn = String(sourceObj.closing_hymn).startsWith('#') ? sourceObj.closing_hymn : num + sourceObj.closing_hymn;
   }
+
   openingPrayer = sourceObj.opening_prayer || '';
   closingPrayer = sourceObj.closing_prayer || '';
-  specialMusic = sourceObj.special_music || '';
+  specialMusic = sourceObj.special_music || sourceObj.special_musical_number || '';
   
   if (meetingType === 'FAST_SUNDAY') {
     speakersData = 'Bearing of Testimonies by the Congregation';
   } else {
-    speakersData = sourceObj.speakers || '[]';
+    var rawSp = sourceObj.speakers;
+    if (typeof rawSp === 'string') {
+      try {
+        var parsedSp = JSON.parse(rawSp);
+        if (Array.isArray(parsedSp)) {
+          speakersData = parsedSp.map(function(s) {
+            var n = s.name || s.speaker_name || '';
+            var t = s.topic || s.subject || '';
+            return n ? (t ? n + ' — ' + t : n) : '';
+          }).filter(function(x) { return !!x; }).join('\n');
+        } else {
+          speakersData = rawSp;
+        }
+      } catch(e) {
+        speakersData = rawSp;
+      }
+    } else if (Array.isArray(rawSp)) {
+      speakersData = rawSp.map(function(s) {
+        var n = s.name || s.speaker_name || '';
+        var t = s.topic || s.subject || '';
+        return n ? (t ? n + ' — ' + t : n) : '';
+      }).filter(function(x) { return !!x; }).join('\n');
+    }
   }
 
   // 4. Calculate Monday-to-Sunday Date Window

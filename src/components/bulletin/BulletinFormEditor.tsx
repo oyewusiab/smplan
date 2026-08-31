@@ -23,6 +23,7 @@ interface BulletinFormEditorProps {
   generatingAi: boolean;
   onImportActivities: () => void;
   onSelectPlanner: (plannerId: string) => void;
+  onSyncSacramentFromPlanner?: () => void;
 }
 
 function ToggleItem({
@@ -71,6 +72,7 @@ export function BulletinFormEditor({
   generatingAi,
   onImportActivities,
   onSelectPlanner,
+  onSyncSacramentFromPlanner,
 }: BulletinFormEditorProps) {
   const [activeSubSection, setActiveSubSection] = useState<'core' | 'sacrament' | 'cfm' | 'community' | 'toggles'>('core');
 
@@ -285,7 +287,7 @@ export function BulletinFormEditor({
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={onAutoDraft}
+                  onClick={onSyncSacramentFromPlanner || onAutoDraft}
                   icon={<Sparkles className="w-3.5 h-3.5 text-amber-600" />}
                   className="text-xs"
                 >

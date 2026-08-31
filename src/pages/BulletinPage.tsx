@@ -190,6 +190,154 @@ export function BulletinPage() {
     setActiveTab('edit');
   };
 
+  // Helper to format hymn with number prefix
+  const formatHymnWithNumber = (hymnText?: string, hymnNum?: string | number) => {
+    if (!hymnText && !hymnNum) return '';
+    const num = hymnNum ? String(hymnNum).trim().replace(/^#/, '') : '';
+    const title = (hymnText || '').trim();
+    if (num && title) {
+      if (title.startsWith('#')) return title;
+      return `#${num} — ${title}`;
+    }
+    return title || (num ? `#${num}` : '');
+  };
+
+  // Helper to format speakers to readable text string
+  const formatSpeakersForEditor = (speakersRaw: any, isFastSunday?: boolean): string => {
+    if (isFastSunday) return 'Bearing of Testimonies by the Congregation';
+    if (!speakersRaw) return '';
+    if (typeof speakersRaw === 'string') {
+      const trimmed = speakersRaw.trim();
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (Array.isArray(parsed)) {
+            return parsed
+              .map((s: any) => {
+                const name = s.name || s.speaker_name || '';
+                const topic = s.topic || s.subject || '';
+                return name ? (topic ? `${name} — ${topic}` : name) : '';
+              })
+              .filter(Boolean)
+              .join('\n');
+          }
+        } catch {}
+      }
+      return speakersRaw;
+    }
+    if (Array.isArray(speakersRaw)) {
+      return speakersRaw
+        .map((s: any) => {
+          if (typeof s === 'string') return s;
+          const name = s.name || s.speaker_name || '';
+          const topic = s.topic || s.subject || '';
+          return name ? (topic ? `${name} — ${topic}` : name) : '';
+        })
+        .filter(Boolean)
+        .join('\n');
+    }
+    return String(speakersRaw);
+  };
+
+  // Direct High-Accuracy Sacrament Sync from Planner / Agendas
+  const handleSyncSacramentFromPlanner = async (targetDate?: string, plannerIdOverride?: string) => {
+    if (!session) return;
+    const dateToSync = (targetDate || form.date || initialDate).substring(0, 10);
+    const pId = plannerIdOverride || form.planner_id;
+
+    if (!pId) {
+      toast.error('Please select an Active Planner first.');
+      return;
+    }
+
+    toast.loading('Syncing Sacrament Program from Planner for ' + dateToSync + '…', { id: 'sync-sacrament' });
+
+    try {
+      const targetPl = planners.find((p) => p.planner_id === pId);
+      let matchedAgenda: any = null;
+
+      // 1. Fetch live agendas for this planner
+      try {
+        const aRes = (await agendasApi.list(session.token, pId, { forceRefresh: true })) as { ok: boolean; data: any[] };
+        if (aRes.ok && Array.isArray(aRes.data) && aRes.data.length > 0) {
+          matchedAgenda = aRes.data.find((a) => (a.date || '').substring(0, 10) === dateToSync) ||
+                          aRes.data.find((a) => a.date === dateToSync);
+          
+          if (!matchedAgenda && aRes.data.length > 0) {
+            // Fallback: If date isn't exact match, match by Sunday order in month or take closest
+            matchedAgenda = aRes.data[0];
+          }
+        }
+      } catch (err) {
+        console.warn('Live agendas fetch error:', err);
+      }
+
+      // 2. Check planner.weeks embedded JSON if not found
+      if (!matchedAgenda && targetPl && targetPl.weeks) {
+        try {
+          const parsedWeeks = typeof targetPl.weeks === 'string' ? JSON.parse(targetPl.weeks) : targetPl.weeks;
+          if (Array.isArray(parsedWeeks) && parsedWeeks.length > 0) {
+            matchedAgenda = parsedWeeks.find((w: any) => (w.date || '').substring(0, 10) === dateToSync) || parsedWeeks[0];
+          }
+        } catch {}
+      }
+
+      // 3. Check local storage planner draft backup
+      if (!matchedAgenda) {
+        try {
+          const localDraftRaw = localStorage.getItem(`SM_DRAFT_PLANNER_${pId}`);
+          if (localDraftRaw) {
+            const localDraft = JSON.parse(localDraftRaw);
+            if (localDraft && Array.isArray(localDraft.agendas)) {
+              matchedAgenda = localDraft.agendas.find((a: any) => (a.date || '').substring(0, 10) === dateToSync) || localDraft.agendas[0];
+            }
+          }
+        } catch {}
+      }
+
+      // 4. Also call backend draft endpoint as support
+      if (!matchedAgenda) {
+        try {
+          const draftRes = (await bulletinsApi.getDraftData(session.token, dateToSync, pId)) as any;
+          if (draftRes.ok && draftRes.data?.suggested_data) {
+            matchedAgenda = draftRes.data.suggested_data;
+          }
+        } catch {}
+      }
+
+      if (matchedAgenda) {
+        const mType = matchedAgenda.type_of_meeting || matchedAgenda.meeting_type || 'SACRAMENT';
+        const isFastSunday = mType === 'FAST_SUNDAY';
+
+        const openH = formatHymnWithNumber(matchedAgenda.opening_hymn, matchedAgenda.opening_hymn_number);
+        const sacH = formatHymnWithNumber(matchedAgenda.sacrament_hymn, matchedAgenda.sacrament_hymn_number);
+        const closH = formatHymnWithNumber(matchedAgenda.closing_hymn, matchedAgenda.closing_hymn_number);
+        const speakersText = formatSpeakersForEditor(matchedAgenda.speakers, isFastSunday);
+        const specMusic = matchedAgenda.special_music || matchedAgenda.special_musical_number || '';
+        const themeText = matchedAgenda.other_meeting_specify || matchedAgenda.theme || (isFastSunday ? 'Fast & Testimony Meeting' : form.theme);
+
+        setForm((prev) => ({
+          ...prev,
+          meeting_type: mType,
+          theme: themeText || prev.theme,
+          opening_hymn: openH || prev.opening_hymn,
+          opening_prayer: matchedAgenda.opening_prayer || prev.opening_prayer,
+          sacrament_hymn: sacH || prev.sacrament_hymn,
+          speakers: speakersText || prev.speakers,
+          special_music: specMusic || prev.special_music,
+          closing_hymn: closH || prev.closing_hymn,
+          closing_prayer: matchedAgenda.closing_prayer || prev.closing_prayer,
+        }));
+
+        toast.success(`Sacrament program populated from ${targetPl ? `Planner (${targetPl.month}/${targetPl.year})` : 'Planner'}!`, { id: 'sync-sacrament' });
+      } else {
+        toast.error('No sacrament agenda found for the selected planner and week. Please ensure the planner has weeks configured.', { id: 'sync-sacrament' });
+      }
+    } catch (err: any) {
+      toast.error('Failed to sync from planner: ' + (err.message || 'Unknown error'), { id: 'sync-sacrament' });
+    }
+  };
+
   // Handle selection of a submitted planner
   const handleSelectPlanner = (plannerId: string) => {
     if (!plannerId) return;
@@ -217,9 +365,10 @@ export function BulletinPage() {
       date: targetSunday,
     }));
 
-    // Trigger auto-draft with newly selected planner and Sunday
+    // Trigger auto-draft and sacrament sync
     setTimeout(() => {
       handleAutoDraft(targetSunday, plannerId, unitName);
+      handleSyncSacramentFromPlanner(targetSunday, plannerId);
     }, 100);
   };
 
@@ -657,6 +806,7 @@ export function BulletinPage() {
                 generatingAi={generatingAi}
                 onImportActivities={handleImportActivities}
                 onSelectPlanner={handleSelectPlanner}
+                onSyncSacramentFromPlanner={() => handleSyncSacramentFromPlanner()}
               />
             )}
 
