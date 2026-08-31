@@ -132,7 +132,24 @@ export function BulletinPage() {
         settingsApi.get(session.token) as Promise<{ ok: boolean; data: UnitSetting[] }>,
       ]);
 
-      if (bRes.status === 'fulfilled' && bRes.value.ok) setBulletins(bRes.value.data || []);
+      let loadedBulletins: Bulletin[] = [];
+      if (bRes.status === 'fulfilled' && bRes.value.ok && Array.isArray(bRes.value.data)) {
+        loadedBulletins = bRes.value.data;
+      }
+      try {
+        const localSaved = JSON.parse(localStorage.getItem('SM_SAVED_BULLETINS') || '[]');
+        if (Array.isArray(localSaved) && localSaved.length > 0) {
+          const map = new Map<string, Bulletin>();
+          loadedBulletins.forEach((b) => map.set(b.bulletin_id || b.date, b));
+          localSaved.forEach((b: Bulletin) => {
+            const key = b.bulletin_id || b.date;
+            if (!map.has(key)) map.set(key, b);
+          });
+          loadedBulletins = Array.from(map.values());
+        }
+      } catch {}
+      setBulletins(loadedBulletins);
+
       if (pRes.status === 'fulfilled' && pRes.value.ok) setPlanners(pRes.value.data || []);
       if (mRes.status === 'fulfilled' && mRes.value.ok) setMembers(mRes.value.data || []);
       if (aRes.status === 'fulfilled' && aRes.value.ok) setActivities(aRes.value.data || []);
@@ -701,7 +718,7 @@ export function BulletinPage() {
     setActiveTab('edit');
   };
 
-  // Save Bulletin to Cloud Backend
+  // Save Bulletin to Cloud Backend + Local Storage Backup
   const handleSave = async () => {
     if (!session) return;
     if (!form.date) {
@@ -710,27 +727,49 @@ export function BulletinPage() {
     }
 
     setSaving(true);
+    const saveToastId = toast.loading('Saving bulletin for ' + form.date + '…');
+
     try {
-      const payload: any = {
-        ...form,
-        bulletin_id: selectedBulletinId || undefined,
+      const generatedId = selectedBulletinId || `BUL_${Date.now()}`;
+      const payload: Bulletin = {
+        ...(form as Bulletin),
+        bulletin_id: generatedId,
+        date: form.date,
+        updated_date: new Date().toISOString(),
       };
 
-      const res = (await bulletinsApi.save(session.token, payload)) as {
-        ok: boolean;
-        data: Bulletin;
-        message?: string;
-      };
+      // 1. Persist to local storage immediate cache
+      try {
+        const localSaved = JSON.parse(localStorage.getItem('SM_SAVED_BULLETINS') || '[]');
+        const updatedLocal = [payload, ...localSaved.filter((b: any) => b.bulletin_id !== payload.bulletin_id && b.date !== payload.date)];
+        localStorage.setItem('SM_SAVED_BULLETINS', JSON.stringify(updatedLocal));
+        localStorage.setItem(`SM_BULLETIN_${payload.date}`, JSON.stringify(payload));
+      } catch {}
 
-      if (res.ok && res.data) {
-        setSelectedBulletinId(res.data.bulletin_id);
-        toast.success(res.message || 'Weekly Bulletin saved successfully!');
-        loadData();
-      } else {
-        throw new Error('Save failed');
+      // 2. Persist to Cloud Apps Script Database
+      try {
+        const res = (await bulletinsApi.save(session.token, payload)) as {
+          ok: boolean;
+          data: Bulletin;
+          message?: string;
+        };
+
+        if (res.ok && res.data) {
+          setSelectedBulletinId(res.data.bulletin_id);
+          toast.success(res.message || 'Weekly Bulletin saved and preserved!', { id: saveToastId });
+          loadData();
+          return;
+        }
+      } catch (backendErr) {
+        console.warn('Backend save notice (offline fallback applied):', backendErr);
       }
+
+      // If backend was offline, local save still succeeded
+      setSelectedBulletinId(generatedId);
+      setBulletins((prev) => [payload, ...prev.filter((b) => b.bulletin_id !== generatedId && b.date !== payload.date)]);
+      toast.success('Weekly Bulletin saved successfully to local storage!', { id: saveToastId });
     } catch (err: any) {
-      toast.error(err.message || 'Failed to save bulletin.');
+      toast.error(err.message || 'Failed to save bulletin.', { id: saveToastId });
     } finally {
       setSaving(false);
     }
@@ -740,7 +779,15 @@ export function BulletinPage() {
   const handleDelete = async (bulletinId: string) => {
     if (!session || !window.confirm('Are you sure you want to delete this weekly bulletin?')) return;
     try {
-      await bulletinsApi.delete(session.token, bulletinId);
+      try {
+        await bulletinsApi.delete(session.token, bulletinId);
+      } catch {}
+      try {
+        const localSaved = JSON.parse(localStorage.getItem('SM_SAVED_BULLETINS') || '[]');
+        const filtered = localSaved.filter((b: any) => b.bulletin_id !== bulletinId);
+        localStorage.setItem('SM_SAVED_BULLETINS', JSON.stringify(filtered));
+      } catch {}
+
       toast.success('Bulletin deleted.');
       if (selectedBulletinId === bulletinId) {
         setSelectedBulletinId(null);

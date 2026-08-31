@@ -4,7 +4,7 @@
  * 
  * Supports 3 Professional Church Layouts:
  * 1. Standard 1-Page A4 (High-density single-sheet program with auto-scaling)
- * 2. Standard 2-Page (Expanded order of service, CFM study guide, activities, next 5 outlook, & cleaning)
+ * 2. Standard 2-Page (Expanded order of service, CFM study guide, activities, next 5 outlook, & initiatives)
  * 3. Bi-Fold 4-Page Chapel Program Booklet (A4 Landscape 2-Sheet folded program)
  */
 
@@ -143,7 +143,7 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
       font-family: "Times New Roman", Georgia, serif;
       font-size: 16pt;
       font-weight: 800;
-      color: #1e3a8a;
+      color: ${theme.primaryColor};
       letter-spacing: 1px;
       text-transform: uppercase;
       margin-bottom: 1pt;
@@ -153,7 +153,7 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 8.5pt;
       font-weight: 800;
-      color: #c2410c;
+      color: ${theme.secondaryColor};
       letter-spacing: 1.8px;
       text-transform: uppercase;
       margin-bottom: 1.5pt;
@@ -167,7 +167,7 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
     .header-theme-quote {
       font-size: 7.5pt;
       font-style: italic;
-      color: #0369a1;
+      color: ${theme.primaryColor};
       margin-top: 1.5pt;
     }
 
@@ -242,8 +242,8 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
     .qr-dual-container {
       display: flex;
       gap: 6pt;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
+      background: ${theme.bgLight};
+      border: 1px solid ${theme.borderLight};
       padding: 4pt 6pt;
       border-radius: 4pt;
       align-items: center;
@@ -265,7 +265,7 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
   </style>
 </head>
 <body>
-  <!-- Standard Header per User Specification -->
+  <!-- Header with Theme Colors -->
   <div class="header">
     <div class="header-unit-title">${unitTitle}</div>
     <div class="header-subtitle">WEEKLY WARD BULLETIN</div>
@@ -274,64 +274,94 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
   </div>
 
   <div class="grid-container">
-    <!-- Left Column: Sacrament Order, CFM Study Guide, Bishopric Message -->
+    <!-- Left Column: Sacrament Outline, CFM Study Guide, Bishopric Message & Initiatives -->
     <div class="column">
       ${isSectionVisible(d.show_sacrament) ? `
+      <!-- 1. Streamlined Sacrament Meeting Outline -->
       <div class="card">
         <div class="card-title">
           <span>Sacrament Meeting Outline</span>
-          <span class="badge" style="background: #e0f2fe; color: #0369a1;">
+          <span class="badge">
             ${d.meeting_type === 'FAST_SUNDAY' ? 'Fast & Testimony' : 'Sacrament Service'}
           </span>
         </div>
-        ${d.opening_hymn ? `<div class="row"><span class="label">Opening Hymn</span><span class="value">${d.opening_hymn}</span></div>` : ''}
-        ${d.opening_prayer ? `<div class="row"><span class="label">Invocation (Opening Prayer)</span><span class="value">${d.opening_prayer}</span></div>` : ''}
-        <div class="row"><span class="label">Ward & Stake Business</span><span class="value">As Announced</span></div>
-        ${d.sacrament_hymn ? `<div class="row"><span class="label">Sacrament Hymn</span><span class="value">${d.sacrament_hymn}</span></div>` : ''}
-        <div class="row"><span class="label">Administration of Sacrament</span><span class="value">Aaronic Priesthood</span></div>
+        ${d.opening_hymn ? `<div class="row"><span class="label">Opening Hymn:</span><span class="value">${d.opening_hymn}</span></div>` : ''}
+        ${d.opening_prayer ? `<div class="row"><span class="label">Invocation:</span><span class="value">${d.opening_prayer}</span></div>` : ''}
+        ${d.sacrament_hymn ? `<div class="row"><span class="label">Sacrament Hymn:</span><span class="value">${d.sacrament_hymn}</span></div>` : ''}
         
         ${d.meeting_type === 'FAST_SUNDAY' ? `
-        <div class="row" style="background: #f0fdf4; padding: 3pt 5pt; border-radius: 3pt; border-left: 2.5px solid #16a34a; margin: 3pt 0;">
-          <span class="label" style="color: #15803d; font-weight: 700;">Testimonies</span>
+        <div class="row" style="background: #f0fdf4; padding: 2.5pt 4pt; border-radius: 3pt; border-left: 2.5px solid #16a34a; margin: 2.5pt 0;">
+          <span class="label" style="color: #15803d; font-weight: 700;">Testimonies:</span>
           <span class="value" style="color: #166534;">Bearing of Testimonies by Congregation</span>
         </div>
         ` : speakers.length > 0 ? `
-        <div style="margin-top: 3pt; border-top: 1px dotted #e2e8f0; padding-top: 3pt;">
-          <div style="font-weight: 700; font-size: 7.5pt; color: #475569; margin-bottom: 2pt;">Speakers:</div>
+        <div style="margin-top: 2.5pt; border-top: 1px dotted #e2e8f0; padding-top: 2.5pt;">
+          <div style="font-weight: 700; font-size: 7.5pt; color: #475569; margin-bottom: 1.5pt;">Talks:</div>
           ${speakers.map((sp, idx) => `
             <div class="row">
-              <span class="label">${idx === 0 ? 'Youth Speaker' : `Speaker ${idx + 1}`}</span>
+              <span class="label">${idx === 0 ? 'Youth Speaker:' : `Speaker ${idx + 1}:`}</span>
               <span class="value">${sp.name}${sp.topic ? ` — "${sp.topic}"` : ''}</span>
             </div>
           `).join('')}
         </div>
+        ` : d.speakers ? `
+        <div class="row">
+          <span class="label">Talks:</span>
+          <span class="value" style="white-space: pre-line;">${d.speakers}</span>
+        </div>
         ` : ''}
 
-        ${d.special_music ? `<div class="row"><span class="label">Special Musical Item</span><span class="value">${d.special_music}</span></div>` : ''}
-        ${d.closing_hymn ? `<div class="row"><span class="label">Closing Hymn</span><span class="value">${d.closing_hymn}</span></div>` : ''}
-        ${d.closing_prayer ? `<div class="row"><span class="label">Benediction (Closing Prayer)</span><span class="value">${d.closing_prayer}</span></div>` : ''}
+        ${d.closing_hymn ? `<div class="row"><span class="label">Closing Hymn:</span><span class="value">${d.closing_hymn}</span></div>` : ''}
+        ${d.closing_prayer ? `<div class="row"><span class="label">Benediction:</span><span class="value">${d.closing_prayer}</span></div>` : ''}
       </div>
       ` : ''}
 
       ${isSectionVisible(d.show_focus) && (d.cfm_reading || d.cfm_theme || d.scripture_of_the_week) ? `
-      <!-- Complete 6-Field CFM Study Guide -->
-      <div class="card" style="background: #fffdf5; border-color: #fde68a;">
-        <div class="card-title" style="color: #92400e; border-color: #f59e0b;">
+      <!-- 5. CFM & Scripture Focus -->
+      <div class="card" style="background: ${theme.bgLight}; border-color: ${theme.borderLight};">
+        <div class="card-title" style="color: ${theme.primaryColor}; border-color: ${theme.secondaryColor};">
           <span>Come, Follow Me Study Guide</span>
-          ${d.cfm_reading ? `<span class="badge" style="background: #fef3c7; color: #b45309;">${d.cfm_reading}</span>` : ''}
+          ${d.cfm_reading ? `<span class="badge">${d.cfm_reading}</span>` : ''}
         </div>
-        ${d.cfm_theme ? `<div style="font-weight: 700; font-size: 8pt; color: #78350f; margin-bottom: 2pt;">${d.cfm_theme}</div>` : ''}
-        ${d.cfm_introduction ? `<div style="font-size: 7pt; color: #78350f; font-style: italic; margin-bottom: 2.5pt; line-height: 1.3;">${d.cfm_introduction}</div>` : ''}
-        ${d.cfm_ideas_for_learning ? `<div style="font-size: 7pt; color: #92400e; margin-bottom: 2.5pt; white-space: pre-line; line-height: 1.3;"><strong>Ideas for Learning:</strong><br/>${d.cfm_ideas_for_learning}</div>` : ''}
+        ${d.cfm_theme ? `<div style="font-weight: 700; font-size: 8pt; color: ${theme.primaryColor}; margin-bottom: 2pt;">${d.cfm_theme}</div>` : ''}
+        ${d.cfm_introduction ? `<div style="font-size: 7pt; color: #334155; font-style: italic; margin-bottom: 2.5pt; line-height: 1.3;">${d.cfm_introduction}</div>` : ''}
+        ${d.cfm_ideas_for_learning ? `<div style="font-size: 7pt; color: #334155; margin-bottom: 2.5pt; white-space: pre-line; line-height: 1.3;"><strong>Ideas for Learning:</strong><br/>${d.cfm_ideas_for_learning}</div>` : ''}
         ${d.cfm_reflection || d.cfm_discussion_question ? `<div style="font-size: 7.5pt; color: #92400e; margin-bottom: 2pt; background: #fef9c3; padding: 2.5pt 4pt; border-radius: 3pt; border-left: 2px solid #ca8a04;"><strong>Reflection:</strong> ${d.cfm_reflection || d.cfm_discussion_question}</div>` : ''}
-        ${d.cfm_url ? `<div style="font-size: 6.5pt; color: #b45309; margin-top: 1.5pt;"><strong>Lesson Link:</strong> <a href="${d.cfm_url}" style="color: #0369a1; text-decoration: underline;">${d.cfm_url}</a></div>` : ''}
+        ${d.cfm_url ? `<div style="font-size: 6.5pt; color: ${theme.secondaryColor}; margin-top: 1.5pt;"><strong>Lesson Link:</strong> <a href="${d.cfm_url}" style="color: ${theme.primaryColor}; text-decoration: underline;">${d.cfm_url}</a></div>` : ''}
       </div>
       ` : ''}
 
       ${isSectionVisible(d.show_bishopric) && d.bishopric_message ? `
+      <!-- 6. Message from the Bishopric -->
       <div class="card">
         <div class="card-title">Message from the Bishopric</div>
         <p style="margin: 0; font-size: 7.5pt; line-height: 1.35; color: #334155; white-space: pre-line;">${d.bishopric_message}</p>
+      </div>
+      ` : ''}
+
+      ${isSectionVisible(d.show_temple) && (d.temple_trip_date || d.familysearch_tip || d.ancestor_challenge) ? `
+      <!-- 8. Temple & FamilySearch -->
+      <div class="card" style="background: #fdf4ff; border-color: #f5d0fe;">
+        <div class="card-title" style="color: #86198f; border-color: #c026d3;">Temple & FamilySearch</div>
+        ${d.temple_trip_date ? `<div class="row"><span class="label">Next Temple Trip:</span><span class="value">${safeDateFormat(d.temple_trip_date, 'MMM d, yyyy')}</span></div>` : ''}
+        ${d.familysearch_tip ? `<div style="font-size: 7pt; color: #701a75; margin-top: 1.5pt;"><strong>Indexing Tip:</strong> ${d.familysearch_tip}</div>` : ''}
+        ${d.ancestor_challenge ? `<div style="font-size: 7pt; color: #86198f; font-style: italic; margin-top: 1.5pt;"><strong>Challenge:</strong> ${d.ancestor_challenge}</div>` : ''}
+      </div>
+      ` : ''}
+
+      ${isSectionVisible(d.show_self_reliance) && d.self_reliance_classes ? `
+      <!-- 9. Self-Reliance -->
+      <div class="card" style="background: #f0fdf4; border-color: #bbf7d0;">
+        <div class="card-title" style="color: #166534; border-color: #22c55e;">Self-Reliance Services</div>
+        <div style="font-size: 7pt; color: #14532d; white-space: pre-line;">${d.self_reliance_classes}</div>
+      </div>
+      ` : ''}
+
+      ${isSectionVisible(d.show_welfare) && d.welfare_reminders ? `
+      <!-- 10. Welfare Notices -->
+      <div class="card" style="background: #fefce8; border-color: #fef08a;">
+        <div class="card-title" style="color: #854d0e; border-color: #eab308;">Welfare & Fast Offering</div>
+        <div style="font-size: 7pt; color: #713f12; white-space: pre-line;">${d.welfare_reminders}</div>
       </div>
       ` : ''}
     </div>
@@ -339,7 +369,7 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
     <!-- Right Column: Birthdays, Activities, Next 5, Cleaning, Missionaries, QR -->
     <div class="column">
       ${isSectionVisible(d.show_birthdays) && d.birthdays ? `
-      <!-- Birthday Celebrants Special Frame & Design Pack -->
+      <!-- 2. Birthday Celebrants Frame -->
       <div class="card" style="background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border: 1.5px solid #fbbf24; box-shadow: 0 1px 3px rgba(245, 158, 11, 0.1);">
         <div class="card-title" style="color: #92400e; border-color: #d97706; display: flex; align-items: center; justify-content: space-between;">
           <span>🎂 Birthday Celebrants (This Week)</span>
@@ -353,7 +383,7 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
       ` : ''}
 
       ${isSectionVisible(d.show_activities) && (d.activities || (d.activities_list && d.activities_list.length > 0)) ? `
-      <!-- Weekly Activities Schedule (Monday - Sunday) -->
+      <!-- 3. Weekly Activities Schedule (Monday - Sunday) -->
       <div class="card">
         <div class="card-title">Weekly Activities (Mon–Sun)</div>
         ${(d.activities_list && d.activities_list.length > 0
@@ -380,7 +410,7 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
       ` : ''}
 
       ${isSectionVisible(d.show_upcoming) && next5List.length > 0 ? `
-      <!-- Next 5 Activities (Auto-Generated Outlook) -->
+      <!-- 11. Next 5 Activities (Outlook) -->
       <div class="card" style="background: #f8fafc; border-color: #cbd5e1;">
         <div class="card-title" style="color: #334155; border-color: #94a3b8;">
           <span>Next 5 Activities (Calendar Outlook)</span>
@@ -398,15 +428,17 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
       ` : ''}
 
       ${isSectionVisible(d.show_cleaning) && d.cleaning_group ? `
+      <!-- 4. Cleaning Roster -->
       <div class="card" style="background: #f8fafc;">
         <div class="card-title">Building Cleaning Assignment</div>
-        <div class="row"><span class="label">Assigned Group</span><span class="value">${d.cleaning_group}</span></div>
-        <div class="row"><span class="label">Date & Time</span><span class="value">${safeDateFormat(d.cleaning_date, 'MMM d')} @ ${d.cleaning_time || '8:00 AM'}</span></div>
+        <div class="row"><span class="label">Assigned Group:</span><span class="value">${d.cleaning_group}</span></div>
+        <div class="row"><span class="label">Date & Time:</span><span class="value">${safeDateFormat(d.cleaning_date, 'MMM d')} @ ${d.cleaning_time || '8:00 AM'}</span></div>
         ${d.cleaning_instructions ? `<div style="font-size: 6.5pt; color: #64748b; margin-top: 2pt; font-style: italic;">${d.cleaning_instructions}</div>` : ''}
       </div>
       ` : ''}
 
       ${isSectionVisible(d.show_missionary) && d.missionaries ? `
+      <!-- 7. Missionary Corner -->
       <div class="card">
         <div class="card-title">Full-Time Missionaries</div>
         <div style="font-size: 7.5pt; color: #334155; white-space: pre-line;">${d.missionaries}</div>
@@ -414,21 +446,21 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
       ` : ''}
 
       ${isSectionVisible(d.show_qr) ? `
-      <!-- Dual Digital QR Codes: FamilySearch + Gospel Library -->
+      <!-- 12. Dual Digital QR Codes -->
       <div class="card" style="padding: 4pt 6pt;">
         <div class="qr-dual-container">
           <div class="qr-box">
             <img class="qr-code" src="https://quickchart.io/qr?text=${encodeURIComponent(d.qr_familysearch || 'https://www.familysearch.org')}&size=120&margin=1" alt="FS" />
             <div class="qr-text">
               <strong>FamilySearch:</strong><br/>
-              Scan for Family Tree & Ancestor records.
+              Scan for Family Tree & Ancestors.
             </div>
           </div>
           <div class="qr-box">
             <img class="qr-code" src="https://quickchart.io/qr?text=${encodeURIComponent(d.qr_gospel_library || 'https://www.churchofjesuschrist.org/study/gospel-library')}&size=120&margin=1" alt="GL" />
             <div class="qr-text">
               <strong>Gospel Library:</strong><br/>
-              Scan for digital hymns, manuals & study.
+              Scan for hymns, manuals & study.
             </div>
           </div>
         </div>
@@ -489,7 +521,7 @@ export function generateStandard2PageHtml(d: Bulletin): string {
       font-family: "Times New Roman", Georgia, serif;
       font-size: 20pt;
       font-weight: 800;
-      color: #1e3a8a;
+      color: ${theme.primaryColor};
       letter-spacing: 1.5px;
       text-transform: uppercase;
       margin-bottom: 2pt;
@@ -498,7 +530,7 @@ export function generateStandard2PageHtml(d: Bulletin): string {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 10pt;
       font-weight: 800;
-      color: #c2410c;
+      color: ${theme.secondaryColor};
       letter-spacing: 2px;
       text-transform: uppercase;
       margin-bottom: 2pt;
@@ -572,58 +604,60 @@ export function generateStandard2PageHtml(d: Bulletin): string {
         <div class="header-unit-title">${unitTitle}</div>
         <div class="header-subtitle">WEEKLY WARD BULLETIN</div>
         <div class="header-date-range">${weekRange.rangeLabel}</div>
-        ${d.theme ? `<div style="font-size: 9.5pt; font-style: italic; color: #0369a1; margin-top: 3pt;">"${d.theme}"</div>` : ''}
+        ${d.theme ? `<div style="font-size: 9.5pt; font-style: italic; color: ${theme.primaryColor}; margin-top: 3pt;">"${d.theme}"</div>` : ''}
       </div>
 
       ${isSectionVisible(d.show_sacrament) ? `
       <div class="card">
         <div class="card-title">
-          <span>Order of Service</span>
-          <span style="font-size: 8pt; background: #e0f2fe; color: #0369a1; padding: 2pt 6pt; border-radius: 4pt; font-weight: 700;">
-            ${d.meeting_type === 'FAST_SUNDAY' ? 'Fast & Testimony Meeting' : 'Sacrament Service'}
+          <span>Sacrament Meeting Outline</span>
+          <span style="font-size: 8pt; background: ${theme.badgeBg}; color: ${theme.badgeText}; padding: 2pt 6pt; border-radius: 4pt; font-weight: 700;">
+            ${d.meeting_type === 'FAST_SUNDAY' ? 'Fast & Testimony' : 'Sacrament Service'}
           </span>
         </div>
-        ${d.opening_hymn ? `<div class="row"><span class="label">Opening Hymn</span><span class="value">${d.opening_hymn}</span></div>` : ''}
-        ${d.opening_prayer ? `<div class="row"><span class="label">Invocation (Opening Prayer)</span><span class="value">${d.opening_prayer}</span></div>` : ''}
-        <div class="row"><span class="label">Ward & Stake Business</span><span class="value">As Announced</span></div>
-        ${d.sacrament_hymn ? `<div class="row"><span class="label">Sacrament Hymn</span><span class="value">${d.sacrament_hymn}</span></div>` : ''}
-        <div class="row"><span class="label">Administration of the Sacrament</span><span class="value">Aaronic Priesthood</span></div>
+        ${d.opening_hymn ? `<div class="row"><span class="label">Opening Hymn:</span><span class="value">${d.opening_hymn}</span></div>` : ''}
+        ${d.opening_prayer ? `<div class="row"><span class="label">Invocation:</span><span class="value">${d.opening_prayer}</span></div>` : ''}
+        ${d.sacrament_hymn ? `<div class="row"><span class="label">Sacrament Hymn:</span><span class="value">${d.sacrament_hymn}</span></div>` : ''}
         
         ${d.meeting_type === 'FAST_SUNDAY' ? `
         <div class="row" style="background: #f0fdf4; padding: 6pt 10pt; border-radius: 4pt; border-left: 3px solid #16a34a; margin: 6pt 0;">
-          <span class="label" style="color: #15803d; font-weight: 700;">Testimonies</span>
+          <span class="label" style="color: #15803d; font-weight: 700;">Testimonies:</span>
           <span class="value" style="color: #166534;">Bearing of Testimonies by the Congregation</span>
         </div>
         ` : speakers.length > 0 ? `
         <div style="margin: 6pt 0; border-top: 1px dotted #e2e8f0; padding-top: 6pt;">
-          <div style="font-weight: 700; color: #475569; margin-bottom: 3pt; font-size: 8.5pt;">Speakers:</div>
+          <div style="font-weight: 700; color: #475569; margin-bottom: 3pt; font-size: 8.5pt;">Talks:</div>
           ${speakers.map((sp, idx) => `
             <div class="row">
-              <span class="label">${idx === 0 ? 'Youth Speaker' : `Speaker ${idx + 1}`}</span>
+              <span class="label">${idx === 0 ? 'Youth Speaker:' : `Speaker ${idx + 1}:`}</span>
               <span class="value">${sp.name}${sp.topic ? ` — "${sp.topic}"` : ''}</span>
             </div>
           `).join('')}
         </div>
+        ` : d.speakers ? `
+        <div class="row">
+          <span class="label">Talks:</span>
+          <span class="value" style="white-space: pre-line;">${d.speakers}</span>
+        </div>
         ` : ''}
 
-        ${d.special_music ? `<div class="row"><span class="label">Special Music</span><span class="value">${d.special_music}</span></div>` : ''}
-        ${d.closing_hymn ? `<div class="row"><span class="label">Closing Hymn</span><span class="value">${d.closing_hymn}</span></div>` : ''}
-        ${d.closing_prayer ? `<div class="row"><span class="label">Benediction (Closing Prayer)</span><span class="value">${d.closing_prayer}</span></div>` : ''}
+        ${d.closing_hymn ? `<div class="row"><span class="label">Closing Hymn:</span><span class="value">${d.closing_hymn}</span></div>` : ''}
+        ${d.closing_prayer ? `<div class="row"><span class="label">Benediction:</span><span class="value">${d.closing_prayer}</span></div>` : ''}
       </div>
       ` : ''}
 
       ${isSectionVisible(d.show_focus) && (d.cfm_reading || d.cfm_theme || d.scripture_of_the_week) ? `
       <!-- Complete 6-Field CFM Study Guide -->
-      <div class="card" style="background: #fffdf5; border-color: #fde68a;">
-        <div class="card-title" style="color: #92400e; border-color: #f59e0b;">
+      <div class="card" style="background: ${theme.bgLight}; border-color: ${theme.borderLight};">
+        <div class="card-title" style="color: ${theme.primaryColor}; border-color: ${theme.secondaryColor};">
           <span>Come, Follow Me Study Guide</span>
-          ${d.cfm_reading ? `<span style="background: #fef3c7; color: #b45309; padding: 2pt 6pt; border-radius: 4pt; font-size: 8pt; font-weight: 700;">${d.cfm_reading}</span>` : ''}
+          ${d.cfm_reading ? `<span style="background: ${theme.badgeBg}; color: ${theme.badgeText}; padding: 2pt 6pt; border-radius: 4pt; font-size: 8pt; font-weight: 700;">${d.cfm_reading}</span>` : ''}
         </div>
-        ${d.cfm_theme ? `<p style="font-weight: 700; color: #78350f; margin: 0 0 3pt; font-size: 9.5pt;">${d.cfm_theme}</p>` : ''}
-        ${d.cfm_introduction ? `<p style="font-style: italic; color: #78350f; margin: 0 0 5pt; font-size: 8.5pt; line-height: 1.35;">${d.cfm_introduction}</p>` : ''}
-        ${d.cfm_ideas_for_learning ? `<div style="font-size: 8.5pt; color: #92400e; margin: 0 0 5pt; white-space: pre-line; line-height: 1.35;"><strong>Ideas for Learning:</strong><br/>${d.cfm_ideas_for_learning}</div>` : ''}
+        ${d.cfm_theme ? `<p style="font-weight: 700; color: ${theme.primaryColor}; margin: 0 0 3pt; font-size: 9.5pt;">${d.cfm_theme}</p>` : ''}
+        ${d.cfm_introduction ? `<p style="font-style: italic; color: #334155; margin: 0 0 5pt; font-size: 8.5pt; line-height: 1.35;">${d.cfm_introduction}</p>` : ''}
+        ${d.cfm_ideas_for_learning ? `<div style="font-size: 8.5pt; color: #334155; margin: 0 0 5pt; white-space: pre-line; line-height: 1.35;"><strong>Ideas for Learning:</strong><br/>${d.cfm_ideas_for_learning}</div>` : ''}
         ${d.cfm_reflection || d.cfm_discussion_question ? `<div style="color: #92400e; margin: 0 0 5pt; background: #fef9c3; padding: 5pt 8pt; border-radius: 4pt; border-left: 3px solid #ca8a04; font-size: 8.5pt;"><strong>Reflection:</strong> ${d.cfm_reflection || d.cfm_discussion_question}</div>` : ''}
-        ${d.cfm_url ? `<p style="font-size: 8pt; color: #b45309; margin: 3pt 0 0;"><strong>Lesson Link:</strong> <a href="${d.cfm_url}" style="color: #0369a1; text-decoration: underline;">${d.cfm_url}</a></p>` : ''}
+        ${d.cfm_url ? `<p style="font-size: 8pt; color: ${theme.secondaryColor}; margin: 3pt 0 0;"><strong>Lesson Link:</strong> <a href="${d.cfm_url}" style="color: ${theme.primaryColor}; text-decoration: underline;">${d.cfm_url}</a></p>` : ''}
       </div>
       ` : ''}
     </div>
@@ -633,11 +667,11 @@ export function generateStandard2PageHtml(d: Bulletin): string {
     </div>
   </div>
 
-  <!-- PAGE 2: Community, Birthdays, Weekly Activities, Next 5, Cleaning & Missionaries -->
+  <!-- PAGE 2: Community, Birthdays, Weekly Activities, Next 5, Initiatives & Missionaries -->
   <div class="page">
     <div>
       ${isSectionVisible(d.show_birthdays) && d.birthdays ? `
-      <!-- Birthday Celebrants Special Frame & Design Pack -->
+      <!-- Birthday Celebrants Special Frame -->
       <div class="card" style="background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border: 2px solid #fbbf24; box-shadow: 0 2px 4px rgba(245, 158, 11, 0.1);">
         <div class="card-title" style="color: #92400e; border-color: #d97706; display: flex; justify-content: space-between; align-items: center;">
           <span>🎂 Birthday Celebrants (This Week)</span>
@@ -668,7 +702,7 @@ export function generateStandard2PageHtml(d: Bulletin): string {
       ` : ''}
 
       ${isSectionVisible(d.show_upcoming) && next5List.length > 0 ? `
-      <!-- Next 5 Activities (Auto-Generated Outlook) -->
+      <!-- Next 5 Activities Outlook -->
       <div class="card" style="background: #f8fafc; border-color: #cbd5e1;">
         <div class="card-title" style="color: #334155; border-color: #94a3b8;">
           <span>Next 5 Activities (Calendar Outlook)</span>
@@ -850,10 +884,10 @@ export function generateBiFoldBookletHtml(d: Bulletin): string {
     <!-- PAGE 1 (FRONT COVER): Ward Name, Title, Date, Scripture -->
     <div class="booklet-page" style="text-align: center; justify-content: center; background: ${theme.bgLight};">
       <div style="margin: auto 0;">
-        <div style="font-size: 16pt; font-family: 'Times New Roman', serif; font-weight: 800; color: #1e3a8a; letter-spacing: 1px; text-transform: uppercase;">
+        <div style="font-size: 16pt; font-family: 'Times New Roman', serif; font-weight: 800; color: ${theme.primaryColor}; letter-spacing: 1px; text-transform: uppercase;">
           ${unitTitle}
         </div>
-        <div style="font-size: 9pt; font-weight: 800; color: #c2410c; letter-spacing: 2px; text-transform: uppercase; margin-top: 2pt;">
+        <div style="font-size: 9pt; font-weight: 800; color: ${theme.secondaryColor}; letter-spacing: 2px; text-transform: uppercase; margin-top: 2pt;">
           WEEKLY WARD BULLETIN
         </div>
         <div style="font-size: 8.5pt; font-style: italic; color: #475569; font-family: Georgia, serif; margin-top: 2pt;">
@@ -884,36 +918,38 @@ export function generateBiFoldBookletHtml(d: Bulletin): string {
         ${isSectionVisible(d.show_sacrament) ? `
         <div class="card-title">
           <span>Order of Worship</span>
-          <span style="font-size: 7pt; background: #e0f2fe; color: #0369a1; padding: 1pt 4pt; border-radius: 2pt; font-weight: 700;">
+          <span style="font-size: 7pt; background: ${theme.badgeBg}; color: ${theme.badgeText}; padding: 1pt 4pt; border-radius: 2pt; font-weight: 700;">
             ${d.meeting_type === 'FAST_SUNDAY' ? 'Fast & Testimony' : 'Sacrament Service'}
           </span>
         </div>
-        ${d.opening_hymn ? `<div class="row"><span class="label">Opening Hymn</span><span class="value">${d.opening_hymn}</span></div>` : ''}
-        ${d.opening_prayer ? `<div class="row"><span class="label">Invocation (Opening Prayer)</span><span class="value">${d.opening_prayer}</span></div>` : ''}
-        <div class="row"><span class="label">Ward & Stake Business</span><span class="value">As Announced</span></div>
-        ${d.sacrament_hymn ? `<div class="row"><span class="label">Sacrament Hymn</span><span class="value">${d.sacrament_hymn}</span></div>` : ''}
-        <div class="row"><span class="label">The Sacrament</span><span class="value">Aaronic Priesthood</span></div>
+        ${d.opening_hymn ? `<div class="row"><span class="label">Opening Hymn:</span><span class="value">${d.opening_hymn}</span></div>` : ''}
+        ${d.opening_prayer ? `<div class="row"><span class="label">Invocation:</span><span class="value">${d.opening_prayer}</span></div>` : ''}
+        ${d.sacrament_hymn ? `<div class="row"><span class="label">Sacrament Hymn:</span><span class="value">${d.sacrament_hymn}</span></div>` : ''}
         
         ${d.meeting_type === 'FAST_SUNDAY' ? `
         <div class="row" style="background: #f0fdf4; padding: 3pt 5pt; border-radius: 3pt; border-left: 2.5px solid #16a34a; margin: 3pt 0;">
-          <span class="label" style="color: #15803d; font-weight: 700;">Testimonies</span>
+          <span class="label" style="color: #15803d; font-weight: 700;">Testimonies:</span>
           <span class="value" style="color: #166534;">Bearing of Testimonies by Congregation</span>
         </div>
         ` : speakers.length > 0 ? `
         <div style="margin: 4pt 0; border-top: 1px dotted #e2e8f0; padding-top: 3pt;">
-          <div style="font-weight: 700; color: #475569; margin-bottom: 2pt; font-size: 7.5pt;">Speakers:</div>
+          <div style="font-weight: 700; color: #475569; margin-bottom: 2pt; font-size: 7.5pt;">Talks:</div>
           ${speakers.map((sp, idx) => `
             <div class="row">
-              <span class="label">${idx === 0 ? 'Youth Speaker' : `Speaker ${idx + 1}`}</span>
+              <span class="label">${idx === 0 ? 'Youth Speaker:' : `Speaker ${idx + 1}:`}</span>
               <span class="value">${sp.name}${sp.topic ? ` — "${sp.topic}"` : ''}</span>
             </div>
           `).join('')}
         </div>
+        ` : d.speakers ? `
+        <div class="row">
+          <span class="label">Talks:</span>
+          <span class="value" style="white-space: pre-line;">${d.speakers}</span>
+        </div>
         ` : ''}
 
-        ${d.special_music ? `<div class="row"><span class="label">Special Music</span><span class="value">${d.special_music}</span></div>` : ''}
-        ${d.closing_hymn ? `<div class="row"><span class="label">Closing Hymn</span><span class="value">${d.closing_hymn}</span></div>` : ''}
-        ${d.closing_prayer ? `<div class="row"><span class="label">Benediction (Closing Prayer)</span><span class="value">${d.closing_prayer}</span></div>` : ''}
+        ${d.closing_hymn ? `<div class="row"><span class="label">Closing Hymn:</span><span class="value">${d.closing_hymn}</span></div>` : ''}
+        ${d.closing_prayer ? `<div class="row"><span class="label">Benediction:</span><span class="value">${d.closing_prayer}</span></div>` : ''}
         ` : ''}
       </div>
       <div class="page-number">Page 2 • Sacrament Program</div>
@@ -924,11 +960,11 @@ export function generateBiFoldBookletHtml(d: Bulletin): string {
       <div>
         ${isSectionVisible(d.show_focus) && (d.cfm_reading || d.cfm_theme) ? `
         <div class="card-title">Come, Follow Me Study Guide</div>
-        <div style="font-weight: 700; font-size: 8pt; color: #78350f; margin-bottom: 2pt;">${d.cfm_reading}${d.cfm_theme ? ` — ${d.cfm_theme}` : ''}</div>
-        ${d.cfm_introduction ? `<div style="font-size: 7pt; color: #78350f; font-style: italic; margin-bottom: 2.5pt; line-height: 1.25;">${d.cfm_introduction}</div>` : ''}
-        ${d.cfm_ideas_for_learning ? `<div style="font-size: 7pt; color: #92400e; margin-bottom: 2.5pt; white-space: pre-line; line-height: 1.25;"><strong>Ideas:</strong><br/>${d.cfm_ideas_for_learning}</div>` : ''}
+        <div style="font-weight: 700; font-size: 8pt; color: ${theme.primaryColor}; margin-bottom: 2pt;">${d.cfm_reading}${d.cfm_theme ? ` — ${d.cfm_theme}` : ''}</div>
+        ${d.cfm_introduction ? `<div style="font-size: 7pt; color: #334155; font-style: italic; margin-bottom: 2.5pt; line-height: 1.25;">${d.cfm_introduction}</div>` : ''}
+        ${d.cfm_ideas_for_learning ? `<div style="font-size: 7pt; color: #334155; margin-bottom: 2.5pt; white-space: pre-line; line-height: 1.25;"><strong>Ideas:</strong><br/>${d.cfm_ideas_for_learning}</div>` : ''}
         ${d.cfm_reflection || d.cfm_discussion_question ? `<div style="font-size: 7pt; color: #92400e; margin-bottom: 3pt; background: #fef9c3; padding: 2pt 4pt; border-radius: 2pt;"><strong>Reflection:</strong> ${d.cfm_reflection || d.cfm_discussion_question}</div>` : ''}
-        ${d.cfm_url ? `<div style="font-size: 6.5pt; color: #b45309; margin-bottom: 4pt;"><strong>Link:</strong> <a href="${d.cfm_url}" style="color: #0369a1;">${d.cfm_url}</a></div>` : ''}
+        ${d.cfm_url ? `<div style="font-size: 6.5pt; color: ${theme.secondaryColor}; margin-bottom: 4pt;"><strong>Link:</strong> <a href="${d.cfm_url}" style="color: ${theme.primaryColor};">${d.cfm_url}</a></div>` : ''}
         ` : ''}
 
         ${isSectionVisible(d.show_bishopric) && d.bishopric_message ? `
