@@ -2257,26 +2257,24 @@ function handleSaveBulletin(body) {
     }
   });
 
+  let existing = null;
   if (body.bulletin_id) {
-    const existing = dbFindOne('BULLETINS', 'bulletin_id', body.bulletin_id);
-    if (!existing) throw new Error('Bulletin not found');
-    const result = dbUpdate('BULLETINS', 'bulletin_id', body.bulletin_id, bulletinData);
-    auditLog(session.user_id, 'UPDATE', 'BULLETINS', body.bulletin_id, result.old, result.updated, 'OK');
-    return { ok: true, data: result.updated };
-  } else {
-    // Check if one already exists for this exact date
-    const existingDate = dbFindOne('BULLETINS', 'date', bulletinData.date);
-    if (existingDate && !body.force_new) {
-      const result = dbUpdate('BULLETINS', 'bulletin_id', existingDate.bulletin_id, bulletinData);
-      auditLog(session.user_id, 'UPDATE', 'BULLETINS', existingDate.bulletin_id, result.old, result.updated, 'OK');
-      return { ok: true, data: result.updated, message: 'Existing bulletin updated' };
-    }
+    existing = dbFindOne('BULLETINS', 'bulletin_id', body.bulletin_id);
+  }
+  if (!existing && bulletinData.date && !body.force_new) {
+    existing = dbFindOne('BULLETINS', 'date', bulletinData.date);
+  }
 
-    bulletinData.bulletin_id = generateId('BUL');
+  if (existing) {
+    const result = dbUpdate('BULLETINS', 'bulletin_id', existing.bulletin_id, bulletinData);
+    auditLog(session.user_id, 'UPDATE', 'BULLETINS', existing.bulletin_id, result.old, result.updated, 'OK');
+    return { ok: true, data: result.updated, message: 'Weekly Bulletin updated and saved!' };
+  } else {
+    bulletinData.bulletin_id = body.bulletin_id || generateId('BUL');
     bulletinData.created_date = now();
     dbInsert('BULLETINS', bulletinData);
     auditLog(session.user_id, 'CREATE', 'BULLETINS', bulletinData.bulletin_id, null, bulletinData, 'OK');
-    return { ok: true, data: bulletinData };
+    return { ok: true, data: bulletinData, message: 'Weekly Bulletin created and saved!' };
   }
 }
 

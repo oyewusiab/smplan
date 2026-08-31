@@ -655,8 +655,10 @@ export function BulletinPage() {
 
   // Select a bulletin from the left sidebar
   const handleSelectBulletin = (b: Bulletin) => {
-    setSelectedBulletinId(b.bulletin_id);
+    setSelectedBulletinId(b.bulletin_id || null);
     setForm(b);
+    setActiveTab('edit');
+    toast.success(`Loaded draft for ${b.date}`);
   };
 
   // Create a brand new bulletin

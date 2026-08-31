@@ -98,6 +98,7 @@ export function BulletinFormEditor({
 
   // Activities list handlers
   const activitiesList: WeeklyActivityItem[] = f.activities_list || [];
+  const next5List: NextActivityItem[] = f.next_activities_list || [];
 
   const handleUpdateActivity = (index: number, field: keyof WeeklyActivityItem, value: any) => {
     const updated = [...activitiesList];
@@ -136,6 +137,28 @@ export function BulletinFormEditor({
     const updated = [...activitiesList, newItem];
     const text = formatActivitiesToText(updated);
     setForm((prev) => ({ ...prev, activities_list: updated, activities: text }));
+  };
+
+  // Next 5 Activities handlers
+  const handleUpdateNextActivity = (index: number, field: keyof NextActivityItem, value: any) => {
+    const updated = [...next5List];
+    updated[index] = { ...updated[index], [field]: value };
+    setForm((prev) => ({ ...prev, next_activities_list: updated }));
+  };
+
+  const handleDeleteNextActivity = (index: number) => {
+    const updated = next5List.filter((_, i) => i !== index);
+    setForm((prev) => ({ ...prev, next_activities_list: updated }));
+  };
+
+  const handleAddNextActivity = () => {
+    const newItem: NextActivityItem = {
+      id: `next_${Date.now()}`,
+      date: f.date || 'Upcoming',
+      activity: '',
+      scope: 'Ward',
+    };
+    setForm((prev) => ({ ...prev, next_activities_list: [...(prev.next_activities_list || []), newItem] }));
   };
 
   return (
@@ -465,14 +488,84 @@ export function BulletinFormEditor({
                   onChange={(e) => setForm((prev) => ({ ...prev, cfm_ideas_for_learning: e.target.value }))}
                   className="sm:col-span-2"
                 />
-                <Textarea
-                  label="Reflection Callout"
-                  rows={2}
-                  placeholder="A question or prompt for spiritual reflection…"
-                  value={f.cfm_reflection || f.cfm_discussion_question || ''}
-                  onChange={(e) => setForm((prev) => ({ ...prev, cfm_reflection: e.target.value, cfm_discussion_question: e.target.value }))}
-                  className="sm:col-span-2"
-                />
+
+                {/* 3 Interactive Recommended Reflection Prompts */}
+                <div className="sm:col-span-2 space-y-2.5 pt-2 border-t border-slate-100">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-900">
+                        Reflection Prompts (Click to Select)
+                      </label>
+                      <p className="text-[11px] text-slate-500">
+                        Select a recommended question or write a custom reflection prompt
+                      </p>
+                    </div>
+                    <span className="text-[10px] font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-full">
+                      Select Suitable Prompt
+                    </span>
+                  </div>
+
+                  <div className="grid gap-2">
+                    {(f.cfm_reflection_options && f.cfm_reflection_options.length > 0
+                      ? f.cfm_reflection_options
+                      : [
+                          'How has crying unto the Lord in humility helped you find peace and forgiveness through the Savior’s mercy? (Psalm 51)',
+                          'In what ways has remembering the works of the Lord in your past strengthened your trust in Him during present trials? (Psalm 77:11)',
+                          'What has the Savior done for your soul that you feel inspired to declare and share with others? (Psalm 66:16)',
+                        ]
+                    ).map((question, idx) => {
+                      const isSelected = (f.cfm_reflection || f.cfm_discussion_question || '').includes(question);
+                      return (
+                        <div
+                          key={idx}
+                          onClick={() => {
+                            setForm((prev) => ({
+                              ...prev,
+                              cfm_reflection: question,
+                              cfm_discussion_question: question,
+                            }));
+                          }}
+                          className={`p-2.5 rounded-xl border cursor-pointer transition-all flex items-start gap-2.5 ${
+                            isSelected
+                              ? 'bg-amber-50 border-amber-300 ring-2 ring-amber-400/20'
+                              : 'bg-slate-50/70 border-slate-200 hover:bg-white hover:border-slate-300'
+                          }`}
+                        >
+                          <span
+                            className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5 ${
+                              isSelected
+                                ? 'bg-amber-600 text-white shadow-2xs'
+                                : 'bg-slate-200 text-slate-700'
+                            }`}
+                          >
+                            {idx + 1}
+                          </span>
+                          <div className="flex-grow">
+                            <p className="text-xs text-slate-800 font-medium leading-relaxed">{question}</p>
+                          </div>
+                          {isSelected && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 flex-shrink-0">
+                              Selected
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <Textarea
+                    label="Active Reflection Callout for Bulletin"
+                    rows={2}
+                    placeholder="Selected reflection question will appear here for editing…"
+                    value={f.cfm_reflection || f.cfm_discussion_question || ''}
+                    onChange={(e) => setForm((prev) => ({
+                      ...prev,
+                      cfm_reflection: e.target.value,
+                      cfm_discussion_question: e.target.value,
+                    }))}
+                  />
+                </div>
+
                 <Textarea
                   label="Scripture of the Week"
                   rows={2}
@@ -490,7 +583,7 @@ export function BulletinFormEditor({
       {/* ─── SECTION 4: Birthdays & Activities Schedule ─────────────────────────── */}
       {activeSubSection === 'community' && (
         <div className="space-y-5">
-          {/* Birthday Celebrants Frame Card */}
+          {/* Birthday Celebrants Frame Card with WhatsApp Wishes */}
           <Card className="border-amber-300/80 bg-gradient-to-br from-amber-50/60 via-yellow-50/40 to-amber-50/20 shadow-xs">
             <CardHeader className="border-amber-200">
               <div className="flex items-center justify-between">
@@ -499,7 +592,7 @@ export function BulletinFormEditor({
                     🎂 Birthday Celebrants Frame
                   </h3>
                   <p className="text-xs text-amber-800">
-                    Auto-harvested for the Monday–Sunday week. Special celebratory frame rendered in the generated bulletin.
+                    Auto-harvested for the Monday–Sunday week. Includes WhatsApp greeting links and special celebration styling.
                   </p>
                 </div>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900 bg-amber-200/80 px-2 py-0.5 rounded-md">
@@ -521,6 +614,38 @@ export function BulletinFormEditor({
                 value={f.birthday_message || ''}
                 onChange={(e) => setForm((prev) => ({ ...prev, birthday_message: e.target.value }))}
               />
+
+              {/* Direct WhatsApp Celebrant Greetings Bot */}
+              {f.birthday_celebrants_list && f.birthday_celebrants_list.length > 0 && (
+                <div className="pt-2 border-t border-amber-200/70 space-y-2">
+                  <p className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                    <MessageSquare className="w-3.5 h-3.5 text-amber-700" />
+                    Direct WhatsApp Celebrant Wish Links
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {f.birthday_celebrants_list.map((c, i) => {
+                      const waUrl = buildWhatsAppBirthdayGreetingUrl(
+                        c.phone,
+                        c.name,
+                        f.unit_name || 'Ward',
+                        f.birthday_message
+                      );
+                      return (
+                        <a
+                          key={i}
+                          href={waUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-2xs transition-all"
+                        >
+                          <Send className="w-3 h-3" />
+                          <span>Wish {c.name} ({c.birth_date})</span>
+                        </a>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </CardBody>
           </Card>
 
@@ -627,6 +752,67 @@ export function BulletinFormEditor({
                     </div>
                   ))}
                 </div>
+              )}
+            </CardBody>
+          </Card>
+
+          {/* Next 5 Activities Outlook Table */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Next 5 Activities (Calendar Outlook)</h3>
+                  <p className="text-xs text-slate-500">Upcoming events following this week</p>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={handleAddNextActivity}
+                  icon={<Plus className="w-3.5 h-3.5" />}
+                  className="text-xs bg-slate-800 hover:bg-slate-700 text-white font-bold"
+                >
+                  Add Upcoming Event
+                </Button>
+              </div>
+            </CardHeader>
+            <CardBody className="space-y-2">
+              {next5List.length === 0 ? (
+                <div className="p-3 text-center text-xs text-slate-400 border border-dashed rounded-xl bg-slate-50">
+                  No upcoming activities defined.
+                </div>
+              ) : (
+                next5List.map((act, idx) => (
+                  <div key={act.id || idx} className="p-2.5 bg-white rounded-xl border border-slate-200 flex items-center gap-2 text-xs shadow-2xs">
+                    <input
+                      type="text"
+                      placeholder="Date (e.g. 15 Sep)"
+                      value={act.date}
+                      onChange={(e) => handleUpdateNextActivity(idx, 'date', e.target.value)}
+                      className="w-28 text-xs rounded-lg border border-slate-300 p-1.5 font-bold"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Activity description"
+                      value={act.activity}
+                      onChange={(e) => handleUpdateNextActivity(idx, 'activity', e.target.value)}
+                      className="flex-grow text-xs rounded-lg border border-slate-300 p-1.5"
+                    />
+                    <select
+                      value={act.scope || 'Ward'}
+                      onChange={(e) => handleUpdateNextActivity(idx, 'scope', e.target.value)}
+                      className="w-20 text-xs rounded-lg border border-slate-300 p-1.5 font-semibold"
+                    >
+                      <option value="Ward">Ward</option>
+                      <option value="Stake">Stake</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteNextActivity(idx)}
+                      className="p-1 text-slate-400 hover:text-red-600"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))
               )}
             </CardBody>
           </Card>
@@ -757,6 +943,34 @@ export function BulletinFormEditor({
                   value={f.qr_gospel_library || 'https://www.churchofjesuschrist.org/study/gospel-library'}
                   onChange={(e) => setForm((prev) => ({ ...prev, qr_gospel_library: e.target.value }))}
                 />
+              </div>
+
+              {/* Sacred Music Audio Streams */}
+              <div className="p-3 bg-blue-50/60 border border-blue-200 rounded-xl space-y-1 mt-2">
+                <p className="text-xs font-bold text-blue-950 flex items-center gap-1.5">
+                  <Music className="w-3.5 h-3.5 text-blue-700" />
+                  Sacred Music Hymn Audio Streams
+                </p>
+                <p className="text-[11px] text-blue-800">
+                  Quick hymn practice access before service begins:
+                </p>
+                <div className="flex flex-wrap gap-2 pt-1 text-xs">
+                  {f.opening_hymn && (
+                    <span className="px-2 py-0.5 rounded-md bg-white border border-blue-200 text-blue-900 font-medium">
+                      🎵 Opening: {f.opening_hymn}
+                    </span>
+                  )}
+                  {f.sacrament_hymn && (
+                    <span className="px-2 py-0.5 rounded-md bg-white border border-blue-200 text-blue-900 font-medium">
+                      🍞 Sacrament: {f.sacrament_hymn}
+                    </span>
+                  )}
+                  {f.closing_hymn && (
+                    <span className="px-2 py-0.5 rounded-md bg-white border border-blue-200 text-blue-900 font-medium">
+                      🙏 Closing: {f.closing_hymn}
+                    </span>
+                  )}
+                </div>
               </div>
             </CardBody>
           </Card>
