@@ -497,8 +497,7 @@ export function BulletinPage() {
         }
       }
     } catch {
-      const harvestedBirthdays = getBirthdaysForWeek(members, targetDate);
-      const bdaysText = harvestedBirthdays.map((b) => `🎂 ${b.formatted}`).join('   ');
+      const { celebrants: harvestedBirthdays, formattedString: bdaysText } = getBirthdaysForWeek(members, targetDate);
       const { items: actItems, formattedText: actText } = harvestWeeklyActivities(activities, targetDate);
       const next5 = getNext5Activities(activities, targetDate);
 

@@ -48,6 +48,22 @@ export function parseMemberBirthMonthDay(str?: string | null): { month: number; 
   return null;
 }
 
+export function getOrdinalSuffix(day: number): string {
+  if (day >= 11 && day <= 13) return `${day}th`;
+  switch (day % 10) {
+    case 1: return `${day}st`;
+    case 2: return `${day}nd`;
+    case 3: return `${day}rd`;
+    default: return `${day}th`;
+  }
+}
+
+export function formatBirthdayLabel(month: number, day: number): string {
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
+  const mName = monthNames[month - 1] || '';
+  return `${mName} ${getOrdinalSuffix(day)}`;
+}
+
 export function getBirthdaysForWeek(
   members: Member[],
   sundayDateStr: string
@@ -94,12 +110,13 @@ export function getBirthdaysForWeek(
         if (matchDay) {
           const title = m.gender === 'M' ? (m.name.startsWith('Bro') ? '' : 'Brother ') : m.gender === 'F' ? (m.name.startsWith('Sis') ? '' : 'Sister ') : '';
           const fullName = `${title}${m.name}`.trim();
+          const dayLabel = formatBirthdayLabel(parsed.month, parsed.day);
           celebrants.push({
             name: fullName,
             day: parsed.day,
             dateStr: matchDay.dateStr,
             phone: m.phone || '',
-            formatted: `🎂 ${fullName} (${parsed.day})`,
+            formatted: `🎂 ${fullName} (${dayLabel})`,
           });
         }
       }

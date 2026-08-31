@@ -2661,7 +2661,7 @@ function parseMemberBirthMonthDay(str) {
 
 /**
  * Live Congregation Bulletin Feedback
- * Handles Prayer Requests, Sickness/Hospitalization reports, and Bishop appointments.
+ * Handles General Notes and Bishop Appointments with targeted notifications.
  */
 function handleSubmitBulletinFeedback(body) {
   validateRequired(body, ['type', 'message']);
@@ -2670,7 +2670,7 @@ function handleSubmitBulletinFeedback(body) {
     feedback_id: generateId('FDB'),
     bulletin_id: sanitizeString(body.bulletin_id),
     date: sanitizeDate(body.date || today()),
-    type: sanitizeString(body.type || 'PRAYER_REQUEST'), // PRAYER_REQUEST, SICKNESS_ALERT, BISHOP_APPOINTMENT, GENERAL
+    type: sanitizeString(body.type || 'GENERAL'), // GENERAL, BISHOP_APPOINTMENT
     member_name: sanitizeString(body.member_name || 'Anonymous'),
     phone: sanitizeString(body.phone),
     email: sanitizeEmail(body.email),
@@ -2681,19 +2681,44 @@ function handleSubmitBulletinFeedback(body) {
 
   dbInsert('BULLETIN_FEEDBACK', feedback);
 
-  // Notify Bishopric & Clerks
-  const typeTitles = {
-    PRAYER_REQUEST: '🙏 Prayer Request Submitted',
-    SICKNESS_ALERT: '🏥 Sickness / Hospitalization Alert',
-    BISHOP_APPOINTMENT: '📅 Bishop Appointment Requested',
-    GENERAL: '💬 Bulletin Message Received'
-  };
+  const allUsers = dbReadAll('USERS').filter(u => !u.disabled);
 
-  notifyRoles(['ADMIN', 'BISHOPRIC', 'CLERK'], 'BULLETIN_FEEDBACK',
-    typeTitles[feedback.type] || 'New Congregation Feedback',
-    `${feedback.member_name} submitted: "${feedback.message}" (Contact: ${feedback.phone || feedback.email || 'None provided'})`,
-    { feedback_id: feedback.feedback_id, date: feedback.date }
-  );
+  if (feedback.type === 'BISHOP_APPOINTMENT') {
+    // If message is "Bishop appointment", only Bishop receives it under notification in planner
+    let bishopUsers = allUsers.filter(u => {
+      const calling = String(u.calling || '').toLowerCase();
+      const role = String(u.role || '').toUpperCase();
+      return (calling.includes('bishop') && !calling.includes('counselor')) || (role === 'BISHOPRIC' && calling.includes('bishop'));
+    });
+    if (bishopUsers.length === 0) {
+      bishopUsers = allUsers.filter(u => u.role === 'BISHOPRIC' || u.role === 'ADMIN');
+    }
+    bishopUsers.forEach(u => {
+      createNotification(
+        u.user_id,
+        'BULLETIN_FEEDBACK',
+        `📅 Bishop Appointment Requested by ${feedback.member_name}`,
+        `"${feedback.message}" (Contact: ${feedback.phone || feedback.email || 'None provided'})`,
+        { feedback_id: feedback.feedback_id, date: feedback.date, type: feedback.type }
+      );
+    });
+  } else {
+    // If message is "General", Bishop and Counselors receive it under notification in planner
+    const bishopricUsers = allUsers.filter(u => {
+      const calling = String(u.calling || '').toLowerCase();
+      const role = String(u.role || '').toUpperCase();
+      return role === 'BISHOPRIC' || role === 'ADMIN' || calling.includes('bishop') || calling.includes('counselor');
+    });
+    bishopricUsers.forEach(u => {
+      createNotification(
+        u.user_id,
+        'BULLETIN_FEEDBACK',
+        `💬 General Bulletin Note from ${feedback.member_name}`,
+        `"${feedback.message}" (Contact: ${feedback.phone || feedback.email || 'None provided'})`,
+        { feedback_id: feedback.feedback_id, date: feedback.date, type: feedback.type }
+      );
+    });
+  }
 
   return { ok: true, data: feedback, message: 'Your message has been submitted to the Bishopric.' };
 }
