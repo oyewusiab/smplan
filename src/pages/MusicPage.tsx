@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import {
   Music, Calendar, CheckCircle2, Clock, Printer, Save, Check, RefreshCw,
   Sparkles, Layers, ListMusic, UserCheck, AlertCircle, BookOpen, Search,
-  Edit2, Plus, Volume2, ShieldCheck, Heart
+  Edit2, Plus, Volume2, ShieldCheck, Heart, ExternalLink, Globe
 } from 'lucide-react';
 import { Header } from '../components/layout/Header';
 import { Button } from '../components/ui/Button';
@@ -18,7 +18,7 @@ import { MusicPrintModal, MusicPlanWeek } from '../components/music/MusicPrintMo
 import { MusicAvailabilityModal, UnavailabilityRecord } from '../components/music/MusicAvailabilityModal';
 import { useAuthStore } from '../store/authStore';
 import { plannersApi, agendasApi, membersApi, hymnsApi, musicApi } from '../services/api';
-import { BUNDLED_HYMNS, BundledHymn, ALL_GOSPEL_THEMES } from '../data/bundledHymns';
+import { BUNDLED_HYMNS, BundledHymn, ALL_GOSPEL_THEMES, getHymnChurchUrl, resolveHymnLink } from '../data/bundledHymns';
 import { parseHymn } from '../utils/hymnParser';
 import type { Planner, Agenda, Member, Hymn, SpeakerItem } from '../types';
 import toast from 'react-hot-toast';
@@ -702,9 +702,24 @@ export function MusicPage() {
 
                               {/* Optional Special / Intermediate Music */}
                               <div>
-                                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                                  Special / Intermediate Music (Optional)
-                                </label>
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                                    Special / Intermediate Music (Optional)
+                                  </label>
+                                  {wk.hymns.special && (
+                                    <a
+                                      href={resolveHymnLink(wk.hymns.special)}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-800 hover:underline bg-blue-50 px-2 py-0.5 rounded"
+                                      title="Open on church site"
+                                    >
+                                      <Globe className="h-3 w-3" />
+                                      <span>Church Site</span>
+                                      <ExternalLink className="h-2.5 w-2.5" />
+                                    </a>
+                                  )}
+                                </div>
                                 <input
                                   type="text"
                                   value={wk.hymns.special || ''}
@@ -714,6 +729,75 @@ export function MusicPage() {
                                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                                 />
                               </div>
+
+                              {/* Active Church Song Assessment Links Bar for this week */}
+                              {(wk.hymns.opening || wk.hymns.sacrament || wk.hymns.closing || wk.hymns.special) && (
+                                <div className="p-2.5 rounded-xl bg-blue-50/70 border border-blue-200/80 space-y-1.5 mt-2">
+                                  <div className="flex items-center justify-between text-[11px] font-bold text-blue-900 uppercase tracking-wider">
+                                    <span className="flex items-center gap-1">
+                                      <Globe className="h-3.5 w-3.5 text-blue-700" />
+                                      Official Church Links (Assess Songs)
+                                    </span>
+                                    <span className="text-[10px] text-blue-600 font-medium lowercase">
+                                      Click to open sheet music & audio
+                                    </span>
+                                  </div>
+                                  <div className="flex flex-wrap gap-1.5 pt-0.5">
+                                    {wk.hymns.opening && (
+                                      <a
+                                        href={resolveHymnLink(wk.hymns.opening)}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-blue-200 hover:border-blue-400 hover:shadow-2xs text-xs font-semibold text-blue-900 transition-all"
+                                        title={`Open ${wk.hymns.opening} on churchofjesuschrist.org`}
+                                      >
+                                        <span className="text-[10px] text-slate-500 font-bold uppercase">Opening:</span>
+                                        <span className="truncate max-w-[130px]">{wk.hymns.opening}</span>
+                                        <ExternalLink className="h-3 w-3 text-blue-600 shrink-0" />
+                                      </a>
+                                    )}
+                                    {wk.hymns.sacrament && (
+                                      <a
+                                        href={resolveHymnLink(wk.hymns.sacrament)}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-blue-200 hover:border-blue-400 hover:shadow-2xs text-xs font-semibold text-blue-900 transition-all"
+                                        title={`Open ${wk.hymns.sacrament} on churchofjesuschrist.org`}
+                                      >
+                                        <span className="text-[10px] text-slate-500 font-bold uppercase">Sacrament:</span>
+                                        <span className="truncate max-w-[130px]">{wk.hymns.sacrament}</span>
+                                        <ExternalLink className="h-3 w-3 text-blue-600 shrink-0" />
+                                      </a>
+                                    )}
+                                    {wk.hymns.closing && (
+                                      <a
+                                        href={resolveHymnLink(wk.hymns.closing)}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-blue-200 hover:border-blue-400 hover:shadow-2xs text-xs font-semibold text-blue-900 transition-all"
+                                        title={`Open ${wk.hymns.closing} on churchofjesuschrist.org`}
+                                      >
+                                        <span className="text-[10px] text-slate-500 font-bold uppercase">Closing:</span>
+                                        <span className="truncate max-w-[130px]">{wk.hymns.closing}</span>
+                                        <ExternalLink className="h-3 w-3 text-blue-600 shrink-0" />
+                                      </a>
+                                    )}
+                                    {wk.hymns.special && (
+                                      <a
+                                        href={resolveHymnLink(wk.hymns.special)}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-blue-200 hover:border-blue-400 hover:shadow-2xs text-xs font-semibold text-blue-900 transition-all"
+                                        title={`Open ${wk.hymns.special} on churchofjesuschrist.org`}
+                                      >
+                                        <span className="text-[10px] text-slate-500 font-bold uppercase">Special:</span>
+                                        <span className="truncate max-w-[130px]">{wk.hymns.special}</span>
+                                        <ExternalLink className="h-3 w-3 text-blue-600 shrink-0" />
+                                      </a>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
 
@@ -961,6 +1045,26 @@ export function MusicPage() {
                         );
                       },
                     },
+                    {
+                      key: 'link',
+                      header: 'Church Link',
+                      render: (h: any) => {
+                        const url = h.link || getHymnChurchUrl(h);
+                        return (
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                            title={url}
+                          >
+                            <Globe className="h-3.5 w-3.5" />
+                            <span>Church Site</span>
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        );
+                      },
+                    },
                     ...(canEdit ? [{
                       key: 'actions',
                       header: '',
@@ -971,7 +1075,10 @@ export function MusicPage() {
                           icon={<Edit2 className="h-3.5 w-3.5" />}
                           onClick={() => {
                             setEditHymn(h);
-                            setHymnForm(h);
+                            setHymnForm({
+                              ...h,
+                              link: h.link || getHymnChurchUrl(h),
+                            });
                           }}
                         >
                           Edit
@@ -1071,6 +1178,36 @@ export function MusicPage() {
               value={hymnForm.title || ''}
               onChange={(e) => setHymnForm({ ...hymnForm, title: e.target.value })}
             />
+            
+            {/* Official Church Link Field */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  Official Church Site Link
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const generated = getHymnChurchUrl({
+                      number: hymnForm.number,
+                      title: hymnForm.title,
+                      collection: hymnForm.number && hymnForm.number >= 1000 ? 'New' : 'Classic'
+                    });
+                    setHymnForm({ ...hymnForm, link: generated });
+                    toast.success('Church link generated!');
+                  }}
+                  className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold hover:underline"
+                >
+                  ⚡ Auto-Generate Church Link
+                </button>
+              </div>
+              <Input
+                placeholder="https://www.churchofjesuschrist.org/media/music/songs/..."
+                value={hymnForm.link || ''}
+                onChange={(e) => setHymnForm({ ...hymnForm, link: e.target.value })}
+              />
+            </div>
+
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                 Theological Themes (Multiple comma-separated themes)

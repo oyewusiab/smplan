@@ -1570,13 +1570,50 @@ const BUNDLED_HYMNS_GS = [
   { number: 1055, title: 'Be Thou My Vision', type: 'Opening', theme: 'Vision, Guidance, Heavenly Father, High King of Heaven' }
 ];
 
+function generateHymnSlugGS(title) {
+  if (!title) return '';
+  return String(title)
+    .toLowerCase()
+    .replace(/['’"]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function generateHymnChurchUrlGS(number, title, link) {
+  if (link && String(link).trim().indexOf('http') === 0) {
+    return String(link).trim();
+  }
+  var num = Number(number);
+  var isNew = num >= 1000;
+  var crumb = isNew ? 'hymns-for-home-and-church' : 'hymns';
+  var rawTitle = title ? String(title).replace(/^#?\d+\s*[-–—.]*\s*/, '').trim() : '';
+  var slug = generateHymnSlugGS(rawTitle);
+  if (slug) {
+    return 'https://www.churchofjesuschrist.org/media/music/songs/' + slug + '?crumbs=' + crumb + '&order=number&lang=eng';
+  }
+  if (num && !isNaN(num) && num > 0) {
+    return 'https://www.churchofjesuschrist.org/study/music/hymns/' + num + '?lang=eng';
+  }
+  return 'https://www.churchofjesuschrist.org/media/music?lang=eng';
+}
+
 function handleListHymns(params) {
   const session = requireAuth(params.token);
   let hymns = dbReadAll('HYMNS');
   
   // Auto-fallback if HYMNS table is empty
   if (hymns.length === 0) {
-    hymns = BUNDLED_HYMNS_GS.map(h => ({ ...h, updated_date: now() }));
+    hymns = BUNDLED_HYMNS_GS.map(h => ({
+      ...h,
+      link: h.link || generateHymnChurchUrlGS(h.number, h.title, h.link),
+      updated_date: now()
+    }));
+  } else {
+    // Ensure every hymn has an accurate link
+    hymns = hymns.map(h => ({
+      ...h,
+      link: h.link || generateHymnChurchUrlGS(h.number, h.title, h.link)
+    }));
   }
 
   if (params.query) {
@@ -1601,6 +1638,7 @@ function handleUpdateHymn(body) {
     title: sanitizeString(body.title),
     type: sanitizeString(body.type || 'Opening'),
     theme: sanitizeString(body.theme),
+    link: body.link ? sanitizeString(body.link) : generateHymnChurchUrlGS(body.number, body.title),
     updated_date: now(),
   };
   
@@ -1625,6 +1663,7 @@ function handleSyncHymnsCatalog(body) {
       title: h.title,
       type: h.type,
       theme: h.theme,
+      link: h.link || generateHymnChurchUrlGS(h.number, h.title, h.link),
       updated_date: now()
     };
     if (existing) {
@@ -1635,8 +1674,8 @@ function handleSyncHymnsCatalog(body) {
     count++;
   });
 
-  auditLog(session.user_id, 'SYNC_CATALOG', 'HYMNS', 'ALL', null, `${count} hymns synchronized`, 'OK');
-  return { ok: true, count: count, message: `Successfully synchronized ${count} LDS hymns` };
+  auditLog(session.user_id, 'SYNC_CATALOG', 'HYMNS', 'ALL', null, `${count} hymns synchronized with direct links`, 'OK');
+  return { ok: true, count: count, message: `Successfully synchronized ${count} LDS hymns with official church links` };
 }
 
 function handleSaveMusicPlan(body) {

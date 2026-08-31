@@ -11,11 +11,48 @@ export interface BundledHymn {
   theme: string; // Comma-separated or primary representation
   themes: string[]; // Structured multiple themes array
   collection: 'Classic' | 'New';
+  link?: string; // Official link to the hymn on churchofjesuschrist.org
   tempo?: string;
   meter?: string;
 }
 
-export const BUNDLED_HYMNS: BundledHymn[] = [
+/**
+ * Generate official church slug for a hymn title
+ */
+export function generateHymnSlug(title: string): string {
+  if (!title) return '';
+  return title
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/['’"]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+/**
+ * Get official church URL for a hymn object
+ */
+export function getHymnChurchUrl(hymn?: { number?: number; title?: string; link?: string; collection?: 'Classic' | 'New' } | null): string {
+  if (!hymn) return 'https://www.churchofjesuschrist.org/media/music?lang=eng';
+  if (hymn.link && hymn.link.trim().startsWith('http')) {
+    return hymn.link.trim();
+  }
+  const num = Number(hymn.number);
+  const isNew = num >= 1000 || hymn.collection === 'New';
+  const crumb = isNew ? 'hymns-for-home-and-church' : 'hymns';
+  const rawTitle = hymn.title ? hymn.title.replace(/^#?\d+\s*[-–—.]*\s*/, '').trim() : '';
+  const slug = generateHymnSlug(rawTitle);
+  if (slug) {
+    return `https://www.churchofjesuschrist.org/media/music/songs/${slug}?crumbs=${crumb}&order=number&lang=eng`;
+  }
+  if (num && !isNaN(num) && num > 0) {
+    return `https://www.churchofjesuschrist.org/study/music/hymns/${num}?lang=eng`;
+  }
+  return 'https://www.churchofjesuschrist.org/media/music?lang=eng';
+}
+
+const RAW_BUNDLED_HYMNS: Omit<BundledHymn, 'link'>[] = [
   // ─── Restoration & Prophets ──────────────────────────────────────────────────
   {
     number: 1,
@@ -1281,6 +1318,11 @@ export const BUNDLED_HYMNS: BundledHymn[] = [
   },
 ];
 
+export const BUNDLED_HYMNS: BundledHymn[] = RAW_BUNDLED_HYMNS.map((h) => ({
+  ...h,
+  link: getHymnChurchUrl(h),
+}));
+
 /**
  * Find hymn by number or fuzzy title match
  */
@@ -1293,6 +1335,37 @@ export function findBundledHymn(query: string | number): BundledHymn | undefined
     if (byNum) return byNum;
   }
   return BUNDLED_HYMNS.find(h => h.title.toLowerCase().includes(qStr));
+}
+
+/**
+ * Resolve church URL for any hymn text (e.g. "169 - As Now We Take the Sacrament", "Gethsemane", or 1001)
+ */
+export function resolveHymnLink(hymnTextOrNumber?: string | number): string {
+  if (!hymnTextOrNumber) return 'https://www.churchofjesuschrist.org/media/music?lang=eng';
+  const found = findBundledHymn(hymnTextOrNumber);
+  if (found) {
+    return getHymnChurchUrl(found);
+  }
+  const str = String(hymnTextOrNumber).trim();
+  const match = str.match(/#?(\d+)/);
+  if (match) {
+    const num = parseInt(match[1], 10);
+    const byNum = findBundledHymn(num);
+    if (byNum) return getHymnChurchUrl(byNum);
+    const isNew = num >= 1000;
+    const crumb = isNew ? 'hymns-for-home-and-church' : 'hymns';
+    const cleanTitle = str.replace(/#?\d+\s*[-–—.]*\s*/, '').trim();
+    const slug = generateHymnSlug(cleanTitle);
+    if (slug) {
+      return `https://www.churchofjesuschrist.org/media/music/songs/${slug}?crumbs=${crumb}&order=number&lang=eng`;
+    }
+    return `https://www.churchofjesuschrist.org/study/music/hymns/${num}?lang=eng`;
+  }
+  const slug = generateHymnSlug(str);
+  if (slug) {
+    return `https://www.churchofjesuschrist.org/media/music/songs/${slug}?crumbs=hymns&order=number&lang=eng`;
+  }
+  return 'https://www.churchofjesuschrist.org/media/music?lang=eng';
 }
 
 /**

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search, Music, Play, Square, X, Sparkles } from 'lucide-react';
-import { BUNDLED_HYMNS, BundledHymn } from '../../data/bundledHymns';
+import { Search, Music, Play, Square, X, Sparkles, ExternalLink, Globe } from 'lucide-react';
+import { BUNDLED_HYMNS, BundledHymn, getHymnChurchUrl, resolveHymnLink } from '../../data/bundledHymns';
 import { playHymnAudioPreview, stopHymnAudio } from '../../utils/hymnAudioSynth';
 import { cn } from '../../utils/cn';
 
@@ -132,6 +132,8 @@ export function HymnAutocomplete({
     }
   };
 
+  const currentChurchLink = query.trim() ? resolveHymnLink(query) : null;
+
   return (
     <div className={cn('relative', className)} ref={containerRef}>
       {label && (
@@ -139,11 +141,27 @@ export function HymnAutocomplete({
           <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
             {label}
           </label>
-          {isSuggested && (
-            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">
-              <Sparkles className="h-3 w-3" /> Thematic Match
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {isSuggested && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">
+                <Sparkles className="h-3 w-3" /> Thematic Match
+              </span>
+            )}
+            {currentChurchLink && (
+              <a
+                href={currentChurchLink}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-800 hover:underline bg-blue-50 px-2 py-0.5 rounded transition-colors"
+                title={`Open ${query} on churchofjesuschrist.org`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Globe className="h-3 w-3" />
+                <span>Church Site</span>
+                <ExternalLink className="h-2.5 w-2.5" />
+              </a>
+            )}
+          </div>
         </div>
       )}
 
@@ -166,7 +184,7 @@ export function HymnAutocomplete({
           }}
           onKeyDown={handleKeyDown}
           className={cn(
-            'w-full rounded-lg border bg-white pl-9 pr-9 py-2 text-sm transition-all focus:outline-none focus:ring-2',
+            'w-full rounded-lg border bg-white pl-9 pr-16 py-2 text-sm transition-all focus:outline-none focus:ring-2',
             isOpen
               ? 'border-blue-500 ring-2 ring-blue-500/20'
               : 'border-slate-300 hover:border-slate-400',
@@ -174,15 +192,29 @@ export function HymnAutocomplete({
           )}
         />
 
-        {query && !disabled && (
-          <button
-            type="button"
-            onClick={handleClear}
-            className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        )}
+        <div className="absolute inset-y-0 right-0 pr-2 flex items-center gap-1">
+          {currentChurchLink && (
+            <a
+              href={currentChurchLink}
+              target="_blank"
+              rel="noreferrer"
+              title="Open song & sheet music on churchofjesuschrist.org"
+              onClick={(e) => e.stopPropagation()}
+              className="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          )}
+          {query && !disabled && (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Autocomplete Popup Dropdown */}
@@ -259,20 +291,34 @@ export function HymnAutocomplete({
                       </div>
                     </div>
 
-                    {/* Audio Preview Action */}
-                    <button
-                      type="button"
-                      title={isPlaying ? 'Stop audio preview' : 'Listen to piano melody preview'}
-                      onClick={(e) => handlePlayToggle(e, hymn.number)}
-                      className={cn(
-                        'flex h-7 w-7 items-center justify-center rounded-lg border transition-all shrink-0',
-                        isPlaying
-                          ? 'bg-blue-600 text-white border-blue-600 shadow-sm animate-pulse'
-                          : 'bg-white text-slate-500 border-slate-200 hover:text-blue-600 hover:border-blue-300'
-                      )}
-                    >
-                      {isPlaying ? <Square className="h-3 w-3 fill-current" /> : <Play className="h-3 w-3 fill-current" />}
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {/* View on Church Site */}
+                      <a
+                        href={hymn.link || getHymnChurchUrl(hymn)}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="View hymn & sheet music on churchofjesuschrist.org"
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-blue-600 hover:border-blue-300 transition-all"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+
+                      {/* Audio Preview Action */}
+                      <button
+                        type="button"
+                        title={isPlaying ? 'Stop audio preview' : 'Listen to piano melody preview'}
+                        onClick={(e) => handlePlayToggle(e, hymn.number)}
+                        className={cn(
+                          'flex h-7 w-7 items-center justify-center rounded-lg border transition-all',
+                          isPlaying
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-sm animate-pulse'
+                            : 'bg-white text-slate-500 border-slate-200 hover:text-blue-600 hover:border-blue-300'
+                        )}
+                      >
+                        {isPlaying ? <Square className="h-3 w-3 fill-current" /> : <Play className="h-3 w-3 fill-current" />}
+                      </button>
+                    </div>
                   </li>
                 );
               })}

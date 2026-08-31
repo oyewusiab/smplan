@@ -9,6 +9,7 @@ import { Input, Textarea, Select } from '../ui/Input';
 import { getBulletinTheme } from '../../utils/bulletinThemes';
 import { buildWhatsAppBirthdayGreetingUrl } from '../../utils/bulletinBirthdayEngine';
 import { getWeekDateRange, isSectionVisible } from '../../utils/bulletinPrintEngine';
+import { resolveHymnLink } from '../../data/bundledHymns';
 import { bulletinsApi } from '../../services/api';
 import type { Bulletin } from '../../types';
 import toast from 'react-hot-toast';
@@ -23,23 +24,11 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp }: BulletinWebVie
 
   // Feedback form state
   const [feedbackType, setFeedbackType] = useState<'PRAYER_REQUEST' | 'SICKNESS_ALERT' | 'BISHOP_APPOINTMENT' | 'GENERAL'>('PRAYER_REQUEST');
-  const [memberName, setMemberName] = useState('');
-  const [memberPhone, setMemberPhone] = useState('');
-  const [memberEmail, setMemberEmail] = useState('');
+  const [feedbackName, setFeedbackName] = useState('');
+  const [feedbackPhone, setFeedbackPhone] = useState('');
   const [feedbackMsg, setFeedbackMsg] = useState('');
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
-
-  const formattedDate = b.date
-    ? (() => {
-        try {
-          const d = parseISO(b.date);
-          return isNaN(d.getTime()) ? b.date : format(d, 'EEEE, MMMM d, yyyy');
-        } catch {
-          return b.date;
-        }
-      })()
-    : 'This Sunday';
 
   // Parse speakers
   const speakers = (() => {
@@ -61,22 +50,19 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp }: BulletinWebVie
   const handleFeedbackSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!feedbackMsg.trim()) {
-      toast.error('Please enter a message or prayer request details.');
+      toast.error('Please enter a message or request');
       return;
     }
-
     setSubmittingFeedback(true);
     try {
       const res = (await bulletinsApi.submitFeedback({
         bulletin_id: b.bulletin_id || '',
         date: b.date || '',
         type: feedbackType,
-        member_name: memberName || 'Anonymous',
-        phone: memberPhone,
-        email: memberEmail,
-        message: feedbackMsg,
+        member_name: feedbackName.trim() || 'Anonymous Member',
+        phone: feedbackPhone.trim(),
+        message: feedbackMsg.trim(),
       })) as { ok: boolean; message?: string };
-
       if (!res.ok) throw new Error('Submission failed');
       setFeedbackSubmitted(true);
       toast.success(res.message || 'Feedback submitted to the Bishopric!');
@@ -86,16 +72,6 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp }: BulletinWebVie
     } finally {
       setSubmittingFeedback(false);
     }
-  };
-
-  const getHymnAudioLink = (hymnText?: string) => {
-    if (!hymnText) return '#';
-    const match = hymnText.match(/#?(\d+)/);
-    const num = match ? match[1] : '';
-    if (num) {
-      return `https://www.churchofjesuschrist.org/study/music/hymns/${num}?lang=eng`;
-    }
-    return `https://www.churchofjesuschrist.org/music/library?lang=eng`;
   };
 
   const weekRange = getWeekDateRange(b.date, b.unit_name);
@@ -158,21 +134,31 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp }: BulletinWebVie
             </div>
 
             <div className="space-y-2 text-xs">
-              {/* Opening Hymn + Audio Stream */}
+              {/* Opening Hymn + Church Link */}
               {b.opening_hymn && (
                 <div className="flex items-center justify-between py-1.5 border-b border-slate-50">
-                  <div>
+                  <div className="min-w-0 flex-1 pr-2">
                     <span className="text-slate-500 font-medium block">Opening Hymn</span>
-                    <span className="font-semibold text-slate-900">{b.opening_hymn}</span>
+                    <a
+                      href={resolveHymnLink(b.opening_hymn)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-semibold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1 truncate"
+                      title="Open hymn on churchofjesuschrist.org"
+                    >
+                      <span>{b.opening_hymn}</span>
+                      <ExternalLink className="w-3 h-3 shrink-0 text-blue-500" />
+                    </a>
                   </div>
                   <a
-                    href={getHymnAudioLink(b.opening_hymn)}
+                    href={resolveHymnLink(b.opening_hymn)}
                     target="_blank"
                     rel="noreferrer"
-                    className="p-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 flex items-center gap-1 text-[11px] font-semibold"
+                    className="p-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 flex items-center gap-1 text-[11px] font-semibold shrink-0"
+                    title="Listen & view sheet music on Church site"
                   >
                     <Volume2 className="w-3.5 h-3.5" />
-                    <span>Audio</span>
+                    <span>Church Music</span>
                   </a>
                 </div>
               )}
@@ -189,21 +175,31 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp }: BulletinWebVie
                 <span className="font-semibold text-slate-900">As Announced</span>
               </div>
 
-              {/* Sacrament Hymn + Audio Stream */}
+              {/* Sacrament Hymn + Church Link */}
               {b.sacrament_hymn && (
                 <div className="flex items-center justify-between py-1.5 border-b border-slate-50">
-                  <div>
+                  <div className="min-w-0 flex-1 pr-2">
                     <span className="text-slate-500 font-medium block">Sacrament Hymn</span>
-                    <span className="font-semibold text-slate-900">{b.sacrament_hymn}</span>
+                    <a
+                      href={resolveHymnLink(b.sacrament_hymn)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-semibold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1 truncate"
+                      title="Open sacrament hymn on churchofjesuschrist.org"
+                    >
+                      <span>{b.sacrament_hymn}</span>
+                      <ExternalLink className="w-3 h-3 shrink-0 text-blue-500" />
+                    </a>
                   </div>
                   <a
-                    href={getHymnAudioLink(b.sacrament_hymn)}
+                    href={resolveHymnLink(b.sacrament_hymn)}
                     target="_blank"
                     rel="noreferrer"
-                    className="p-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 flex items-center gap-1 text-[11px] font-semibold"
+                    className="p-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 flex items-center gap-1 text-[11px] font-semibold shrink-0"
+                    title="Listen & view sacrament sheet music on Church site"
                   >
                     <Volume2 className="w-3.5 h-3.5" />
-                    <span>Audio</span>
+                    <span>Church Music</span>
                   </a>
                 </div>
               )}
@@ -238,27 +234,45 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp }: BulletinWebVie
               ) : null}
 
               {b.special_music && (
-                <div className="flex justify-between py-1 border-b border-slate-50">
+                <div className="flex justify-between items-center py-1 border-b border-slate-50">
                   <span className="text-slate-500 font-medium">Special Music</span>
-                  <span className="font-semibold text-slate-900 text-right">{b.special_music}</span>
+                  <a
+                    href={resolveHymnLink(b.special_music)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-semibold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1 text-right"
+                  >
+                    <span>{b.special_music}</span>
+                    <ExternalLink className="w-3 h-3 shrink-0 text-blue-500" />
+                  </a>
                 </div>
               )}
 
               {/* Closing Hymn */}
               {b.closing_hymn && (
                 <div className="flex items-center justify-between py-1.5 border-b border-slate-50">
-                  <div>
+                  <div className="min-w-0 flex-1 pr-2">
                     <span className="text-slate-500 font-medium block">Closing Hymn</span>
-                    <span className="font-semibold text-slate-900">{b.closing_hymn}</span>
+                    <a
+                      href={resolveHymnLink(b.closing_hymn)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-semibold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1 truncate"
+                      title="Open closing hymn on churchofjesuschrist.org"
+                    >
+                      <span>{b.closing_hymn}</span>
+                      <ExternalLink className="w-3 h-3 shrink-0 text-blue-500" />
+                    </a>
                   </div>
                   <a
-                    href={getHymnAudioLink(b.closing_hymn)}
+                    href={resolveHymnLink(b.closing_hymn)}
                     target="_blank"
                     rel="noreferrer"
-                    className="p-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 flex items-center gap-1 text-[11px] font-semibold"
+                    className="p-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 flex items-center gap-1 text-[11px] font-semibold shrink-0"
+                    title="Listen & view sheet music on Church site"
                   >
                     <Volume2 className="w-3.5 h-3.5" />
-                    <span>Audio</span>
+                    <span>Church Music</span>
                   </a>
                 </div>
               )}
@@ -268,6 +282,68 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp }: BulletinWebVie
                   <span className="text-slate-500 font-medium">Benediction</span>
                   <span className="font-semibold text-slate-900">{b.closing_prayer}</span>
                 </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Sacred Music & Church Hymn Links Card */}
+        {(b.opening_hymn || b.sacrament_hymn || b.closing_hymn) && (
+          <div className="rounded-2xl p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/80 shadow-2xs space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-blue-900 flex items-center gap-1.5">
+                <Music className="w-3.5 h-3.5 text-blue-700" />
+                Church Hymns & Practice Links
+              </span>
+              <span className="text-[10px] font-bold text-blue-800 bg-blue-100 px-2 py-0.5 rounded-full">
+                Sacred Music
+              </span>
+            </div>
+            <p className="text-[11px] text-blue-900/80">
+              Listen to the songs, view sheet music, or practice melodies on ChurchofJesusChrist.org:
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+              {b.opening_hymn && (
+                <a
+                  href={resolveHymnLink(b.opening_hymn)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="p-2.5 rounded-xl bg-white border border-blue-200 hover:border-blue-400 hover:shadow-xs transition-all flex items-center justify-between text-xs text-slate-800 font-medium"
+                >
+                  <div className="truncate pr-1">
+                    <span className="text-[10px] text-slate-500 block uppercase font-bold">Opening</span>
+                    <span className="truncate">{b.opening_hymn}</span>
+                  </div>
+                  <ExternalLink className="w-3.5 h-3.5 text-blue-600 shrink-0 ml-1" />
+                </a>
+              )}
+              {b.sacrament_hymn && (
+                <a
+                  href={resolveHymnLink(b.sacrament_hymn)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="p-2.5 rounded-xl bg-white border border-blue-200 hover:border-blue-400 hover:shadow-xs transition-all flex items-center justify-between text-xs text-slate-800 font-medium"
+                >
+                  <div className="truncate pr-1">
+                    <span className="text-[10px] text-slate-500 block uppercase font-bold">Sacrament</span>
+                    <span className="truncate">{b.sacrament_hymn}</span>
+                  </div>
+                  <ExternalLink className="w-3.5 h-3.5 text-blue-600 shrink-0 ml-1" />
+                </a>
+              )}
+              {b.closing_hymn && (
+                <a
+                  href={resolveHymnLink(b.closing_hymn)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="p-2.5 rounded-xl bg-white border border-blue-200 hover:border-blue-400 hover:shadow-xs transition-all flex items-center justify-between text-xs text-slate-800 font-medium"
+                >
+                  <div className="truncate pr-1">
+                    <span className="text-[10px] text-slate-500 block uppercase font-bold">Closing</span>
+                    <span className="truncate">{b.closing_hymn}</span>
+                  </div>
+                  <ExternalLink className="w-3.5 h-3.5 text-blue-600 shrink-0 ml-1" />
+                </a>
               )}
             </div>
           </div>

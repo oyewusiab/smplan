@@ -3,6 +3,7 @@ import { Download, Copy, Share2, Sparkles, Check, Image as ImageIcon } from 'luc
 import { format, parseISO } from 'date-fns';
 import { Button } from '../ui/Button';
 import { getBulletinTheme } from '../../utils/bulletinThemes';
+import { resolveHymnLink } from '../../data/bundledHymns';
 import type { Bulletin } from '../../types';
 import toast from 'react-hot-toast';
 
@@ -278,11 +279,12 @@ export function BulletinWhatsAppCard({ bulletin: b }: BulletinWhatsAppCardProps)
       b.theme ? `✨ _"${b.theme}"_\n` : '',
       `📋 *SACRAMENT MEETING OUTLINE*`,
       b.meeting_type === 'FAST_SUNDAY' ? `• Fast & Testimony Meeting (Congregation Testimonies)` : '',
-      b.opening_hymn ? `• Opening Hymn: ${b.opening_hymn}` : '',
+      b.opening_hymn ? `• Opening Hymn: ${b.opening_hymn}\n  🔗 ${resolveHymnLink(b.opening_hymn)}` : '',
       b.opening_prayer ? `• Invocation: ${b.opening_prayer}` : '',
-      b.sacrament_hymn ? `• Sacrament Hymn: ${b.sacrament_hymn}` : '',
+      b.sacrament_hymn ? `• Sacrament Hymn: ${b.sacrament_hymn}\n  🔗 ${resolveHymnLink(b.sacrament_hymn)}` : '',
       speakers.length > 0 && b.meeting_type !== 'FAST_SUNDAY' ? `• Speakers: ${speakers.map((s) => s.name).join(', ')}` : '',
-      b.closing_hymn ? `• Closing Hymn: ${b.closing_hymn}` : '',
+      b.special_music ? `• Special Music: ${b.special_music}\n  🔗 ${resolveHymnLink(b.special_music)}` : '',
+      b.closing_hymn ? `• Closing Hymn: ${b.closing_hymn}\n  🔗 ${resolveHymnLink(b.closing_hymn)}` : '',
       b.closing_prayer ? `• Benediction: ${b.closing_prayer}\n` : '\n',
       b.cfm_reading ? `📖 *COME, FOLLOW ME:* ${b.cfm_reading}` : '',
       b.cfm_theme ? `Theme: "${b.cfm_theme}"` : '',

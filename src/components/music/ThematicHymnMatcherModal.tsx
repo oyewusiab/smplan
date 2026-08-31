@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
-import { Sparkles, Music, Check, Play, Square, Search, BookOpen } from 'lucide-react';
-import { BUNDLED_HYMNS, BundledHymn, HYMN_THEME_CATEGORIES } from '../../data/bundledHymns';
+import { Sparkles, Music, Check, Play, Square, Search, BookOpen, ExternalLink, Globe } from 'lucide-react';
+import { BUNDLED_HYMNS, BundledHymn, HYMN_THEME_CATEGORIES, getHymnChurchUrl } from '../../data/bundledHymns';
 import { playHymnAudioPreview, stopHymnAudio } from '../../utils/hymnAudioSynth';
 import { cn } from '../../utils/cn';
 
@@ -227,19 +227,34 @@ export function ThematicHymnMatcherModal({
                         {h.theme}
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handlePlayToggle(h.number);
-                      }}
-                      className={cn(
-                        'h-6 w-6 rounded flex items-center justify-center shrink-0 transition-colors',
-                        isSelected ? 'bg-blue-700 text-white' : 'text-slate-400 hover:text-blue-600'
-                      )}
-                    >
-                      {isPlaying ? <Square className="h-3 w-3 fill-current" /> : <Play className="h-3 w-3 fill-current" />}
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <a
+                        href={h.link || getHymnChurchUrl(h)}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="Open & assess on churchofjesuschrist.org"
+                        onClick={(e) => e.stopPropagation()}
+                        className={cn(
+                          'h-6 w-6 rounded flex items-center justify-center transition-colors',
+                          isSelected ? 'text-blue-100 hover:text-white' : 'text-slate-400 hover:text-blue-600'
+                        )}
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePlayToggle(h.number);
+                        }}
+                        className={cn(
+                          'h-6 w-6 rounded flex items-center justify-center transition-colors',
+                          isSelected ? 'bg-blue-700 text-white' : 'text-slate-400 hover:text-blue-600'
+                        )}
+                      >
+                        {isPlaying ? <Square className="h-3 w-3 fill-current" /> : <Play className="h-3 w-3 fill-current" />}
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -280,19 +295,34 @@ export function ThematicHymnMatcherModal({
                         {h.theme}
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handlePlayToggle(h.number);
-                      }}
-                      className={cn(
-                        'h-6 w-6 rounded flex items-center justify-center shrink-0 transition-colors',
-                        isSelected ? 'bg-purple-700 text-white' : 'text-slate-400 hover:text-purple-600'
-                      )}
-                    >
-                      {isPlaying ? <Square className="h-3 w-3 fill-current" /> : <Play className="h-3 w-3 fill-current" />}
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <a
+                        href={h.link || getHymnChurchUrl(h)}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="Open & assess sacrament hymn on churchofjesuschrist.org"
+                        onClick={(e) => e.stopPropagation()}
+                        className={cn(
+                          'h-6 w-6 rounded flex items-center justify-center transition-colors',
+                          isSelected ? 'text-purple-100 hover:text-white' : 'text-slate-400 hover:text-purple-600'
+                        )}
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePlayToggle(h.number);
+                        }}
+                        className={cn(
+                          'h-6 w-6 rounded flex items-center justify-center transition-colors',
+                          isSelected ? 'bg-purple-700 text-white' : 'text-slate-400 hover:text-purple-600'
+                        )}
+                      >
+                        {isPlaying ? <Square className="h-3 w-3 fill-current" /> : <Play className="h-3 w-3 fill-current" />}
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -333,19 +363,34 @@ export function ThematicHymnMatcherModal({
                         {h.theme}
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handlePlayToggle(h.number);
-                      }}
-                      className={cn(
-                        'h-6 w-6 rounded flex items-center justify-center shrink-0 transition-colors',
-                        isSelected ? 'bg-emerald-700 text-white' : 'text-slate-400 hover:text-emerald-600'
-                      )}
-                    >
-                      {isPlaying ? <Square className="h-3 w-3 fill-current" /> : <Play className="h-3 w-3 fill-current" />}
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <a
+                        href={h.link || getHymnChurchUrl(h)}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="Open & assess closing hymn on churchofjesuschrist.org"
+                        onClick={(e) => e.stopPropagation()}
+                        className={cn(
+                          'h-6 w-6 rounded flex items-center justify-center transition-colors',
+                          isSelected ? 'text-emerald-100 hover:text-white' : 'text-slate-400 hover:text-emerald-600'
+                        )}
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePlayToggle(h.number);
+                        }}
+                        className={cn(
+                          'h-6 w-6 rounded flex items-center justify-center transition-colors',
+                          isSelected ? 'bg-emerald-700 text-white' : 'text-slate-400 hover:text-emerald-600'
+                        )}
+                      >
+                        {isPlaying ? <Square className="h-3 w-3 fill-current" /> : <Play className="h-3 w-3 fill-current" />}
+                      </button>
+                    </div>
                   </div>
                 );
               })}

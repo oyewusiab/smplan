@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
 import {
   Sparkles, Calendar, Music, MessageSquare,
   Users, CheckSquare, Bookmark, Layers, Send, Link, Globe,
-  ArrowUp, ArrowDown, Trash2, Plus, Clock, MapPin, Repeat, ShieldAlert, Heart
+  ArrowUp, ArrowDown, Trash2, Plus, Clock, MapPin, Repeat, ShieldAlert, Heart, ExternalLink
 } from 'lucide-react';
 import { Card, CardBody, CardHeader } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -11,6 +10,7 @@ import { BULLETIN_THEMES } from '../../utils/bulletinThemes';
 import { buildWhatsAppBirthdayGreetingUrl } from '../../utils/bulletinBirthdayEngine';
 import { formatActivitiesToText } from '../../utils/bulletinActivityHarvester';
 import { isSectionVisible } from '../../utils/bulletinPrintEngine';
+import { resolveHymnLink } from '../../data/bundledHymns';
 import type { Bulletin, Planner, Hymn, WeeklyActivityItem, NextActivityItem } from '../../types';
 import toast from 'react-hot-toast';
 
@@ -949,26 +949,47 @@ export function BulletinFormEditor({
               <div className="p-3 bg-blue-50/60 border border-blue-200 rounded-xl space-y-1 mt-2">
                 <p className="text-xs font-bold text-blue-950 flex items-center gap-1.5">
                   <Music className="w-3.5 h-3.5 text-blue-700" />
-                  Sacred Music Hymn Audio Streams
+                  Sacred Music Church Hymn Links
                 </p>
                 <p className="text-[11px] text-blue-800">
-                  Quick hymn practice access before service begins:
+                  Direct official ChurchofJesusChrist.org links with sheet music and audio:
                 </p>
                 <div className="flex flex-wrap gap-2 pt-1 text-xs">
                   {f.opening_hymn && (
-                    <span className="px-2 py-0.5 rounded-md bg-white border border-blue-200 text-blue-900 font-medium">
-                      🎵 Opening: {f.opening_hymn}
-                    </span>
+                    <a
+                      href={resolveHymnLink(f.opening_hymn)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-2.5 py-1 rounded-lg bg-white border border-blue-200 hover:border-blue-400 hover:shadow-2xs text-blue-900 font-medium inline-flex items-center gap-1.5 transition-all"
+                      title="Open on Church website"
+                    >
+                      <span>🎵 Opening: {f.opening_hymn}</span>
+                      <ExternalLink className="w-3 h-3 text-blue-500" />
+                    </a>
                   )}
                   {f.sacrament_hymn && (
-                    <span className="px-2 py-0.5 rounded-md bg-white border border-blue-200 text-blue-900 font-medium">
-                      🍞 Sacrament: {f.sacrament_hymn}
-                    </span>
+                    <a
+                      href={resolveHymnLink(f.sacrament_hymn)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-2.5 py-1 rounded-lg bg-white border border-blue-200 hover:border-blue-400 hover:shadow-2xs text-blue-900 font-medium inline-flex items-center gap-1.5 transition-all"
+                      title="Open sacrament hymn on Church website"
+                    >
+                      <span>🍞 Sacrament: {f.sacrament_hymn}</span>
+                      <ExternalLink className="w-3 h-3 text-blue-500" />
+                    </a>
                   )}
                   {f.closing_hymn && (
-                    <span className="px-2 py-0.5 rounded-md bg-white border border-blue-200 text-blue-900 font-medium">
-                      🙏 Closing: {f.closing_hymn}
-                    </span>
+                    <a
+                      href={resolveHymnLink(f.closing_hymn)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-2.5 py-1 rounded-lg bg-white border border-blue-200 hover:border-blue-400 hover:shadow-2xs text-blue-900 font-medium inline-flex items-center gap-1.5 transition-all"
+                      title="Open closing hymn on Church website"
+                    >
+                      <span>🙏 Closing: {f.closing_hymn}</span>
+                      <ExternalLink className="w-3 h-3 text-blue-500" />
+                    </a>
                   )}
                 </div>
               </div>

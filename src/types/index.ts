@@ -594,6 +594,8 @@ export interface Hymn {
   title: string;
   type: string;
   theme: string;
+  themes?: string[];
+  link?: string;
   updated_date: string;
 }
 
