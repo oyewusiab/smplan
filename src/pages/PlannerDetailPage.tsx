@@ -15,6 +15,7 @@ import { plannersApi, agendasApi, assignmentsApi, membersApi, hymnsApi } from '.
 import type { Planner, Agenda, Member, Hymn, SpeakerItem, MeetingType } from '../types';
 import { PlannerPrintModal } from '../components/planner/PlannerPrintModal';
 import { getDynamicAge } from '../utils/memberAnalyticsEngine';
+import { parseHymn } from '../utils/hymnParser';
 import { format, eachWeekOfInterval, startOfMonth, endOfMonth, isSunday } from 'date-fns';
 import toast from 'react-hot-toast';
 
@@ -548,6 +549,70 @@ export function PlannerDetailPage() {
     current[speakerIdx] = current[targetIdx];
     current[targetIdx] = temp;
     updateAgendaSpeakers(agendaIndex, [...current]);
+  };
+
+  // Hymn input change handler (accurately parses number and title, matches hymn library, prevents # accumulation)
+  const handleHymnChange = (wIdx: number, type: 'opening' | 'sacrament' | 'closing', rawVal: string) => {
+    const cleanVal = rawVal.trim();
+    if (!cleanVal) {
+      if (type === 'opening') {
+        updateAgendaField(wIdx, { opening_hymn: '', opening_hymn_number: '' });
+      } else if (type === 'sacrament') {
+        updateAgendaField(wIdx, { sacrament_hymn: '', sacrament_hymn_number: '' });
+      } else if (type === 'closing') {
+        updateAgendaField(wIdx, { closing_hymn: '', closing_hymn_number: '' });
+      }
+      return;
+    }
+
+    const parsed = parseHymn(cleanVal);
+    
+    // Look up match in hymns list by "#num Title", "num Title", number, or title
+    let match = hymns.find(h => 
+      `#${h.number} ${h.title}`.toLowerCase() === cleanVal.toLowerCase() ||
+      `${h.number} ${h.title}`.toLowerCase() === cleanVal.toLowerCase() ||
+      `${h.number} - ${h.title}`.toLowerCase() === cleanVal.toLowerCase() ||
+      h.title.toLowerCase() === cleanVal.toLowerCase() ||
+      (parsed.title && h.title.toLowerCase() === parsed.title.toLowerCase())
+    );
+
+    if (!match && parsed.number && (!parsed.title || cleanVal === parsed.number || cleanVal === `#${parsed.number}`)) {
+      match = hymns.find(h => String(h.number) === parsed.number);
+    }
+
+    let finalTitle = cleanVal;
+    let finalNum = '';
+
+    if (match) {
+      finalTitle = match.title;
+      finalNum = String(match.number);
+    } else if (parsed.number && parsed.title) {
+      finalTitle = parsed.title;
+      finalNum = parsed.number;
+    } else if (parsed.number && !parsed.title) {
+      finalNum = parsed.number;
+      finalTitle = '';
+    } else {
+      finalTitle = rawVal.replace(/^#+\s*/, '');
+      finalNum = '';
+    }
+
+    if (type === 'opening') {
+      updateAgendaField(wIdx, {
+        opening_hymn: finalTitle,
+        opening_hymn_number: finalNum,
+      });
+    } else if (type === 'sacrament') {
+      updateAgendaField(wIdx, {
+        sacrament_hymn: finalTitle,
+        sacrament_hymn_number: finalNum,
+      });
+    } else if (type === 'closing') {
+      updateAgendaField(wIdx, {
+        closing_hymn: finalTitle,
+        closing_hymn_number: finalNum,
+      });
+    }
   };
 
   // Sacrament Duties helpers (Preparing, Blessing, Passing)
@@ -1825,15 +1890,8 @@ export function PlannerDetailPage() {
                                 disabled={!canEdit}
                                 placeholder="e.g. #2 The Spirit of God"
                                 list="hymns_list"
-                                value={ag.opening_hymn ? `#${ag.opening_hymn_number || ''} ${ag.opening_hymn}` : ''}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  const match = hymns.find(h => `#${h.number} ${h.title}`.toLowerCase() === val.toLowerCase() || h.title.toLowerCase() === val.toLowerCase());
-                                  updateAgendaField(wIdx, {
-                                    opening_hymn: match ? match.title : val,
-                                    opening_hymn_number: match ? String(match.number) : ag.opening_hymn_number,
-                                  });
-                                }}
+                                value={ag.opening_hymn ? (ag.opening_hymn_number ? `#${ag.opening_hymn_number} ${ag.opening_hymn}` : ag.opening_hymn) : (ag.opening_hymn_number ? `#${ag.opening_hymn_number}` : '')}
+                                onChange={(e) => handleHymnChange(wIdx, 'opening', e.target.value)}
                                 className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-emerald-500 focus:outline-none"
                               />
                               {checkHymnRecentlyUsed(ag.opening_hymn, wIdx) && (
@@ -1853,15 +1911,8 @@ export function PlannerDetailPage() {
                                 disabled={!canEdit}
                                 placeholder="e.g. #169 As Now We Take the Sacrament"
                                 list="hymns_list"
-                                value={ag.sacrament_hymn ? `#${ag.sacrament_hymn_number || ''} ${ag.sacrament_hymn}` : ''}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  const match = hymns.find(h => `#${h.number} ${h.title}`.toLowerCase() === val.toLowerCase() || h.title.toLowerCase() === val.toLowerCase());
-                                  updateAgendaField(wIdx, {
-                                    sacrament_hymn: match ? match.title : val,
-                                    sacrament_hymn_number: match ? String(match.number) : ag.sacrament_hymn_number,
-                                  });
-                                }}
+                                value={ag.sacrament_hymn ? (ag.sacrament_hymn_number ? `#${ag.sacrament_hymn_number} ${ag.sacrament_hymn}` : ag.sacrament_hymn) : (ag.sacrament_hymn_number ? `#${ag.sacrament_hymn_number}` : '')}
+                                onChange={(e) => handleHymnChange(wIdx, 'sacrament', e.target.value)}
                                 className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-emerald-500 focus:outline-none"
                               />
                               {checkHymnRecentlyUsed(ag.sacrament_hymn, wIdx) && (
@@ -1881,15 +1932,8 @@ export function PlannerDetailPage() {
                                 disabled={!canEdit}
                                 placeholder="e.g. #19 We Thank Thee, O God, for a Prophet"
                                 list="hymns_list"
-                                value={ag.closing_hymn ? `#${ag.closing_hymn_number || ''} ${ag.closing_hymn}` : ''}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  const match = hymns.find(h => `#${h.number} ${h.title}`.toLowerCase() === val.toLowerCase() || h.title.toLowerCase() === val.toLowerCase());
-                                  updateAgendaField(wIdx, {
-                                    closing_hymn: match ? match.title : val,
-                                    closing_hymn_number: match ? String(match.number) : ag.closing_hymn_number,
-                                  });
-                                }}
+                                value={ag.closing_hymn ? (ag.closing_hymn_number ? `#${ag.closing_hymn_number} ${ag.closing_hymn}` : ag.closing_hymn) : (ag.closing_hymn_number ? `#${ag.closing_hymn_number}` : '')}
+                                onChange={(e) => handleHymnChange(wIdx, 'closing', e.target.value)}
                                 className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-emerald-500 focus:outline-none"
                               />
                               {checkHymnRecentlyUsed(ag.closing_hymn, wIdx) && (
