@@ -1035,6 +1035,12 @@ export function BulletinPage() {
                 }}
                 onSelectWeek={handleSelectWeek}
                 onSyncSacramentFromPlanner={() => handleSyncSacramentFromPlanner()}
+                onSaveDraft={() => handleSave('DRAFT')}
+                onSaveUpdate={() => handleSave(form.status || 'DRAFT')}
+                onPublish={() => handleSave('PUBLISHED')}
+                saving={saving}
+                hasUnsavedChanges={hasUnsavedChanges}
+                lastSavedTime={lastSavedTime}
               />
             )}
 
