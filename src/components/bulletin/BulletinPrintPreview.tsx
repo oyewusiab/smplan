@@ -6,6 +6,8 @@ import {
   generateStandard1PageA4Html,
   generateStandard2PageHtml,
   generateBiFoldBookletHtml,
+  getWeekDateRange,
+  isSectionVisible,
 } from '../../utils/bulletinPrintEngine';
 import type { Bulletin, BulletinLayoutMode, NextActivityItem } from '../../types';
 import toast from 'react-hot-toast';
@@ -21,6 +23,8 @@ export function BulletinPrintPreview({ bulletin: b }: BulletinPrintPreviewProps)
   const pdfContentRef = useRef<HTMLDivElement>(null);
 
   const theme = getBulletinTheme(b.color_theme);
+  const weekRange = getWeekDateRange(b.date, b.unit_name);
+  const unitTitle = (b.unit_name || 'OBANTOKO WARD').toUpperCase();
 
   // ─── Auto-Scaling Single-Page Guarantee Engine (useLayoutEffect) ─────────────
   useLayoutEffect(() => {
@@ -162,24 +166,27 @@ export function BulletinPrintPreview({ bulletin: b }: BulletinPrintPreviewProps)
             transformOrigin: 'top center',
           }}
         >
-          <div ref={pdfContentRef} className="space-y-3.5">
-            {/* Sheet Header */}
-            <div
-              className="text-white p-3.5 text-center rounded-xl relative overflow-hidden"
-              style={{ backgroundColor: theme.primaryColor }}
-            >
-              <p className="text-[9px] font-bold uppercase tracking-widest opacity-85 mb-0.5">
-                {b.unit_name || 'Latter-day Saint Ward'}{b.stake_name ? ` • ${b.stake_name}` : ''}
-              </p>
-              <h2 className="text-base font-black tracking-wide">SACRAMENT MEETING BULLETIN</h2>
-              <p className="text-xs opacity-95 mt-0.5">{b.date || 'Sunday Service'}</p>
+          <div ref={pdfContentRef} className="space-y-3">
+            {/* Sheet Header Matching User Sample Image */}
+            <div className="text-center pb-2 border-b-2" style={{ borderColor: theme.primaryColor }}>
+              <div className="text-xl font-extrabold tracking-wide uppercase font-serif" style={{ color: '#1e3a8a' }}>
+                {unitTitle}
+              </div>
+              <div className="text-[11px] font-bold tracking-widest uppercase text-amber-700 mt-0.5">
+                WEEKLY WARD BULLETIN
+              </div>
+              <div className="text-[10.5px] italic text-slate-500 font-serif mt-0.5">
+                {weekRange.rangeLabel}
+              </div>
               {b.theme && (
-                <p className="text-xs italic text-amber-200 mt-0.5 font-medium">"{b.theme}"</p>
+                <div className="text-[10.5px] italic font-medium mt-1" style={{ color: '#0369a1' }}>
+                  "{b.theme}"
+                </div>
               )}
             </div>
 
             {/* Scripture Banner */}
-            {b.show_focus && b.scripture_of_the_week && (
+            {isSectionVisible(b.show_focus) && b.scripture_of_the_week && (
               <div
                 className="p-2 rounded-lg text-xs italic text-slate-700 border-l-4"
                 style={{
@@ -192,13 +199,13 @@ export function BulletinPrintPreview({ bulletin: b }: BulletinPrintPreviewProps)
             )}
 
             {/* Main Content Grid */}
-            <div className="grid grid-cols-2 gap-3.5 text-xs">
+            <div className="grid grid-cols-2 gap-3 text-xs">
               {/* Left Column: Sacrament Outline, CFM Study Guide & Bishopric Message */}
-              <div className="space-y-3">
-                {b.show_sacrament && (
+              <div className="space-y-2.5">
+                {isSectionVisible(b.show_sacrament) && (
                   <div className="p-2.5 rounded-lg border border-slate-200 space-y-1.5">
                     <div className="flex items-center justify-between pb-1 border-b" style={{ borderColor: theme.primaryColor }}>
-                      <h3 className="font-bold uppercase tracking-wider text-[10.5px]" style={{ color: theme.primaryColor }}>
+                      <h3 className="font-bold uppercase tracking-wider text-[10px]" style={{ color: theme.primaryColor }}>
                         Sacrament Meeting Outline
                       </h3>
                       <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-sky-100 text-sky-800">
@@ -274,8 +281,8 @@ export function BulletinPrintPreview({ bulletin: b }: BulletinPrintPreviewProps)
                   </div>
                 )}
 
-                {/* Section 3: Come Follow Me (All 6 Fields) */}
-                {b.show_focus && (b.cfm_reading || b.cfm_theme) && (
+                {/* Section 3: Come Follow Me */}
+                {isSectionVisible(b.show_focus) && (b.cfm_reading || b.cfm_theme || b.cfm_introduction) && (
                   <div className="p-2.5 rounded-lg bg-amber-50/70 border border-amber-200 space-y-1 text-[10px]">
                     <div className="flex items-center justify-between pb-1 border-b border-amber-200">
                       <h3 className="font-bold text-amber-900 text-[10.5px]">
@@ -288,24 +295,24 @@ export function BulletinPrintPreview({ bulletin: b }: BulletinPrintPreviewProps)
                       )}
                     </div>
                     {b.cfm_theme && (
-                      <p className="font-bold text-amber-950 text-[10.5px]">{b.cfm_theme}</p>
+                      <p className="font-bold text-amber-950 text-[10px]">{b.cfm_theme}</p>
                     )}
                     {b.cfm_introduction && (
-                      <p className="italic text-amber-900 text-[9.5px] leading-tight">{b.cfm_introduction}</p>
+                      <p className="italic text-amber-900 text-[9px] leading-tight">{b.cfm_introduction}</p>
                     )}
                     {b.cfm_ideas_for_learning && (
-                      <div className="text-amber-900 whitespace-pre-line leading-tight text-[9.5px]">
+                      <div className="text-amber-900 whitespace-pre-line leading-tight text-[9px]">
                         <strong>Ideas for Learning:</strong><br />
                         {b.cfm_ideas_for_learning}
                       </div>
                     )}
                     {(b.cfm_reflection || b.cfm_discussion_question) && (
-                      <div className="p-1.5 rounded bg-amber-100/70 border-l-2 border-amber-500 text-amber-950 text-[9.5px]">
+                      <div className="p-1.5 rounded bg-amber-100/70 border-l-2 border-amber-500 text-amber-950 text-[9px]">
                         <strong>Reflection:</strong> {b.cfm_reflection || b.cfm_discussion_question}
                       </div>
                     )}
                     {b.cfm_url && (
-                      <p className="text-[8.5px] text-amber-800 truncate">
+                      <p className="text-[8px] text-amber-800 truncate">
                         <strong>Lesson Link:</strong> {b.cfm_url}
                       </p>
                     )}
@@ -313,12 +320,12 @@ export function BulletinPrintPreview({ bulletin: b }: BulletinPrintPreviewProps)
                 )}
 
                 {/* Section 4: Bishopric Message */}
-                {b.show_bishopric && b.bishopric_message && (
+                {isSectionVisible(b.show_bishopric) && b.bishopric_message && (
                   <div className="p-2.5 rounded-lg border border-slate-200 space-y-1">
-                    <h3 className="font-bold uppercase tracking-wider text-[10px] text-slate-800 pb-0.5 border-b border-slate-100">
+                    <h3 className="font-bold uppercase tracking-wider text-[9.5px] text-slate-800 pb-0.5 border-b border-slate-100">
                       Message from the Bishopric
                     </h3>
-                    <p className="text-[10px] text-slate-700 leading-relaxed whitespace-pre-line">
+                    <p className="text-[9.5px] text-slate-700 leading-relaxed whitespace-pre-line">
                       {b.bishopric_message}
                     </p>
                   </div>
@@ -326,21 +333,21 @@ export function BulletinPrintPreview({ bulletin: b }: BulletinPrintPreviewProps)
               </div>
 
               {/* Right Column: Birthdays, Activities, Next 5, Cleaning, Missionaries, QR */}
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {/* Birthday Celebrants Frame */}
-                {b.show_birthdays && b.birthdays && (
+                {isSectionVisible(b.show_birthdays) && b.birthdays && (
                   <div className="p-2.5 rounded-lg bg-gradient-to-br from-amber-50 via-yellow-50 to-amber-100/60 border border-amber-300 space-y-1 shadow-2xs">
                     <div className="flex items-center justify-between pb-0.5 border-b border-amber-200">
-                      <h3 className="font-bold text-amber-950 text-[10.5px] flex items-center gap-1">
+                      <h3 className="font-bold text-amber-950 text-[10px] flex items-center gap-1">
                         🎂 Birthday Celebrants (This Week)
                       </h3>
                       <span className="text-[8px] font-extrabold bg-amber-300 text-amber-900 px-1 py-0.2 rounded">
                         CELEBRATION
                       </span>
                     </div>
-                    <p className="text-amber-900 font-bold text-[10.5px] leading-tight">{b.birthdays}</p>
+                    <p className="text-amber-900 font-bold text-[10px] leading-tight">{b.birthdays}</p>
                     {b.birthday_message && (
-                      <p className="text-[9.5px] text-amber-800 italic bg-white/70 p-1 rounded">
+                      <p className="text-[9px] text-amber-800 italic bg-white/70 p-1 rounded">
                         {b.birthday_message}
                       </p>
                     )}
@@ -348,26 +355,26 @@ export function BulletinPrintPreview({ bulletin: b }: BulletinPrintPreviewProps)
                 )}
 
                 {/* Weekly Activities Schedule */}
-                {b.show_activities && (b.activities || (b.activities_list && b.activities_list.length > 0)) && (
+                {isSectionVisible(b.show_activities) && (b.activities || (b.activities_list && b.activities_list.length > 0)) && (
                   <div className="p-2.5 rounded-lg border border-slate-200 space-y-1">
                     <h3
-                      className="font-bold uppercase tracking-wider text-[10.5px] pb-1 border-b"
+                      className="font-bold uppercase tracking-wider text-[10px] pb-1 border-b"
                       style={{ color: theme.primaryColor, borderColor: theme.primaryColor }}
                     >
                       Weekly Schedule (Mon–Sun)
                     </h3>
                     {b.activities_list && b.activities_list.length > 0 ? (
-                      <div className="space-y-1">
+                      <div className="space-y-0.5">
                         {b.activities_list.map((act, idx) => (
-                          <div key={idx} className="flex justify-between items-center text-[10px] border-b border-slate-50 pb-0.5">
-                            <span className="font-bold text-slate-900 w-16">{act.day}</span>
+                          <div key={idx} className="flex justify-between items-center text-[9.5px] border-b border-slate-50 pb-0.5">
+                            <span className="font-bold text-slate-900 w-14">{act.day}</span>
                             <span className="text-slate-700 flex-grow font-medium">{act.activity}</span>
-                            <span className="text-slate-500 text-[9px] font-semibold flex-shrink-0">{act.time} [{act.scope || 'Ward'}]</span>
+                            <span className="text-slate-500 text-[8.5px] font-semibold flex-shrink-0">{act.time} [{act.scope || 'Ward'}]</span>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <div className="text-[10px] text-slate-700 whitespace-pre-line leading-relaxed">
+                      <div className="text-[9.5px] text-slate-700 whitespace-pre-line leading-relaxed">
                         {b.activities}
                       </div>
                     )}
@@ -375,20 +382,20 @@ export function BulletinPrintPreview({ bulletin: b }: BulletinPrintPreviewProps)
                 )}
 
                 {/* Next 5 Activities (Outlook) */}
-                {next5List.length > 0 && (
+                {isSectionVisible(b.show_upcoming) && next5List.length > 0 && (
                   <div className="p-2 rounded-lg bg-indigo-50/50 border border-indigo-200 space-y-1">
                     <div className="flex items-center justify-between pb-0.5 border-b border-indigo-100">
-                      <h3 className="font-bold uppercase tracking-wider text-[9.5px] text-indigo-900 flex items-center gap-1">
+                      <h3 className="font-bold uppercase tracking-wider text-[9px] text-indigo-900 flex items-center gap-1">
                         <Clock className="w-3 h-3 text-indigo-600" />
                         Next 5 Activities (Calendar Outlook)
                       </h3>
                     </div>
-                    <div className="space-y-0.5 text-[9.5px]">
+                    <div className="space-y-0.5 text-[9px]">
                       {next5List.map((act, idx) => (
                         <div key={idx} className="flex justify-between items-center border-b border-indigo-100/40 pb-0.5">
                           <span className="font-bold text-indigo-950 w-14">{act.date}</span>
                           <span className="text-slate-800 flex-grow">{act.activity}</span>
-                          <span className="text-[8.5px] font-bold px-1 rounded bg-white text-indigo-800 border border-indigo-200">
+                          <span className="text-[8px] font-bold px-1 rounded bg-white text-indigo-800 border border-indigo-200">
                             {act.scope || 'Ward'}
                           </span>
                         </div>
@@ -398,9 +405,9 @@ export function BulletinPrintPreview({ bulletin: b }: BulletinPrintPreviewProps)
                 )}
 
                 {/* Building Cleaning */}
-                {b.show_cleaning && b.cleaning_group && (
-                  <div className="p-2 rounded-lg bg-slate-50 border border-slate-200 space-y-0.5 text-[10px]">
-                    <span className="font-bold text-slate-800 block text-[9.5px] uppercase tracking-wider">
+                {isSectionVisible(b.show_cleaning) && b.cleaning_group && (
+                  <div className="p-2 rounded-lg bg-slate-50 border border-slate-200 space-y-0.5 text-[9.5px]">
+                    <span className="font-bold text-slate-800 block text-[9px] uppercase tracking-wider">
                       Building Cleaning Assignment
                     </span>
                     <div className="flex justify-between">
@@ -416,26 +423,26 @@ export function BulletinPrintPreview({ bulletin: b }: BulletinPrintPreviewProps)
                       </div>
                     )}
                     {b.cleaning_instructions && (
-                      <p className="text-[9px] text-slate-500 italic pt-0.5">{b.cleaning_instructions}</p>
+                      <p className="text-[8.5px] text-slate-500 italic pt-0.5">{b.cleaning_instructions}</p>
                     )}
                   </div>
                 )}
 
                 {/* Full-Time Missionaries */}
-                {b.show_missionary && b.missionaries && (
-                  <div className="p-2 rounded-lg border border-slate-200 text-[10px] space-y-0.5">
-                    <span className="font-bold text-slate-800 block text-[9.5px] uppercase tracking-wider">
+                {isSectionVisible(b.show_missionary) && b.missionaries && (
+                  <div className="p-2 rounded-lg border border-slate-200 text-[9.5px] space-y-0.5">
+                    <span className="font-bold text-slate-800 block text-[9px] uppercase tracking-wider">
                       Full-Time Missionaries
                     </span>
-                    <p className="text-slate-700 whitespace-pre-line text-[9.5px] leading-tight">{b.missionaries}</p>
+                    <p className="text-slate-700 whitespace-pre-line text-[9px] leading-tight">{b.missionaries}</p>
                   </div>
                 )}
 
                 {/* Dual QR Codes */}
-                {b.show_qr && (
-                  <div className="p-2 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between text-[9px] text-slate-600 gap-2">
+                {isSectionVisible(b.show_qr) && (
+                  <div className="p-2 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between text-[8.5px] text-slate-600 gap-2">
                     <div className="flex items-center gap-1.5">
-                      <QrCode className="w-5 h-5 text-blue-600" />
+                      <QrCode className="w-4 h-4 text-blue-600" />
                       <span>Scan for FamilySearch & Gospel Library study links</span>
                     </div>
                   </div>
@@ -443,9 +450,9 @@ export function BulletinPrintPreview({ bulletin: b }: BulletinPrintPreviewProps)
               </div>
             </div>
 
-            {/* Footer */}
-            <div className="text-center pt-2 border-t border-slate-200 text-[9px] text-slate-400">
-              {b.unit_name || 'Latter-day Saint Ward'} • Sacrament Meeting Bulletin • Visitors Welcome
+            {/* Footer Matching User Sample Image */}
+            <div className="text-center pt-2 border-t border-slate-200 text-[8px] text-slate-500 italic leading-relaxed">
+              This is prepared as a weekly informational sheet for local ward members. It is not an official publication of The Church of Jesus Christ of Latter-day Saints.
             </div>
           </div>
         </div>

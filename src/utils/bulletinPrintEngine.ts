@@ -12,6 +12,63 @@ import { format, parseISO } from 'date-fns';
 import { getBulletinTheme } from './bulletinThemes';
 import type { Bulletin, SpeakerItem, WeeklyActivityItem, NextActivityItem } from '../types';
 
+export function isSectionVisible(val: any): boolean {
+  if (val === undefined || val === null) return true;
+  if (val === false || val === 'FALSE' || val === 'false' || val === 0 || val === '0') return false;
+  return true;
+}
+
+export function getWeekDateRange(dateStr?: string, unitName?: string) {
+  const memberType = (unitName || '').toLowerCase().includes('branch') ? 'Branch' : 'Ward';
+  if (!dateStr) {
+    return {
+      mondayStr: '',
+      sundayStr: '',
+      monFormatted: '',
+      sunFormatted: '',
+      rangeLabel: `Weekly ${memberType} Bulletin — Prepared for ${memberType} Members`,
+    };
+  }
+
+  try {
+    const sunday = parseISO(dateStr);
+    if (isNaN(sunday.getTime())) {
+      return {
+        mondayStr: '',
+        sundayStr: dateStr,
+        monFormatted: '',
+        sunFormatted: dateStr,
+        rangeLabel: `${dateStr} Bulletin — Prepared for ${memberType} Members`,
+      };
+    }
+
+    const dayOfWeek = sunday.getDay();
+    const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const monday = new Date(sunday);
+    monday.setDate(sunday.getDate() - diffToMonday);
+
+    const monFormatted = format(monday, 'd MMM');
+    const sunFormatted = format(sunday, 'd MMM yyyy');
+    const rangeLabel = `${monFormatted} - ${sunFormatted} Bulletin — Prepared for ${memberType} Members`;
+
+    return {
+      mondayStr: format(monday, 'yyyy-MM-dd'),
+      sundayStr: format(sunday, 'yyyy-MM-dd'),
+      monFormatted,
+      sunFormatted,
+      rangeLabel,
+    };
+  } catch {
+    return {
+      mondayStr: '',
+      sundayStr: dateStr || '',
+      monFormatted: '',
+      sunFormatted: dateStr || '',
+      rangeLabel: `${dateStr || ''} Bulletin — Prepared for ${memberType} Members`,
+    };
+  }
+}
+
 function safeDateFormat(dateStr?: string, fmt = 'EEEE, MMMM d, yyyy'): string {
   if (!dateStr) return 'Sunday Service';
   try {
@@ -49,10 +106,10 @@ function parseSpeakersArray(speakersRaw?: any): SpeakerItem[] {
  */
 export function generateStandard1PageA4Html(d: Bulletin): string {
   const theme = getBulletinTheme(d.color_theme);
-  const formattedDate = safeDateFormat(d.date);
   const speakers = parseSpeakersArray(d.speakers);
+  const weekRange = getWeekDateRange(d.date, d.unit_name);
+  const unitTitle = (d.unit_name || 'OBANTOKO WARD').toUpperCase();
 
-  // Normalizing next 5 activities
   const next5List: NextActivityItem[] = (d.next_activities_list && d.next_activities_list.length > 0)
     ? d.next_activities_list
     : [];
@@ -77,17 +134,42 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
       print-color-adjust: exact;
     }
     .header {
-      background: ${theme.primaryColor};
-      color: #ffffff;
-      padding: 8pt 12pt;
-      border-radius: 4pt;
       text-align: center;
       margin-bottom: 6pt;
+      padding-bottom: 4pt;
+      border-bottom: 2px solid ${theme.primaryColor};
     }
-    .header-ward { font-size: 8pt; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.9; margin-bottom: 1.5pt; font-weight: 600; }
-    .header h1 { margin: 0; font-size: 13pt; font-weight: 800; letter-spacing: 0.5px; }
-    .header .date-row { font-size: 8.5pt; opacity: 0.95; margin-top: 2pt; }
-    .header .theme-row { font-size: 8.5pt; font-style: italic; color: #fef08a; margin-top: 2pt; font-weight: 500; }
+    .header-unit-title {
+      font-family: "Times New Roman", Georgia, serif;
+      font-size: 16pt;
+      font-weight: 800;
+      color: #1e3a8a;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 1pt;
+      line-height: 1.1;
+    }
+    .header-subtitle {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 8.5pt;
+      font-weight: 800;
+      color: #c2410c;
+      letter-spacing: 1.8px;
+      text-transform: uppercase;
+      margin-bottom: 1.5pt;
+    }
+    .header-date-range {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 8pt;
+      font-style: italic;
+      color: #475569;
+    }
+    .header-theme-quote {
+      font-size: 7.5pt;
+      font-style: italic;
+      color: #0369a1;
+      margin-top: 1.5pt;
+    }
 
     .grid-container {
       display: grid;
@@ -100,7 +182,7 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
     .card {
       border: 1px solid #e2e8f0;
       border-radius: 4pt;
-      padding: 6pt 8pt;
+      padding: 5.5pt 7.5pt;
       background: #ffffff;
       page-break-inside: avoid;
     }
@@ -172,26 +254,29 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
 
     .footer {
       margin-top: 6pt;
-      border-top: 1px solid #e2e8f0;
+      border-top: 1px solid #cbd5e1;
       padding-top: 3pt;
       font-size: 6.5pt;
-      color: #94a3b8;
+      color: #64748b;
       text-align: center;
+      font-style: italic;
+      line-height: 1.35;
     }
   </style>
 </head>
 <body>
+  <!-- Standard Header per User Specification -->
   <div class="header">
-    <div class="header-ward">${d.unit_name || 'Latter-day Saint Ward'}${d.stake_name ? ` • ${d.stake_name}` : ''}</div>
-    <h1>SACRAMENT MEETING BULLETIN</h1>
-    <div class="date-row">${formattedDate}</div>
-    ${d.theme ? `<div class="theme-row">"${d.theme}"</div>` : ''}
+    <div class="header-unit-title">${unitTitle}</div>
+    <div class="header-subtitle">WEEKLY WARD BULLETIN</div>
+    <div class="header-date-range">${weekRange.rangeLabel}</div>
+    ${d.theme ? `<div class="header-theme-quote">"${d.theme}"</div>` : ''}
   </div>
 
   <div class="grid-container">
-    <!-- Left Column: Sacrament Order & Come Follow Me -->
+    <!-- Left Column: Sacrament Order, CFM Study Guide, Bishopric Message -->
     <div class="column">
-      ${d.show_sacrament ? `
+      ${isSectionVisible(d.show_sacrament) ? `
       <div class="card">
         <div class="card-title">
           <span>Sacrament Meeting Outline</span>
@@ -228,7 +313,7 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
       </div>
       ` : ''}
 
-      ${d.show_focus && (d.cfm_reading || d.cfm_theme) ? `
+      ${isSectionVisible(d.show_focus) && (d.cfm_reading || d.cfm_theme || d.scripture_of_the_week) ? `
       <!-- Complete 6-Field CFM Study Guide -->
       <div class="card" style="background: #fffdf5; border-color: #fde68a;">
         <div class="card-title" style="color: #92400e; border-color: #f59e0b;">
@@ -243,7 +328,7 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
       </div>
       ` : ''}
 
-      ${d.show_bishopric && d.bishopric_message ? `
+      ${isSectionVisible(d.show_bishopric) && d.bishopric_message ? `
       <div class="card">
         <div class="card-title">Message from the Bishopric</div>
         <p style="margin: 0; font-size: 7.5pt; line-height: 1.35; color: #334155; white-space: pre-line;">${d.bishopric_message}</p>
@@ -253,7 +338,7 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
 
     <!-- Right Column: Birthdays, Activities, Next 5, Cleaning, Missionaries, QR -->
     <div class="column">
-      ${d.show_birthdays && d.birthdays ? `
+      ${isSectionVisible(d.show_birthdays) && d.birthdays ? `
       <!-- Birthday Celebrants Special Frame & Design Pack -->
       <div class="card" style="background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border: 1.5px solid #fbbf24; box-shadow: 0 1px 3px rgba(245, 158, 11, 0.1);">
         <div class="card-title" style="color: #92400e; border-color: #d97706; display: flex; align-items: center; justify-content: space-between;">
@@ -267,7 +352,7 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
       </div>
       ` : ''}
 
-      ${d.show_activities && (d.activities || (d.activities_list && d.activities_list.length > 0)) ? `
+      ${isSectionVisible(d.show_activities) && (d.activities || (d.activities_list && d.activities_list.length > 0)) ? `
       <!-- Weekly Activities Schedule (Monday - Sunday) -->
       <div class="card">
         <div class="card-title">Weekly Activities (Mon–Sun)</div>
@@ -294,7 +379,7 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
       </div>
       ` : ''}
 
-      ${next5List.length > 0 ? `
+      ${isSectionVisible(d.show_upcoming) && next5List.length > 0 ? `
       <!-- Next 5 Activities (Auto-Generated Outlook) -->
       <div class="card" style="background: #f8fafc; border-color: #cbd5e1;">
         <div class="card-title" style="color: #334155; border-color: #94a3b8;">
@@ -312,7 +397,7 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
       </div>
       ` : ''}
 
-      ${d.show_cleaning && d.cleaning_group ? `
+      ${isSectionVisible(d.show_cleaning) && d.cleaning_group ? `
       <div class="card" style="background: #f8fafc;">
         <div class="card-title">Building Cleaning Assignment</div>
         <div class="row"><span class="label">Assigned Group</span><span class="value">${d.cleaning_group}</span></div>
@@ -321,14 +406,14 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
       </div>
       ` : ''}
 
-      ${d.show_missionary && d.missionaries ? `
+      ${isSectionVisible(d.show_missionary) && d.missionaries ? `
       <div class="card">
         <div class="card-title">Full-Time Missionaries</div>
         <div style="font-size: 7.5pt; color: #334155; white-space: pre-line;">${d.missionaries}</div>
       </div>
       ` : ''}
 
-      ${d.show_qr ? `
+      ${isSectionVisible(d.show_qr) ? `
       <!-- Dual Digital QR Codes: FamilySearch + Gospel Library -->
       <div class="card" style="padding: 4pt 6pt;">
         <div class="qr-dual-container">
@@ -352,8 +437,9 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
     </div>
   </div>
 
+  <!-- Standard Footer per User Specification -->
   <div class="footer">
-    ${d.unit_name || 'Latter-day Saint Ward'} • Published for Sunday Worship • Visitors & Friends Always Welcome
+    This is prepared as a weekly informational sheet for local ward members. It is not an official publication of The Church of Jesus Christ of Latter-day Saints.
   </div>
 </body>
 </html>`;
@@ -364,8 +450,10 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
  */
 export function generateStandard2PageHtml(d: Bulletin): string {
   const theme = getBulletinTheme(d.color_theme);
-  const formattedDate = safeDateFormat(d.date);
   const speakers = parseSpeakersArray(d.speakers);
+  const weekRange = getWeekDateRange(d.date, d.unit_name);
+  const unitTitle = (d.unit_name || 'OBANTOKO WARD').toUpperCase();
+
   const next5List: NextActivityItem[] = (d.next_activities_list && d.next_activities_list.length > 0)
     ? d.next_activities_list
     : [];
@@ -392,17 +480,35 @@ export function generateStandard2PageHtml(d: Bulletin): string {
     .page-break { page-break-after: always; break-after: page; }
     .page { min-height: 96%; display: flex; flex-direction: column; justify-content: space-between; }
     .header {
-      background: ${theme.primaryColor};
-      color: #ffffff;
-      padding: 14pt;
-      border-radius: 6pt;
       text-align: center;
       margin-bottom: 12pt;
+      padding-bottom: 6pt;
+      border-bottom: 2.5px solid ${theme.primaryColor};
     }
-    .header-ward { font-size: 9pt; text-transform: uppercase; letter-spacing: 2px; opacity: 0.9; font-weight: 600; }
-    .header h1 { margin: 3pt 0 0; font-size: 16pt; font-weight: 800; }
-    .header .date-row { font-size: 9.5pt; opacity: 0.95; margin-top: 3pt; }
-    .header .theme-row { font-size: 10pt; font-style: italic; color: #fef08a; margin-top: 4pt; }
+    .header-unit-title {
+      font-family: "Times New Roman", Georgia, serif;
+      font-size: 20pt;
+      font-weight: 800;
+      color: #1e3a8a;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 2pt;
+    }
+    .header-subtitle {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 10pt;
+      font-weight: 800;
+      color: #c2410c;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 2pt;
+    }
+    .header-date-range {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 9.5pt;
+      font-style: italic;
+      color: #475569;
+    }
 
     .card {
       border: 1px solid #e2e8f0;
@@ -448,11 +554,13 @@ export function generateStandard2PageHtml(d: Bulletin): string {
     }
 
     .footer {
-      border-top: 1px solid #e2e8f0;
-      padding-top: 5pt;
+      border-top: 1px solid #cbd5e1;
+      padding-top: 4pt;
       font-size: 7.5pt;
-      color: #94a3b8;
+      color: #64748b;
       text-align: center;
+      font-style: italic;
+      line-height: 1.35;
     }
   </style>
 </head>
@@ -461,12 +569,13 @@ export function generateStandard2PageHtml(d: Bulletin): string {
   <div class="page page-break">
     <div>
       <div class="header">
-        <div class="header-ward">${d.unit_name || 'Latter-day Saint Ward'}${d.stake_name ? ` • ${d.stake_name}` : ''}</div>
-        <h1>SACRAMENT MEETING PROGRAM</h1>
-        <div class="date-row">${formattedDate}</div>
-        ${d.theme ? `<div class="theme-row">"${d.theme}"</div>` : ''}
+        <div class="header-unit-title">${unitTitle}</div>
+        <div class="header-subtitle">WEEKLY WARD BULLETIN</div>
+        <div class="header-date-range">${weekRange.rangeLabel}</div>
+        ${d.theme ? `<div style="font-size: 9.5pt; font-style: italic; color: #0369a1; margin-top: 3pt;">"${d.theme}"</div>` : ''}
       </div>
 
+      ${isSectionVisible(d.show_sacrament) ? `
       <div class="card">
         <div class="card-title">
           <span>Order of Service</span>
@@ -501,8 +610,9 @@ export function generateStandard2PageHtml(d: Bulletin): string {
         ${d.closing_hymn ? `<div class="row"><span class="label">Closing Hymn</span><span class="value">${d.closing_hymn}</span></div>` : ''}
         ${d.closing_prayer ? `<div class="row"><span class="label">Benediction (Closing Prayer)</span><span class="value">${d.closing_prayer}</span></div>` : ''}
       </div>
+      ` : ''}
 
-      ${d.show_focus && (d.cfm_reading || d.cfm_theme) ? `
+      ${isSectionVisible(d.show_focus) && (d.cfm_reading || d.cfm_theme || d.scripture_of_the_week) ? `
       <!-- Complete 6-Field CFM Study Guide -->
       <div class="card" style="background: #fffdf5; border-color: #fde68a;">
         <div class="card-title" style="color: #92400e; border-color: #f59e0b;">
@@ -518,13 +628,15 @@ export function generateStandard2PageHtml(d: Bulletin): string {
       ` : ''}
     </div>
 
-    <div class="footer">Page 1 of 2 • ${d.unit_name || 'Ward Bulletin'} • Sacrament Worship</div>
+    <div class="footer">
+      This is prepared as a weekly informational sheet for local ward members. It is not an official publication of The Church of Jesus Christ of Latter-day Saints.
+    </div>
   </div>
 
   <!-- PAGE 2: Community, Birthdays, Weekly Activities, Next 5, Cleaning & Missionaries -->
   <div class="page">
     <div>
-      ${d.show_birthdays && d.birthdays ? `
+      ${isSectionVisible(d.show_birthdays) && d.birthdays ? `
       <!-- Birthday Celebrants Special Frame & Design Pack -->
       <div class="card" style="background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border: 2px solid #fbbf24; box-shadow: 0 2px 4px rgba(245, 158, 11, 0.1);">
         <div class="card-title" style="color: #92400e; border-color: #d97706; display: flex; justify-content: space-between; align-items: center;">
@@ -538,7 +650,7 @@ export function generateStandard2PageHtml(d: Bulletin): string {
       </div>
       ` : ''}
 
-      ${d.show_activities && (d.activities || (d.activities_list && d.activities_list.length > 0)) ? `
+      ${isSectionVisible(d.show_activities) && (d.activities || (d.activities_list && d.activities_list.length > 0)) ? `
       <!-- Weekly Activities Structured Schedule -->
       <div class="card">
         <div class="card-title">Weekly Schedule (Monday – Sunday)</div>
@@ -555,7 +667,7 @@ export function generateStandard2PageHtml(d: Bulletin): string {
       </div>
       ` : ''}
 
-      ${next5List.length > 0 ? `
+      ${isSectionVisible(d.show_upcoming) && next5List.length > 0 ? `
       <!-- Next 5 Activities (Auto-Generated Outlook) -->
       <div class="card" style="background: #f8fafc; border-color: #cbd5e1;">
         <div class="card-title" style="color: #334155; border-color: #94a3b8;">
@@ -573,7 +685,7 @@ export function generateStandard2PageHtml(d: Bulletin): string {
       </div>
       ` : ''}
 
-      ${d.show_bishopric && d.bishopric_message ? `
+      ${isSectionVisible(d.show_bishopric) && d.bishopric_message ? `
       <div class="card">
         <div class="card-title">Message from the Bishopric</div>
         <p style="margin: 0; line-height: 1.45; color: #334155; white-space: pre-line;">${d.bishopric_message}</p>
@@ -581,7 +693,7 @@ export function generateStandard2PageHtml(d: Bulletin): string {
       ` : ''}
 
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8pt;">
-        ${d.show_cleaning && d.cleaning_group ? `
+        ${isSectionVisible(d.show_cleaning) && d.cleaning_group ? `
         <div class="card" style="margin-bottom: 0;">
           <div class="card-title">Building Cleaning</div>
           <div class="row"><span class="label">Group:</span><span class="value">${d.cleaning_group}</span></div>
@@ -590,7 +702,7 @@ export function generateStandard2PageHtml(d: Bulletin): string {
         </div>
         ` : '<div></div>'}
 
-        ${d.show_missionary && d.missionaries ? `
+        ${isSectionVisible(d.show_missionary) && d.missionaries ? `
         <div class="card" style="margin-bottom: 0;">
           <div class="card-title">Full-Time Missionaries</div>
           <div style="white-space: pre-line; font-size: 8pt; color: #334155;">${d.missionaries}</div>
@@ -599,7 +711,9 @@ export function generateStandard2PageHtml(d: Bulletin): string {
       </div>
     </div>
 
-    <div class="footer">Page 2 of 2 • ${d.unit_name || 'Ward Bulletin'} • Digital & Print Edition</div>
+    <div class="footer">
+      This is prepared as a weekly informational sheet for local ward members. It is not an official publication of The Church of Jesus Christ of Latter-day Saints.
+    </div>
   </div>
 </body>
 </html>`;
@@ -610,8 +724,10 @@ export function generateStandard2PageHtml(d: Bulletin): string {
  */
 export function generateBiFoldBookletHtml(d: Bulletin): string {
   const theme = getBulletinTheme(d.color_theme);
-  const formattedDate = safeDateFormat(d.date);
   const speakers = parseSpeakersArray(d.speakers);
+  const weekRange = getWeekDateRange(d.date, d.unit_name);
+  const unitTitle = (d.unit_name || 'OBANTOKO WARD').toUpperCase();
+
   const next5List: NextActivityItem[] = (d.next_activities_list && d.next_activities_list.length > 0)
     ? d.next_activities_list
     : [];
@@ -684,6 +800,7 @@ export function generateBiFoldBookletHtml(d: Bulletin): string {
     <!-- PAGE 4 (BACK COVER): Activities, Next 5, Cleaning & QR -->
     <div class="booklet-page">
       <div>
+        ${isSectionVisible(d.show_activities) && (d.activities || (d.activities_list && d.activities_list.length > 0)) ? `
         <div class="card-title">Weekly Schedule (Mon–Sun)</div>
         ${(d.activities_list && d.activities_list.length > 0
           ? d.activities_list.slice(0, 7).map((item) => `
@@ -694,8 +811,9 @@ export function generateBiFoldBookletHtml(d: Bulletin): string {
           `).join('')
           : `<div style="white-space: pre-line; font-size: 7.5pt; margin-bottom: 6pt;">${d.activities}</div>`
         )}
+        ` : ''}
 
-        ${next5List.length > 0 ? `
+        ${isSectionVisible(d.show_upcoming) && next5List.length > 0 ? `
         <div class="card-title" style="margin-top: 6pt;">Next 5 Activities (Calendar Outlook)</div>
         ${next5List.slice(0, 4).map((act) => `
           <div class="row" style="border-bottom: 1px dotted #e2e8f0;">
@@ -705,14 +823,14 @@ export function generateBiFoldBookletHtml(d: Bulletin): string {
         `).join('')}
         ` : ''}
 
-        ${d.cleaning_group ? `
+        ${isSectionVisible(d.show_cleaning) && d.cleaning_group ? `
         <div class="card-title" style="margin-top: 6pt;">Building Cleaning</div>
         <div class="row"><span class="label">Group</span><span class="value">${d.cleaning_group}</span></div>
         <div class="row"><span class="label">Date</span><span class="value">${safeDateFormat(d.cleaning_date, 'MMM d')} @ ${d.cleaning_time || '8:00 AM'}</span></div>
         ${d.cleaning_instructions ? `<div style="font-size: 6.5pt; color: #64748b; font-style: italic;">${d.cleaning_instructions}</div>` : ''}
         ` : ''}
 
-        ${d.birthdays ? `
+        ${isSectionVisible(d.show_birthdays) && d.birthdays ? `
         <!-- Birthday Celebrants Special Frame -->
         <div style="margin-top: 6pt; background: #fffdf5; border: 1.5px solid #fbbf24; border-radius: 3pt; padding: 4pt 6pt;">
           <div style="font-weight: 700; font-size: 7.5pt; color: #92400e; margin-bottom: 2pt;">🎂 Celebrants This Week</div>
@@ -721,25 +839,34 @@ export function generateBiFoldBookletHtml(d: Bulletin): string {
         </div>
         ` : ''}
       </div>
-      <div class="page-number">Page 4 • Back Cover</div>
+      <div>
+        <div style="font-size: 6.5pt; color: #64748b; text-align: center; font-style: italic; margin-bottom: 4pt;">
+          This is prepared as a weekly informational sheet for local ward members. It is not an official publication of The Church of Jesus Christ of Latter-day Saints.
+        </div>
+        <div class="page-number">Page 4 • Back Cover</div>
+      </div>
     </div>
 
     <!-- PAGE 1 (FRONT COVER): Ward Name, Title, Date, Scripture -->
     <div class="booklet-page" style="text-align: center; justify-content: center; background: ${theme.bgLight};">
       <div style="margin: auto 0;">
-        <div style="font-size: 8.5pt; text-transform: uppercase; letter-spacing: 1.5px; color: ${theme.primaryColor}; font-weight: 700;">
-          The Church of Jesus Christ of Latter-day Saints
+        <div style="font-size: 16pt; font-family: 'Times New Roman', serif; font-weight: 800; color: #1e3a8a; letter-spacing: 1px; text-transform: uppercase;">
+          ${unitTitle}
         </div>
-        <div style="font-size: 10pt; color: #475569; margin-top: 3pt; font-weight: 600;">${d.unit_name || 'Ward Meetinghouse'}${d.stake_name ? ` • ${d.stake_name}` : ''}</div>
+        <div style="font-size: 9pt; font-weight: 800; color: #c2410c; letter-spacing: 2px; text-transform: uppercase; margin-top: 2pt;">
+          WEEKLY WARD BULLETIN
+        </div>
+        <div style="font-size: 8.5pt; font-style: italic; color: #475569; font-family: Georgia, serif; margin-top: 2pt;">
+          ${weekRange.rangeLabel}
+        </div>
         
         <div style="margin: 16pt 0; padding: 10pt; border-top: 2px solid ${theme.secondaryColor}; border-bottom: 2px solid ${theme.secondaryColor};">
-          <h1 style="font-size: 15pt; color: ${theme.primaryColor}; margin: 0; font-weight: 800;">SACRAMENT MEETING</h1>
-          <div style="font-size: 9.5pt; font-weight: 600; color: #0f172a; margin-top: 3pt;">${formattedDate}</div>
+          <h1 style="font-size: 14pt; color: ${theme.primaryColor}; margin: 0; font-weight: 800;">SACRAMENT MEETING</h1>
         </div>
 
-        ${d.theme ? `<div style="font-size: 9.5pt; font-style: italic; color: #334155; margin-bottom: 10pt;">"${d.theme}"</div>` : ''}
+        ${d.theme ? `<div style="font-size: 9pt; font-style: italic; color: #334155; margin-bottom: 10pt;">"${d.theme}"</div>` : ''}
 
-        ${d.scripture_of_the_week ? `
+        ${isSectionVisible(d.show_focus) && d.scripture_of_the_week ? `
         <div style="font-size: 7.5pt; color: #475569; font-style: italic; max-width: 180pt; margin: 0 auto;">
           ${d.scripture_of_the_week}
         </div>
@@ -754,6 +881,7 @@ export function generateBiFoldBookletHtml(d: Bulletin): string {
     <!-- PAGE 2: Sacrament Meeting Program -->
     <div class="booklet-page">
       <div>
+        ${isSectionVisible(d.show_sacrament) ? `
         <div class="card-title">
           <span>Order of Worship</span>
           <span style="font-size: 7pt; background: #e0f2fe; color: #0369a1; padding: 1pt 4pt; border-radius: 2pt; font-weight: 700;">
@@ -786,6 +914,7 @@ export function generateBiFoldBookletHtml(d: Bulletin): string {
         ${d.special_music ? `<div class="row"><span class="label">Special Music</span><span class="value">${d.special_music}</span></div>` : ''}
         ${d.closing_hymn ? `<div class="row"><span class="label">Closing Hymn</span><span class="value">${d.closing_hymn}</span></div>` : ''}
         ${d.closing_prayer ? `<div class="row"><span class="label">Benediction (Closing Prayer)</span><span class="value">${d.closing_prayer}</span></div>` : ''}
+        ` : ''}
       </div>
       <div class="page-number">Page 2 • Sacrament Program</div>
     </div>
@@ -793,7 +922,7 @@ export function generateBiFoldBookletHtml(d: Bulletin): string {
     <!-- PAGE 3: Come Follow Me & Bishopric Message -->
     <div class="booklet-page">
       <div>
-        ${d.cfm_reading ? `
+        ${isSectionVisible(d.show_focus) && (d.cfm_reading || d.cfm_theme) ? `
         <div class="card-title">Come, Follow Me Study Guide</div>
         <div style="font-weight: 700; font-size: 8pt; color: #78350f; margin-bottom: 2pt;">${d.cfm_reading}${d.cfm_theme ? ` — ${d.cfm_theme}` : ''}</div>
         ${d.cfm_introduction ? `<div style="font-size: 7pt; color: #78350f; font-style: italic; margin-bottom: 2.5pt; line-height: 1.25;">${d.cfm_introduction}</div>` : ''}
@@ -802,7 +931,7 @@ export function generateBiFoldBookletHtml(d: Bulletin): string {
         ${d.cfm_url ? `<div style="font-size: 6.5pt; color: #b45309; margin-bottom: 4pt;"><strong>Link:</strong> <a href="${d.cfm_url}" style="color: #0369a1;">${d.cfm_url}</a></div>` : ''}
         ` : ''}
 
-        ${d.bishopric_message ? `
+        ${isSectionVisible(d.show_bishopric) && d.bishopric_message ? `
         <div class="card-title" style="margin-top: 4pt;">Message from the Bishopric</div>
         <div style="font-size: 7.5pt; line-height: 1.3; color: #334155; white-space: pre-line;">${d.bishopric_message}</div>
         ` : ''}

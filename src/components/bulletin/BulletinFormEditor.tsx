@@ -13,16 +13,27 @@ import { formatActivitiesToText } from '../../utils/bulletinActivityHarvester';
 import type { Bulletin, Planner, Hymn, WeeklyActivityItem, NextActivityItem } from '../../types';
 import toast from 'react-hot-toast';
 
+export interface BulletinWeekOption {
+  value: string;
+  label: string;
+  mondayDate: string;
+  sundayDate: string;
+  plannerId?: string;
+  unitName?: string;
+}
+
 interface BulletinFormEditorProps {
   form: Partial<Bulletin>;
   setForm: React.Dispatch<React.SetStateAction<Partial<Bulletin>>>;
   planners: Planner[];
   hymns: Hymn[];
+  weekOptions?: BulletinWeekOption[];
   onAutoDraft: () => void;
   onGenerateCfmAi: () => void;
   generatingAi: boolean;
   onImportActivities: () => void;
   onSelectPlanner: (plannerId: string) => void;
+  onSelectWeek: (sundayDate: string) => void;
   onSyncSacramentFromPlanner?: () => void;
 }
 
@@ -67,27 +78,16 @@ export function BulletinFormEditor({
   form: f,
   setForm,
   planners,
+  weekOptions = [],
   onAutoDraft,
   onGenerateCfmAi,
   generatingAi,
   onImportActivities,
   onSelectPlanner,
+  onSelectWeek,
   onSyncSacramentFromPlanner,
 }: BulletinFormEditorProps) {
   const [activeSubSection, setActiveSubSection] = useState<'core' | 'sacrament' | 'cfm' | 'community' | 'toggles'>('core');
-
-  // Filter: ONLY Submitted/Active Planners are available
-  const submittedPlanners = planners.filter(
-    (p) => p.state === 'SUBMITTED' || p.state === 'APPROVED'
-  );
-
-  const plannerOptions = [
-    { value: '', label: 'Select Active (Submitted) Planner…' },
-    ...submittedPlanners.map((p) => ({
-      value: p.planner_id,
-      label: `${p.month}/${p.year} — ${p.unit_name} [${p.state}]`,
-    })),
-  ];
 
   const themeKeys = Object.keys(BULLETIN_THEMES).filter((k) =>
     ['navy', 'forest', 'plum', 'slate', 'teal'].includes(k)
@@ -169,9 +169,9 @@ export function BulletinFormEditor({
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Bulletin Identity & Planner Link</h3>
+                  <h3 className="text-sm font-bold text-slate-900">Select Bulletin Week (Monday – Sunday)</h3>
                   <p className="text-xs text-slate-500">
-                    Only Active (Submitted) planners are available. Ward and Stake names auto-fill.
+                    Choose the target week. Sacrament agenda, birthdays, and calendar activities automatically align.
                   </p>
                 </div>
                 <Button
@@ -181,26 +181,25 @@ export function BulletinFormEditor({
                   onClick={onAutoDraft}
                   className="bg-amber-50/50 border-amber-200 text-amber-900 hover:bg-amber-100 text-xs font-bold"
                 >
-                  Auto-Draft for Sunday
+                  Auto-Draft for Week
                 </Button>
               </div>
             </CardHeader>
             <CardBody className="space-y-4">
               <div className="grid sm:grid-cols-2 gap-4">
-                {/* Active Submitted Planners Dropdown */}
+                {/* Week Selector Dropdown */}
                 <Select
-                  label="Select Active (Submitted) Planner"
-                  options={plannerOptions}
-                  value={f.planner_id || ''}
+                  label="Select Bulletin Week (Monday – Sunday)"
+                  options={weekOptions.length > 0 ? weekOptions : [{ value: f.date || '', label: `${f.date || 'Current'} Bulletin Week` }]}
+                  value={f.date || ''}
                   onChange={(e) => {
-                    setForm({ ...f, planner_id: e.target.value });
-                    onSelectPlanner(e.target.value);
+                    onSelectWeek(e.target.value);
                   }}
                   className="sm:col-span-2"
                 />
 
                 <Input
-                  label="Sunday Date (Review Week: Mon → Sun)"
+                  label="Sunday Date (Target Review Sunday)"
                   type="date"
                   required
                   value={f.date || ''}
@@ -208,15 +207,15 @@ export function BulletinFormEditor({
                 />
 
                 <Input
-                  label="Ward / Branch Name (Auto-filled)"
-                  placeholder="e.g. Yaba Ward"
+                  label="Ward / Branch Name (Auto-filled from Settings)"
+                  placeholder="e.g. Obantoko Ward"
                   value={f.unit_name || ''}
                   onChange={(e) => setForm({ ...f, unit_name: e.target.value })}
                 />
 
                 <Input
-                  label="Stake / District Name (Auto-filled)"
-                  placeholder="e.g. Lagos Nigeria Stake"
+                  label="Stake / District Name (Auto-filled from Settings)"
+                  placeholder="e.g. Abeokuta Nigeria Stake"
                   value={f.stake_name || ''}
                   onChange={(e) => setForm({ ...f, stake_name: e.target.value })}
                 />

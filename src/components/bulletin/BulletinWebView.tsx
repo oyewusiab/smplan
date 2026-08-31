@@ -8,6 +8,7 @@ import { Button } from '../ui/Button';
 import { Input, Textarea, Select } from '../ui/Input';
 import { getBulletinTheme } from '../../utils/bulletinThemes';
 import { buildWhatsAppBirthdayGreetingUrl } from '../../utils/bulletinBirthdayEngine';
+import { getWeekDateRange, isSectionVisible } from '../../utils/bulletinPrintEngine';
 import { bulletinsApi } from '../../services/api';
 import type { Bulletin } from '../../types';
 import toast from 'react-hot-toast';
@@ -97,23 +98,26 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp }: BulletinWebVie
     return `https://www.churchofjesuschrist.org/music/library?lang=eng`;
   };
 
+  const weekRange = getWeekDateRange(b.date, b.unit_name);
+  const unitTitle = (b.unit_name || 'OBANTOKO WARD').toUpperCase();
+
   return (
     <div className="max-w-xl mx-auto bg-slate-50 min-h-screen pb-16 font-sans text-slate-900">
-      {/* Mobile App Bar Header */}
+      {/* Mobile App Bar Header Matching User Specification */}
       <div
         className="text-white p-6 shadow-md rounded-b-3xl relative overflow-hidden"
         style={{ backgroundColor: theme.primaryColor }}
       >
-        <div className="relative z-10">
-          <div className="flex items-center justify-between opacity-85 text-xs font-semibold uppercase tracking-widest mb-1.5">
-            <span>{b.unit_name || 'Latter-day Saint Ward'}</span>
-            <span className="bg-white/20 px-2.5 py-0.5 rounded-full text-[10px] backdrop-blur-xs">
-              Live Digital Bulletin
-            </span>
-          </div>
-
-          <h1 className="text-xl font-extrabold tracking-tight mt-1">Sacrament Meeting</h1>
-          <p className="text-xs text-white/90 font-medium mt-0.5">{formattedDate}</p>
+        <div className="relative z-10 text-center">
+          <h1 className="text-xl font-extrabold tracking-wide uppercase font-serif text-white">
+            {unitTitle}
+          </h1>
+          <p className="text-xs font-extrabold tracking-widest uppercase text-amber-300 mt-1">
+            WEEKLY WARD BULLETIN
+          </p>
+          <p className="text-xs italic text-slate-200 font-serif mt-0.5">
+            {weekRange.rangeLabel}
+          </p>
 
           {b.theme && (
             <div className="mt-3 p-2.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/15">
@@ -128,7 +132,7 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp }: BulletinWebVie
 
       <div className="p-4 space-y-4 -mt-2">
         {/* Scripture Focus of the Week */}
-        {b.show_focus && b.scripture_of_the_week && (
+        {isSectionVisible(b.show_focus) && b.scripture_of_the_week && (
           <div className="rounded-2xl p-4 bg-white border border-slate-200 shadow-2xs">
             <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
               <BookOpen className="w-3.5 h-3.5 text-blue-600" />
@@ -141,7 +145,7 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp }: BulletinWebVie
         )}
 
         {/* 1. Sacrament Meeting Program Outline */}
-        {b.show_sacrament && (
+        {isSectionVisible(b.show_sacrament) && (
           <div className="rounded-2xl p-4 bg-white border border-slate-200 shadow-2xs space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
@@ -270,7 +274,7 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp }: BulletinWebVie
         )}
 
         {/* 2. Come, Follow Me Study */}
-        {b.show_focus && (b.cfm_reading || b.cfm_theme) && (
+        {isSectionVisible(b.show_focus) && (b.cfm_reading || b.cfm_theme) && (
           <div className="rounded-2xl p-4 bg-amber-50/80 border border-amber-200 shadow-2xs space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
@@ -334,7 +338,7 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp }: BulletinWebVie
         )}
 
         {/* 3. Birthday Celebrants Frame with 1-Click WhatsApp Greetings */}
-        {b.show_birthdays && b.birthdays && (
+        {isSectionVisible(b.show_birthdays) && b.birthdays && (
           <div className="rounded-2xl p-4 bg-yellow-50/70 border border-yellow-200 shadow-2xs space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-yellow-950 flex items-center gap-1.5">
@@ -371,7 +375,7 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp }: BulletinWebVie
         )}
 
         {/* 4. Weekly Activities Roster */}
-        {b.show_activities && (
+        {isSectionVisible(b.show_activities) && (
           <div className="rounded-2xl p-4 bg-white border border-slate-200 shadow-2xs space-y-2.5">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
@@ -406,7 +410,7 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp }: BulletinWebVie
         )}
 
         {/* Next 5 Activities (Auto-Generated Outlook) */}
-        {b.next_activities_list && b.next_activities_list.length > 0 && (
+        {isSectionVisible(b.show_upcoming) && b.next_activities_list && b.next_activities_list.length > 0 && (
           <div className="rounded-2xl p-4 bg-indigo-50/60 border border-indigo-200 shadow-2xs space-y-2">
             <div className="flex items-center justify-between pb-1.5 border-b border-indigo-100">
               <span className="text-xs font-bold uppercase tracking-wider text-indigo-900 flex items-center gap-1.5">
@@ -434,7 +438,7 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp }: BulletinWebVie
         )}
 
         {/* 5. Building Cleaning Schedule */}
-        {b.show_cleaning && b.cleaning_group && (
+        {isSectionVisible(b.show_cleaning) && b.cleaning_group && (
           <div className="rounded-2xl p-4 bg-white border border-slate-200 shadow-2xs space-y-1.5">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1">
               Building Cleaning Assignment
@@ -458,7 +462,7 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp }: BulletinWebVie
         )}
 
         {/* 6. Bishopric Message */}
-        {b.show_bishopric && b.bishopric_message && (
+        {isSectionVisible(b.show_bishopric) && b.bishopric_message && (
           <div className="rounded-2xl p-4 bg-white border border-slate-200 shadow-2xs space-y-1.5">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1">
               Message from the Bishopric
@@ -470,7 +474,7 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp }: BulletinWebVie
         )}
 
         {/* 7. Full-Time Missionaries */}
-        {b.show_missionary && b.missionaries && (
+        {isSectionVisible(b.show_missionary) && b.missionaries && (
           <div className="rounded-2xl p-4 bg-white border border-slate-200 shadow-2xs space-y-1.5">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1">
               Full-Time Missionaries
@@ -482,7 +486,7 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp }: BulletinWebVie
         )}
 
         {/* 8. Digital Gospel Links & FamilySearch */}
-        {b.show_qr && (
+        {isSectionVisible(b.show_qr) && (
           <div className="rounded-2xl p-4 bg-slate-50 border border-slate-200 shadow-2xs space-y-2">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-600 block">
               Digital Ward Resources
@@ -619,6 +623,11 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp }: BulletinWebVie
           >
             Share Bulletin Summary on WhatsApp
           </Button>
+        </div>
+
+        {/* Footer Matching User Specification */}
+        <div className="text-center pt-4 border-t border-slate-200 text-[10px] text-slate-500 italic leading-relaxed">
+          This is prepared as a weekly informational sheet for local ward members. It is not an official publication of The Church of Jesus Christ of Latter-day Saints.
         </div>
       </div>
     </div>
