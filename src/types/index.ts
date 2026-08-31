@@ -436,6 +436,7 @@ export interface Bulletin {
   show_qr: boolean;
   color_theme: string;
   pdf_layout: string;
+  status?: 'DRAFT' | 'PUBLISHED';
   created_date: string;
   updated_date: string;
 }

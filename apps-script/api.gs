@@ -2265,16 +2265,18 @@ function handleSaveBulletin(body) {
     existing = dbFindOne('BULLETINS', 'date', bulletinData.date);
   }
 
+  bulletinData.status = sanitizeString(body.status || (existing ? existing.status : 'DRAFT'));
+
   if (existing) {
     const result = dbUpdate('BULLETINS', 'bulletin_id', existing.bulletin_id, bulletinData);
     auditLog(session.user_id, 'UPDATE', 'BULLETINS', existing.bulletin_id, result.old, result.updated, 'OK');
-    return { ok: true, data: result.updated, message: 'Weekly Bulletin updated and saved!' };
+    return { ok: true, data: result.updated, message: bulletinData.status === 'PUBLISHED' ? 'Weekly Bulletin published and saved!' : 'Weekly Bulletin draft saved!' };
   } else {
     bulletinData.bulletin_id = body.bulletin_id || generateId('BUL');
     bulletinData.created_date = now();
     dbInsert('BULLETINS', bulletinData);
     auditLog(session.user_id, 'CREATE', 'BULLETINS', bulletinData.bulletin_id, null, bulletinData, 'OK');
-    return { ok: true, data: bulletinData, message: 'Weekly Bulletin created and saved!' };
+    return { ok: true, data: bulletinData, message: bulletinData.status === 'PUBLISHED' ? 'Weekly Bulletin created and published!' : 'Weekly Bulletin draft created and saved!' };
   }
 }
 
