@@ -45,6 +45,8 @@ export interface AuthSession {
   email: string;
   role: UserRole;
   organisation?: string;
+  calling?: string;
+  signature_data_url?: string;
   token: string; // session token returned by Apps Script
   expires_at: string;
 }

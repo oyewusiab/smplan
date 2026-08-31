@@ -3047,8 +3047,16 @@ function handleUpdateProfile(body) {
   if (body.state !== undefined) updates.state = sanitizeString(body.state);
   if (body.country !== undefined) updates.country = sanitizeString(body.country);
   if (body.emergency_contact_name !== undefined) updates.emergency_contact_name = sanitizeString(body.emergency_contact_name);
-  if (body.emergency_contact_phone !== undefined) updates.emergency_contact_phone = sanitizeString(body.emergency_contact_phone);
-  if (body.signature_data_url !== undefined) updates.signature_data_url = sanitizeString(body.signature_data_url);
+  if (body.signature_data_url !== undefined) {
+    const s = sanitizeString(body.signature_data_url);
+    if (s) {
+      updates.signature_data_url = s;
+    } else if (body.clear_signature === true || body.explicit_clear_signature === true) {
+      updates.signature_data_url = '';
+    } else if (!user.signature_data_url) {
+      updates.signature_data_url = '';
+    }
+  }
   if (body.notes !== undefined && (session.role === 'ADMIN' || session.role === 'BISHOPRIC')) updates.notes = sanitizeString(body.notes);
 
   if (body.email !== undefined) {

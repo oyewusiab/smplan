@@ -16,10 +16,11 @@ export function UserProfileModal({ open, onClose }: UserProfileModalProps) {
   const [tab, setTab] = useState<'profile' | 'security'>('profile');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [explicitClearSig, setExplicitClearSig] = useState(false);
 
   const [form, setForm] = useState({
-    name: '',
-    preferred_name: '',
+    name: session?.name || '',
+    preferred_name: session?.preferred_name || '',
     gender: 'M',
     phone: '',
     whatsapp: '',
@@ -29,24 +30,25 @@ export function UserProfileModal({ open, onClose }: UserProfileModalProps) {
     country: 'Nigeria',
     emergency_contact_name: '',
     emergency_contact_phone: '',
-    signature_data_url: '',
+    signature_data_url: session?.signature_data_url || '',
     notes: '',
-    email: '',
+    email: session?.email || '',
     username: '',
     original_username: '',
     username_change_count: 0,
     current_password: '',
     new_password: '',
     confirm_password: '',
-    role: '',
-    organisation: '',
-    calling: '',
+    role: session?.role || 'ADMIN',
+    organisation: session?.organisation || 'Bishopric',
+    calling: session?.calling || (session?.role === 'ADMIN' ? 'Bishop' : 'Leader'),
     created_date: '',
     last_login_date: '',
   });
 
   useEffect(() => {
     if (open && session) {
+      setExplicitClearSig(false);
       loadProfile();
     }
   }, [open, session]);
@@ -58,7 +60,7 @@ export function UserProfileModal({ open, onClose }: UserProfileModalProps) {
       const res = await usersApi.getProfile(session.token) as { ok: boolean; data: any };
       if (res.ok && res.data) {
         const u = res.data;
-        const sig = u.signature_data_url || u.signature || u.signaturedataurl || '';
+        const sig = u.signature_data_url || u.signature || u.signaturedataurl || session.signature_data_url || '';
         setForm({
           name: u.name || session.name || '',
           preferred_name: u.preferred_name || session.preferred_name || '',
@@ -82,10 +84,13 @@ export function UserProfileModal({ open, onClose }: UserProfileModalProps) {
           confirm_password: '',
           role: u.role || session.role || 'ADMIN',
           organisation: u.organisation || session.organisation || 'Bishopric',
-          calling: u.calling || (session.role === 'ADMIN' ? 'Bishop' : 'Leader'),
+          calling: u.calling || session.calling || (session.role === 'ADMIN' ? 'Bishop' : 'Leader'),
           created_date: u.created_date || '3/11/2026, 12:38:51 PM',
           last_login_date: u.last_login_date || '8/10/2026, 5:49:55 AM',
         });
+        if (sig && updateSession) {
+          updateSession({ signature_data_url: sig });
+        }
       }
     } catch {
       // fallback to session
@@ -96,7 +101,8 @@ export function UserProfileModal({ open, onClose }: UserProfileModalProps) {
         email: session.email || '',
         role: session.role || 'ADMIN',
         organisation: session.organisation || 'Bishopric',
-        calling: session.role === 'ADMIN' ? 'Bishop' : 'Leader',
+        calling: session.calling || (session.role === 'ADMIN' ? 'Bishop' : 'Leader'),
+        signature_data_url: prev.signature_data_url || session.signature_data_url || '',
         original_username: prev.username || '',
       }));
     } finally {
@@ -133,14 +139,17 @@ export function UserProfileModal({ open, onClose }: UserProfileModalProps) {
           ctx.drawImage(img, 0, 0, width, height);
           const compressed = canvas.toDataURL('image/png');
           setForm((prev) => ({ ...prev, signature_data_url: compressed }));
+          setExplicitClearSig(false);
           toast.success('Signature loaded');
         } else {
           setForm((prev) => ({ ...prev, signature_data_url: rawUrl }));
+          setExplicitClearSig(false);
           toast.success('Signature loaded');
         }
       };
       img.onerror = () => {
         setForm((prev) => ({ ...prev, signature_data_url: rawUrl }));
+        setExplicitClearSig(false);
         toast.success('Signature loaded');
       };
       img.src = rawUrl;
@@ -189,6 +198,10 @@ export function UserProfileModal({ open, onClose }: UserProfileModalProps) {
         username: form.username,
       };
 
+      if (explicitClearSig) {
+        payload.explicit_clear_signature = true;
+      }
+
       if (tab === 'security' && form.new_password) {
         payload.current_password = form.current_password;
         payload.new_password = form.new_password;
@@ -198,16 +211,16 @@ export function UserProfileModal({ open, onClose }: UserProfileModalProps) {
       const res = await usersApi.updateProfile(session.token, payload) as { ok: boolean; data: any };
       if (res.ok) {
         toast.success(tab === 'security' && form.new_password ? 'Security settings & password updated' : 'Profile saved successfully');
+        const savedSig = res.data?.signature_data_url !== undefined ? res.data.signature_data_url : form.signature_data_url;
         if (updateSession) {
           updateSession({
             name: form.name,
             preferred_name: form.preferred_name,
             email: form.email,
+            signature_data_url: savedSig,
           });
         }
-        if (res.data && res.data.signature_data_url !== undefined) {
-          setForm((prev) => ({ ...prev, signature_data_url: res.data.signature_data_url }));
-        }
+        setForm((prev) => ({ ...prev, signature_data_url: savedSig }));
         if (form.new_password) {
           setForm((prev) => ({ ...prev, current_password: '', new_password: '' }));
         }
@@ -388,7 +401,10 @@ export function UserProfileModal({ open, onClose }: UserProfileModalProps) {
                     {form.signature_data_url && (
                       <button
                         type="button"
-                        onClick={() => setForm({ ...form, signature_data_url: '' })}
+                        onClick={() => {
+                          setForm({ ...form, signature_data_url: '' });
+                          setExplicitClearSig(true);
+                        }}
                         className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
                       >
                         Clear

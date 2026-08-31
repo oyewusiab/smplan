@@ -19,6 +19,7 @@ interface AuthState {
   isLoading: boolean;
 
   setSession: (session: AuthSession) => void;
+  updateSession: (partial: Partial<AuthSession>) => void;
   clearSession: () => void;
   setLoading: (loading: boolean) => void;
   hasRole: (roles: UserRole[]) => boolean;
@@ -36,6 +37,11 @@ export const useAuthStore = create<AuthState>()(
 
       setSession: (session) =>
         set({ session, isAuthenticated: true, isLoading: false }),
+
+      updateSession: (partial) =>
+        set((state) => ({
+          session: state.session ? { ...state.session, ...partial } : null,
+        })),
 
       clearSession: () =>
         set({ session: null, isAuthenticated: false, isLoading: false }),
