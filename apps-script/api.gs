@@ -2273,6 +2273,32 @@ function handleGetBulletin(params) {
   return { ok: true, data: bulletin };
 }
 
+/**
+ * Public Endpoint: Returns the currently active published ward bulletin for congregation members.
+ * Accessible without authentication token.
+ */
+function handleGetLiveBulletin(params) {
+  let bulletins = dbReadAll('BULLETINS');
+  let published = bulletins.filter(b => b.status === 'PUBLISHED' || b.status === 'published');
+  
+  if (published.length === 0) {
+    if (bulletins.length > 0) {
+      bulletins.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+      return { ok: true, data: bulletins[0] };
+    }
+    return { ok: false, error: 'No bulletin is currently published.' };
+  }
+
+  // Sort by target Sunday date descending, then updated_date descending
+  published.sort((a, b) => {
+    const dComp = (b.date || '').localeCompare(a.date || '');
+    if (dComp !== 0) return dComp;
+    return (b.updated_date || '').localeCompare(a.updated_date || '');
+  });
+
+  return { ok: true, data: published[0] };
+}
+
 function handleSaveBulletin(body) {
   const session = requireAuth(body.token);
   validateRequired(body, ['date']);

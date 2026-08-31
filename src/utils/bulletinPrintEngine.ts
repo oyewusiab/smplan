@@ -446,21 +446,21 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
       ` : ''}
 
       ${isSectionVisible(d.show_qr) ? `
-      <!-- 12. Dual Digital QR Codes -->
+      <!-- 12. Dynamic QR Codes & Landing Page Link -->
       <div class="card" style="padding: 4pt 6pt;">
         <div class="qr-dual-container">
           <div class="qr-box">
-            <img class="qr-code" src="https://quickchart.io/qr?text=${encodeURIComponent(d.qr_familysearch || 'https://www.familysearch.org')}&size=120&margin=1" alt="FS" />
+            <img class="qr-code" src="https://quickchart.io/qr?text=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin + '/visitbulletin' : 'https://smplan.app/visitbulletin')}&size=120&margin=1" alt="Web Bulletin" />
             <div class="qr-text">
-              <strong>FamilySearch:</strong><br/>
-              Scan for Family Tree & Ancestors.
+              <strong>Online Bulletin:</strong><br/>
+              Scan or visit <strong>/visitbulletin</strong> for live hymns & links.
             </div>
           </div>
           <div class="qr-box">
             <img class="qr-code" src="https://quickchart.io/qr?text=${encodeURIComponent(d.qr_gospel_library || 'https://www.churchofjesuschrist.org/study/gospel-library')}&size=120&margin=1" alt="GL" />
             <div class="qr-text">
               <strong>Gospel Library:</strong><br/>
-              Scan for hymns, manuals & study.
+              Scan for manuals & scripture study.
             </div>
           </div>
         </div>

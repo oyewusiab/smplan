@@ -367,6 +367,9 @@ export const bulletinsApi = {
   get: (token: string, bulletin_id: string, options?: { forceRefresh?: boolean }) =>
     get(withToken(token, { action: 'GET_BULLETIN', bulletin_id }), options),
 
+  getLive: (options?: { forceRefresh?: boolean }) =>
+    get({ action: 'GET_LIVE_BULLETIN' }, options),
+
   getDraftData: (token: string, date: string, planner_id?: string, options?: { forceRefresh?: boolean }) =>
     get(withToken(token, { action: 'GET_BULLETIN_DRAFT_DATA', date, ...(planner_id ? { planner_id } : {}) }), options),
 

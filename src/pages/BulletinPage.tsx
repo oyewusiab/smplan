@@ -778,20 +778,39 @@ export function BulletinPage() {
           <div className="flex flex-wrap items-center gap-2">
             {/* Status Indicator */}
             <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 border border-slate-200 text-xs">
-              {hasUnsavedChanges ? (
-                <span className="flex items-center gap-1 text-amber-700 font-semibold">
-                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                  Unsaved Changes
-                </span>
-              ) : lastSavedTime ? (
-                <span className="flex items-center gap-1 text-emerald-700 font-medium">
-                  <Check className="w-3.5 h-3.5 text-emerald-600" />
-                  Saved {format(lastSavedTime, 'h:mm a')}
+              {form.status === 'PUBLISHED' ? (
+                <span className="flex items-center gap-1 text-emerald-700 font-bold">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                  PUBLISHED (Live)
                 </span>
               ) : (
-                <span className="text-slate-500 font-medium">Draft Ready</span>
+                <span className="flex items-center gap-1 text-amber-700 font-bold">
+                  <span className="w-2 h-2 rounded-full bg-amber-500" />
+                  DRAFT
+                </span>
               )}
+              {hasUnsavedChanges ? (
+                <span className="text-[10px] bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-semibold ml-1 animate-pulse">
+                  Unsaved edits
+                </span>
+              ) : lastSavedTime ? (
+                <span className="text-slate-500 text-[11px] ml-1">
+                  • Saved {format(lastSavedTime, 'h:mm a')}
+                </span>
+              ) : null}
             </div>
+
+            {/* View Member Landing Page Link */}
+            <a
+              href="/visitbulletin"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-800 text-xs font-bold transition-all shadow-2xs"
+              title="Open Public Member Landing Page"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>/visitbulletin</span>
+            </a>
 
             <Button
               variant="outline"
@@ -811,19 +830,35 @@ export function BulletinPage() {
               New Bulletin
             </Button>
 
-            {/* Save as Draft Button */}
-            <Button
-              size="sm"
-              variant="outline"
-              icon={<Save className="w-3.5 h-3.5 text-slate-700" />}
-              onClick={() => handleSave('DRAFT')}
-              loading={saving}
-              className="bg-white hover:bg-slate-50 border-slate-300 text-slate-800 font-bold shadow-xs text-xs"
-            >
-              Save Draft
-            </Button>
+            {/* 1. Save as Draft Button (When working on a draft or new bulletin) */}
+            {form.status !== 'PUBLISHED' && (
+              <Button
+                size="sm"
+                variant="outline"
+                icon={<Save className="w-3.5 h-3.5 text-amber-700" />}
+                onClick={() => handleSave('DRAFT')}
+                loading={saving}
+                className="bg-white hover:bg-amber-50 border-amber-300 text-amber-900 font-bold shadow-xs text-xs"
+              >
+                Save as Draft
+              </Button>
+            )}
 
-            {/* Publish Button */}
+            {/* 2. Save Update Button (When updating an existing bulletin) */}
+            {selectedBulletinId && (
+              <Button
+                size="sm"
+                variant="outline"
+                icon={<Save className="w-3.5 h-3.5 text-blue-700" />}
+                onClick={() => handleSave(form.status || 'DRAFT')}
+                loading={saving}
+                className="bg-white hover:bg-blue-50 border-blue-300 text-blue-900 font-bold shadow-xs text-xs"
+              >
+                Save Update
+              </Button>
+            )}
+
+            {/* 3. Publish / Republish Button */}
             <Button
               size="sm"
               icon={<Sparkles className="w-3.5 h-3.5" />}
@@ -831,7 +866,7 @@ export function BulletinPage() {
               loading={saving}
               className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-xs text-xs"
             >
-              Publish Bulletin
+              {form.status === 'PUBLISHED' ? 'Republish Live' : 'Publish Bulletin'}
             </Button>
           </div>
         }

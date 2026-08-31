@@ -35,6 +35,8 @@ import { useInactivityTimeout } from './hooks/useInactivityTimeout';
 import { canAccessRoute } from './utils/permissions';
 import { useEffect } from 'react';
 
+import { PublicBulletinLandingPage } from './pages/PublicBulletinLandingPage';
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore();
   if (!isAuthenticated) return <Navigate to="/login" replace />;
@@ -67,8 +69,10 @@ function AppWithInactivity() {
 
   return (
     <Routes>
-      {/* Public */}
+      {/* Public Routes */}
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/visitbulletin" element={<PublicBulletinLandingPage />} />
+      <Route path="/visitbullettin" element={<Navigate to="/visitbulletin" replace />} />
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
       {/* Protected — all inside AppLayout */}
