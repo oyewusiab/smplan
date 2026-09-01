@@ -640,10 +640,8 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp, onOpenFeedbackMo
                     onChange={(e) => setFeedbackType(e.target.value as any)}
                     className="w-full text-xs rounded-xl bg-white border-0 p-2 font-medium"
                   >
-                    <option value="PRAYER_REQUEST">🙏 Prayer Request</option>
-                    <option value="SICKNESS_ALERT">🏥 Sickness / Hospital Alert</option>
-                    <option value="BISHOP_APPOINTMENT">📅 Bishop Interview Request</option>
-                    <option value="GENERAL">💬 General Note / Visitor</option>
+                    <option value="GENERAL">💬 General Note</option>
+                    <option value="BISHOP_APPOINTMENT">📅 Bishop's Appointment</option>
                   </select>
                 </div>
                 <div>

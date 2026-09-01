@@ -619,8 +619,8 @@ export function PublicBulletinLandingPage() {
 
                 <div className="flex flex-wrap gap-1.5">
                   {[
-                    { id: 'GENERAL', label: 'General Note (Bishop & Counselors)' },
-                    { id: 'BISHOP_APPOINTMENT', label: "Bishop's Appointment (Bishop Only)" },
+                    { id: 'GENERAL', label: 'General Note' },
+                    { id: 'BISHOP_APPOINTMENT', label: "Bishop's Appointment" },
                   ].map((t) => (
                     <button
                       key={t.id}

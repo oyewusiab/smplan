@@ -245,11 +245,11 @@ export function BulletinFormEditor({
             href="/visitbulletin"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 text-xs font-bold transition-all shadow-2xs"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 text-xs font-bold transition-all shadow-2xs"
             title="Open Member Landing Page"
           >
             <Globe className="w-3.5 h-3.5 text-blue-600" />
-            <span>/visitbulletin</span>
+            <span>Visit Bulletin</span>
             <ExternalLink className="w-3 h-3 text-slate-400" />
           </a>
         </div>

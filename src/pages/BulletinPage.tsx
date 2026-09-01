@@ -808,7 +808,7 @@ export function BulletinPage() {
               title="Open Public Member Landing Page"
             >
               <ExternalLink className="w-3.5 h-3.5" />
-              <span>/visitbulletin</span>
+              <span>Visit Bulletin</span>
             </a>
 
             <Button
