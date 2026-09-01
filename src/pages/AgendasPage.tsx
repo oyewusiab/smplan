@@ -3,7 +3,7 @@ import {
   Plus, Search, RefreshCw, BookOpen, Printer, Eye, Save, Calendar, Users,
   CheckCircle2, Sparkles, Trash2, Edit3, Layers, Tablet, Shield, ArrowRight,
   FileText, Award, AlertTriangle, ChevronRight, UserCheck, Music, Volume2,
-  Clock, CheckSquare
+  Clock, CheckSquare, Mail
 } from 'lucide-react';
 import { Header } from '../components/layout/Header';
 import { Card, CardBody, CardHeader } from '../components/ui/Card';
@@ -24,6 +24,7 @@ import { formatTime12h } from '../utils/formatters';
 import { AgendaDiffModal } from '../components/agenda/AgendaDiffModal';
 import { DigitalPodiumModal } from '../components/agenda/DigitalPodiumModal';
 import { OtherAgendasSection } from '../components/agenda/OtherAgendasSection';
+import { SendAgendaReminderModal } from '../components/agenda/SendAgendaReminderModal';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSunday } from 'date-fns';
 import toast from 'react-hot-toast';
 
@@ -149,7 +150,16 @@ export function AgendasPage() {
   const [plannerWeekAgenda, setPlannerWeekAgenda] = useState<Partial<Agenda> | null>(null);
   const [podiumModalOpen, setPodiumModalOpen] = useState(false);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [sendReminderModalOpen, setSendReminderModalOpen] = useState(false);
   const [directorySearch, setDirectorySearch] = useState('');
+
+  // Bishop and Counsellor permission check
+  const isBishopric = Boolean(
+    session?.role === 'ADMIN' ||
+    session?.role === 'BISHOPRIC' ||
+    session?.calling?.toLowerCase().includes('bishop') ||
+    session?.calling?.toLowerCase().includes('counsel')
+  );
 
   // Load all initial data
   const loadAll = async () => {
@@ -979,6 +989,19 @@ export function AgendasPage() {
                       >
                         Print
                       </Button>
+                      {/* Send Reminder (Bishop & Counsellors Only) */}
+                      {isBishopric && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="bg-indigo-950/80 border-indigo-600 text-indigo-100 hover:bg-indigo-900"
+                          icon={<Mail className="h-4 w-4 text-indigo-300" />}
+                          onClick={() => setSendReminderModalOpen(true)}
+                          title="Send Email Reminder to Page 1 Assignees"
+                        >
+                          Send Reminder
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         icon={<Save className="h-4 w-4" />}
@@ -1959,6 +1982,15 @@ export function AgendasPage() {
           confirmations: JSON.stringify(confirmationsList),
           fellowships: JSON.stringify(fellowshipsList),
         }}
+      />
+
+      {/* SEND AGENDA REMINDER MODAL (PAGE 1 ASSIGNEES) */}
+      <SendAgendaReminderModal
+        open={sendReminderModalOpen}
+        onClose={() => setSendReminderModalOpen(false)}
+        agenda={activeAgenda}
+        speakers={speakersList}
+        members={members}
       />
     </div>
   );

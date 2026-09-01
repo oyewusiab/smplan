@@ -2254,6 +2254,264 @@ function handleCancelReminder(body) {
   return { ok: true };
 }
 
+/**
+ * Sends email reminders to everyone with an assignment on Page 1 (Order of Service) of the Agenda.
+ * Only available for Bishop and Counsellors (ADMIN / BISHOPRIC).
+ * Consolidates multiple assignments per person and includes 15-minute Bishopric briefing notice.
+ */
+function handleSendAgendaReminders(body) {
+  const session = requireAuth(body.token);
+  if (session.role !== 'ADMIN' && session.role !== 'BISHOPRIC') {
+    throw new Error('Only Bishops and Counsellors can send agenda email reminders.');
+  }
+
+  const agenda = body.agenda || {};
+  const customRecipients = Array.isArray(body.recipients) ? body.recipients : null;
+  const dateStr = agenda.date || '';
+  const wardName = sanitizeString(agenda.ward_branch || 'Ward');
+  const startTimeStr = sanitizeString(agenda.start_time || '9:00 AM');
+
+  // Compute 15 minutes before start time for bishopric briefing
+  let briefingTimeStr = '15 minutes before the service';
+  try {
+    const timeMatch = startTimeStr.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+    if (timeMatch) {
+      let hours = parseInt(timeMatch[1], 10);
+      let minutes = parseInt(timeMatch[2], 10);
+      const ampm = (timeMatch[3] || '').toUpperCase();
+      if (ampm === 'PM' && hours < 12) hours += 12;
+      if (ampm === 'AM' && hours === 12) hours = 0;
+
+      let totalMinutes = hours * 60 + minutes - 15;
+      if (totalMinutes < 0) totalMinutes += 24 * 60;
+      let bHours = Math.floor(totalMinutes / 60);
+      let bMinutes = totalMinutes % 60;
+      const bAmpm = bHours >= 12 ? 'PM' : 'AM';
+      let bDisplayHours = bHours % 12;
+      if (bDisplayHours === 0) bDisplayHours = 12;
+      const bDisplayMins = bMinutes < 10 ? '0' + bMinutes : bMinutes;
+      briefingTimeStr = `${bDisplayHours}:${bDisplayMins} ${bAmpm}`;
+    }
+  } catch (e) {}
+
+  // Load members and users database for email lookup
+  const members = dbReadAll('MEMBERS_LIST');
+  const users = dbReadAll('USERS');
+
+  function findMemberEmail(name) {
+    if (!name) return '';
+    const clean = String(name).replace(/^(brother|sister|elder|bishop|president|bro\.|sis\.|pres\.)\s+/i, '').replace(/,/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+    if (!clean) return '';
+    
+    // Check in MEMBERS_LIST
+    const m = members.find(mem => {
+      const memClean = String(mem.name || '').replace(/^(brother|sister|elder|bishop|president|bro\.|sis\.|pres\.)\s+/i, '').replace(/,/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+      return memClean === clean || memClean.includes(clean) || clean.includes(memClean);
+    });
+    if (m && m.email) return m.email;
+
+    // Check in USERS
+    const u = users.find(usr => {
+      const uClean = String(usr.name || usr.preferred_name || '').replace(/^(brother|sister|elder|bishop|president|bro\.|sis\.|pres\.)\s+/i, '').replace(/,/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+      return uClean === clean || uClean.includes(clean) || clean.includes(uClean);
+    });
+    if (u && u.email) return u.email;
+
+    return '';
+  }
+
+  // If custom recipients list is provided by frontend modal, use it
+  let recipientMap = {};
+
+  if (customRecipients && customRecipients.length > 0) {
+    customRecipients.forEach(r => {
+      if (r.name && r.name.trim()) {
+        const key = r.name.trim();
+        recipientMap[key] = {
+          name: r.name.trim(),
+          email: sanitizeEmail(r.email || findMemberEmail(r.name)),
+          assignments: Array.isArray(r.assignments) ? r.assignments : [String(r.assignments || 'Sacrament Meeting Assignment')]
+        };
+      }
+    });
+  } else {
+    // Collect from Page 1 (Order of Service)
+    function addAssignment(personName, assignmentText) {
+      if (!personName || typeof personName !== 'string') return;
+      const cleanName = personName.trim();
+      if (!cleanName || cleanName.length < 2) return;
+      if (/^(tbd|none|n\/a|unassigned|brother|sister)$/i.test(cleanName)) return;
+
+      if (!recipientMap[cleanName]) {
+        recipientMap[cleanName] = {
+          name: cleanName,
+          email: findMemberEmail(cleanName),
+          assignments: []
+        };
+      }
+      if (!recipientMap[cleanName].assignments.includes(assignmentText)) {
+        recipientMap[cleanName].assignments.push(assignmentText);
+      }
+    }
+
+    // 1. Presiding & Conducting
+    if (agenda.presiding) addAssignment(agenda.presiding, `Presiding Officer (${agenda.presiding_position || 'Presiding'})`);
+    if (agenda.conducting) addAssignment(agenda.conducting, `Conducting Officer (${agenda.conducting_position || 'Conducting'})`);
+
+    // 2. Music Leaders
+    if (agenda.music_director) addAssignment(agenda.music_director, 'Music Director');
+    if (agenda.choir_director) addAssignment(agenda.choir_director, 'Choir Director');
+    if (agenda.organist) addAssignment(agenda.organist, 'Organist / Pianist');
+
+    // 3. Prayers
+    if (agenda.opening_prayer) addAssignment(agenda.opening_prayer, 'Opening Prayer (Invocation)');
+    if (agenda.closing_prayer) addAssignment(agenda.closing_prayer, 'Closing Prayer (Benediction)');
+
+    // 4. Special Music
+    if (agenda.special_music && agenda.special_music.length > 3 && !/^(choir|congregation)$/i.test(agenda.special_music.trim())) {
+      addAssignment(agenda.special_music, `Special Musical Presentation: "${agenda.special_music}"`);
+    }
+
+    // 5. Speakers
+    let speakersArr = [];
+    if (Array.isArray(body.speakers)) {
+      speakersArr = body.speakers;
+    } else if (agenda.speakers) {
+      try {
+        speakersArr = typeof agenda.speakers === 'string' ? JSON.parse(agenda.speakers) : agenda.speakers;
+      } catch (e) {}
+    }
+
+    if (Array.isArray(speakersArr)) {
+      speakersArr.forEach((sp, idx) => {
+        if (sp.name && sp.name.trim()) {
+          let desc = `Speaker / Talk #${idx + 1}`;
+          if (sp.topic) desc += ` — Topic: "${sp.topic}"`;
+          if (sp.scripture_ref) desc += ` (Ref: ${sp.scripture_ref})`;
+          if (sp.minutes) desc += ` [${sp.minutes} Minutes]`;
+          addAssignment(sp.name, desc);
+        }
+      });
+    }
+  }
+
+  const recipientsList = Object.values(recipientMap);
+  const sentList = [];
+  const failedList = [];
+  const missingEmailList = [];
+
+  recipientsList.forEach(recipient => {
+    if (!recipient.email) {
+      missingEmailList.push(recipient);
+      return;
+    }
+
+    try {
+      const subject = `Sacrament Meeting Assignment Reminder — ${wardName} (${dateStr})`;
+      
+      const assignmentListHtml = recipient.assignments.map(a => `<li style="margin-bottom: 6px; font-size: 14px; color: #1e293b;"><strong>${a}</strong></li>`).join('');
+      const assignmentListText = recipient.assignments.map(a => `• ${a}`).join('\n');
+
+      const htmlBody = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
+          <div style="text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 20px;">
+            <h2 style="color: #1e3a8a; margin: 0 0 4px 0; font-size: 20px;">Sacrament Meeting Assignment Reminder</h2>
+            <p style="color: #64748b; margin: 0; font-size: 13px; font-weight: bold;">${wardName} · Sunday, ${dateStr}</p>
+          </div>
+
+          <p style="font-size: 15px; color: #334155; margin-bottom: 16px;">
+            Dear <strong>${recipient.name}</strong>,
+          </p>
+
+          <p style="font-size: 14px; color: #334155; line-height: 1.5; margin-bottom: 16px;">
+            This is a friendly reminder of your scheduled assignment(s) for the upcoming Sacrament Meeting on <strong>${dateStr}</strong> at <strong>${startTimeStr}</strong>.
+          </p>
+
+          <div style="background-color: #f8fafc; border-left: 4px solid #2563eb; padding: 14px 16px; border-radius: 6px; margin-bottom: 20px;">
+            <h4 style="margin: 0 0 10px 0; color: #1e293b; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Your Assigned Service:</h4>
+            <ul style="margin: 0; padding-left: 20px;">
+              ${assignmentListHtml}
+            </ul>
+          </div>
+
+          <!-- BISHOPRIC BRIEFING NOTICE -->
+          <div style="background-color: #eff6ff; border: 1.5px dashed #3b82f6; padding: 14px 16px; border-radius: 8px; margin-bottom: 24px;">
+            <p style="margin: 0 0 6px 0; font-size: 14px; font-weight: bold; color: #1e40af;">
+              ⏰ Meeting with the Bishopric Before Service:
+            </p>
+            <p style="margin: 0; font-size: 13px; color: #1e3a8a; line-height: 1.4;">
+              Please plan to meet with the Bishopric <strong>15 minutes before the start of the service</strong> (at <strong>${briefingTimeStr}</strong>) on the stand / in the Bishop's office for brief coordination and prayer.
+            </p>
+          </div>
+
+          <p style="font-size: 13px; color: #475569; line-height: 1.5; margin-bottom: 24px;">
+            Thank you for your willingness to serve and for your preparation to invite the Spirit into our worship service. If you have any questions or unexpected scheduling conflicts, please contact the Bishopric as soon as possible.
+          </p>
+
+          <div style="border-top: 1px solid #e2e8f0; padding-top: 14px; text-align: center; color: #94a3b8; font-size: 12px;">
+            <p style="margin: 0;">Sent with reverence by the Bishopric · ${wardName}</p>
+          </div>
+        </div>
+      `;
+
+      const plainText = `Sacrament Meeting Assignment Reminder — ${wardName}\n\n` +
+        `Dear ${recipient.name},\n\n` +
+        `This is a friendly reminder of your scheduled assignment(s) for the upcoming Sacrament Meeting on ${dateStr} at ${startTimeStr}.\n\n` +
+        `Your Assigned Service:\n${assignmentListText}\n\n` +
+        `IMPORTANT: Please plan to meet with the Bishopric 15 minutes before the start of the service (at ${briefingTimeStr}) on the stand / in the Bishop's office for coordination and prayer.\n\n` +
+        `Thank you for your devotion and service!\n\n` +
+        `With regards,\n` +
+        `The Bishopric · ${wardName}`;
+
+      MailApp.sendEmail({
+        to: recipient.email,
+        subject: subject,
+        body: plainText,
+        htmlBody: htmlBody
+      });
+
+      // Save to REMINDERS table
+      const reminderRec = {
+        reminder_id: generateId('REM'),
+        planner_id: sanitizeString(agenda.planner_id || ''),
+        week_id: sanitizeString(agenda.week_id || ''),
+        to_person: recipient.name,
+        channel: 'EMAIL',
+        title: subject,
+        body: recipient.assignments.join('; '),
+        scheduled_for_date: sanitizeDate(agenda.date),
+        status: 'SENT',
+        created_by_user_id: session.user_id,
+        created_date: now(),
+        sent_date: now(),
+      };
+      dbInsert('REMINDERS', reminderRec);
+
+      sentList.push(recipient);
+    } catch (err) {
+      Logger.log('Failed to send reminder email to ' + recipient.email + ': ' + err.message);
+      failedList.push({ ...recipient, error: err.message });
+    }
+  });
+
+  auditLog(session.user_id, 'SEND_AGENDA_REMINDERS', 'AGENDAS', agenda.agenda_id || agenda.date, null, {
+    sent: sentList.length,
+    failed: failedList.length,
+    missing_emails: missingEmailList.length
+  }, 'OK');
+
+  return {
+    ok: true,
+    sent_count: sentList.length,
+    failed_count: failedList.length,
+    missing_email_count: missingEmailList.length,
+    sent: sentList,
+    failed: failedList,
+    missing_emails: missingEmailList,
+    briefing_time: briefingTimeStr
+  };
+}
+
 // ─── Bulletin Handlers ────────────────────────────────────────────────────────
 
 function handleListBulletins(params) {

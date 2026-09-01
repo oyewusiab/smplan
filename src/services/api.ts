@@ -300,6 +300,9 @@ export const agendasApi = {
 
   delete: (token: string, agenda_id: string) =>
     post(withTokenBody(token, { action: 'DELETE_AGENDA', agenda_id })),
+
+  sendReminders: (token: string, data: Record<string, unknown>) =>
+    post(withTokenBody(token, { action: 'SEND_AGENDA_REMINDERS', ...data })),
 };
 
 // ─── Other Agendas (Bishopric, Ward Council, Youth Council, Other Meetings) ──
