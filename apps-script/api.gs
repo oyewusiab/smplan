@@ -2358,18 +2358,59 @@ function handleSendAgendaReminders(body) {
     if (agenda.presiding) addAssignment(agenda.presiding, `Presiding Officer (${agenda.presiding_position || 'Presiding'})`);
     if (agenda.conducting) addAssignment(agenda.conducting, `Conducting Officer (${agenda.conducting_position || 'Conducting'})`);
 
-    // 2. Music Leaders
-    if (agenda.music_director) addAssignment(agenda.music_director, 'Music Director');
-    if (agenda.choir_director) addAssignment(agenda.choir_director, 'Choir Director');
-    if (agenda.organist) addAssignment(agenda.organist, 'Organist / Pianist');
+    // Format meeting hymns for music leaders
+    var hymnsInfo = [];
+    if (agenda.opening_hymn) {
+      hymnsInfo.push('Opening Hymn: ' + (agenda.opening_hymn_number ? '#' + agenda.opening_hymn_number + ' ' : '') + agenda.opening_hymn);
+    }
+    if (agenda.sacrament_hymn) {
+      hymnsInfo.push('Sacrament Hymn: ' + (agenda.sacrament_hymn_number ? '#' + agenda.sacrament_hymn_number + ' ' : '') + agenda.sacrament_hymn);
+    }
+    if (agenda.closing_hymn) {
+      hymnsInfo.push('Closing Hymn: ' + (agenda.closing_hymn_number ? '#' + agenda.closing_hymn_number + ' ' : '') + agenda.closing_hymn);
+    }
+    if (agenda.prelude_music) {
+      hymnsInfo.push('Prelude: ' + agenda.prelude_music);
+    }
+    if (agenda.postlude_music) {
+      hymnsInfo.push('Postlude: ' + agenda.postlude_music);
+    }
 
-    // 3. Prayers
+    // 2. Music Leaders (Includes Meeting Music / Hymns)
+    if (agenda.music_director) {
+      var mdDesc = 'Music Director (Chorister)';
+      if (hymnsInfo.length > 0) {
+        mdDesc += ' — Program Music: ' + hymnsInfo.join(' · ');
+      }
+      addAssignment(agenda.music_director, mdDesc);
+    }
+
+    if (agenda.organist) {
+      var orgDesc = 'Organist / Pianist';
+      if (hymnsInfo.length > 0) {
+        orgDesc += ' — Program Music: ' + hymnsInfo.join(' · ');
+      }
+      addAssignment(agenda.organist, orgDesc);
+    }
+
+    // 3. Choir Director (Includes Special Music if selected)
+    if (agenda.choir_director) {
+      var cdDesc = 'Choir Director';
+      if (agenda.special_music && agenda.special_music.trim()) {
+        cdDesc += ' — Special Music Presentation: "' + agenda.special_music.trim() + '"';
+      }
+      addAssignment(agenda.choir_director, cdDesc);
+    }
+
+    // 4. Prayers
     if (agenda.opening_prayer) addAssignment(agenda.opening_prayer, 'Opening Prayer (Invocation)');
     if (agenda.closing_prayer) addAssignment(agenda.closing_prayer, 'Closing Prayer (Benediction)');
 
-    // 4. Special Music
+    // 5. Special Music Individual item (if assigned separately)
     if (agenda.special_music && agenda.special_music.length > 3 && !/^(choir|congregation)$/i.test(agenda.special_music.trim())) {
-      addAssignment(agenda.special_music, `Special Musical Presentation: "${agenda.special_music}"`);
+      if (!agenda.choir_director || agenda.choir_director.indexOf(agenda.special_music) === -1) {
+        addAssignment(agenda.special_music, 'Special Musical Item: "' + agenda.special_music + '"');
+      }
     }
 
     // 5. Speakers

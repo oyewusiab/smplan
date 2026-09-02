@@ -26,6 +26,7 @@ import { DigitalPodiumModal } from '../components/agenda/DigitalPodiumModal';
 import { OtherAgendasSection } from '../components/agenda/OtherAgendasSection';
 import { SendAgendaReminderModal } from '../components/agenda/SendAgendaReminderModal';
 import { MemberPicker } from '../components/agenda/MemberPicker';
+import { HymnPicker, SingleMusicPicker } from '../components/agenda/HymnPicker';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSunday } from 'date-fns';
 import toast from 'react-hot-toast';
 
@@ -1305,17 +1306,19 @@ export function AgendasPage() {
                             value={activeAgenda.start_time || ''}
                             onChange={(e) => setActiveAgenda({ ...activeAgenda, start_time: e.target.value })}
                           />
-                          <Input
+                          <SingleMusicPicker
                             label="Prelude Music (by choir or organ)"
-                            placeholder="e.g. Hymn 143 or Organist Selection"
+                            placeholder="e.g. Hymn #143 or Organist Selection"
                             value={activeAgenda.prelude_music || ''}
-                            onChange={(e) => setActiveAgenda({ ...activeAgenda, prelude_music: e.target.value })}
+                            onChange={(val) => setActiveAgenda({ ...activeAgenda, prelude_music: val })}
+                            hymns={hymns}
                           />
-                          <Input
+                          <SingleMusicPicker
                             label="Postlude Music (by organ only; not by choir)"
-                            placeholder="e.g. Hymn 19 or Organist Selection"
+                            placeholder="e.g. Hymn #19 or Organist Selection"
                             value={activeAgenda.postlude_music || ''}
-                            onChange={(e) => setActiveAgenda({ ...activeAgenda, postlude_music: e.target.value })}
+                            onChange={(val) => setActiveAgenda({ ...activeAgenda, postlude_music: val })}
+                            hymns={hymns}
                           />
                         </div>
 
@@ -1339,20 +1342,20 @@ export function AgendasPage() {
                       <CardBody className="space-y-4">
                         {/* Opening Hymn & Prayer */}
                         <div className="grid sm:grid-cols-12 gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
-                          <div className="sm:col-span-2">
-                            <Input
-                              label="Opening Hymn #"
-                              placeholder="1023"
-                              value={activeAgenda.opening_hymn_number || ''}
-                              onChange={(e) => setActiveAgenda({ ...activeAgenda, opening_hymn_number: e.target.value })}
-                            />
-                          </div>
-                          <div className="sm:col-span-4">
-                            <Input
-                              label="Opening Hymn Title"
-                              placeholder="Standing on the Promises"
-                              value={activeAgenda.opening_hymn || ''}
-                              onChange={(e) => handleHymnChange('opening', e.target.value)}
+                          <div className="sm:col-span-6">
+                            <HymnPicker
+                              label="Opening Hymn"
+                              hymnNumber={activeAgenda.opening_hymn_number || ''}
+                              hymnTitle={activeAgenda.opening_hymn || ''}
+                              onHymnChange={(num, title) =>
+                                setActiveAgenda({
+                                  ...activeAgenda,
+                                  opening_hymn_number: num,
+                                  opening_hymn: title,
+                                })
+                              }
+                              hymns={hymns}
+                              placeholder="Select Opening Hymn..."
                             />
                           </div>
                           <div className="sm:col-span-6">
@@ -1392,20 +1395,20 @@ export function AgendasPage() {
 
                         {/* Sacrament Hymn */}
                         <div className="grid sm:grid-cols-12 gap-3 p-3 bg-blue-50/40 rounded-lg border border-blue-100">
-                          <div className="sm:col-span-2">
-                            <Input
-                              label="Sacrament Hymn #"
-                              placeholder="1008"
-                              value={activeAgenda.sacrament_hymn_number || ''}
-                              onChange={(e) => setActiveAgenda({ ...activeAgenda, sacrament_hymn_number: e.target.value })}
-                            />
-                          </div>
-                          <div className="sm:col-span-6">
-                            <Input
-                              label="Sacrament Hymn Title"
-                              placeholder="Bread of Life, Living Water"
-                              value={activeAgenda.sacrament_hymn || ''}
-                              onChange={(e) => handleHymnChange('sacrament', e.target.value)}
+                          <div className="sm:col-span-8">
+                            <HymnPicker
+                              label="Sacrament Hymn"
+                              hymnNumber={activeAgenda.sacrament_hymn_number || ''}
+                              hymnTitle={activeAgenda.sacrament_hymn || ''}
+                              onHymnChange={(num, title) =>
+                                setActiveAgenda({
+                                  ...activeAgenda,
+                                  sacrament_hymn_number: num,
+                                  sacrament_hymn: title,
+                                })
+                              }
+                              hymns={hymns}
+                              placeholder="Select Sacrament Hymn..."
                             />
                           </div>
                           <div className="sm:col-span-4 flex flex-col justify-center text-xs text-slate-500 pt-5">
@@ -1415,29 +1418,30 @@ export function AgendasPage() {
                         </div>
 
                         {/* Special Music */}
-                        <Input
+                        <SingleMusicPicker
                           label="Special Music (if any, by choir - F & T only or standing)"
-                          placeholder="e.g. Ward Choir / Musical Item"
+                          placeholder="e.g. Ward Choir / Special Musical Item"
                           value={activeAgenda.special_music || ''}
-                          onChange={(e) => setActiveAgenda({ ...activeAgenda, special_music: e.target.value })}
+                          onChange={(val) => setActiveAgenda({ ...activeAgenda, special_music: val })}
+                          hymns={hymns}
                         />
 
                         {/* Closing Hymn & Prayer */}
                         <div className="grid sm:grid-cols-12 gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
-                          <div className="sm:col-span-2">
-                            <Input
-                              label="Closing Hymn #"
-                              placeholder="1004"
-                              value={activeAgenda.closing_hymn_number || ''}
-                              onChange={(e) => setActiveAgenda({ ...activeAgenda, closing_hymn_number: e.target.value })}
-                            />
-                          </div>
-                          <div className="sm:col-span-4">
-                            <Input
-                              label="Closing Hymn Title"
-                              placeholder="I will walk with Jesus"
-                              value={activeAgenda.closing_hymn || ''}
-                              onChange={(e) => handleHymnChange('closing', e.target.value)}
+                          <div className="sm:col-span-6">
+                            <HymnPicker
+                              label="Closing Hymn"
+                              hymnNumber={activeAgenda.closing_hymn_number || ''}
+                              hymnTitle={activeAgenda.closing_hymn || ''}
+                              onHymnChange={(num, title) =>
+                                setActiveAgenda({
+                                  ...activeAgenda,
+                                  closing_hymn_number: num,
+                                  closing_hymn: title,
+                                })
+                              }
+                              hymns={hymns}
+                              placeholder="Select Closing Hymn..."
                             />
                           </div>
                           <div className="sm:col-span-6">
