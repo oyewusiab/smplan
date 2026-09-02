@@ -25,6 +25,7 @@ import { AgendaDiffModal } from '../components/agenda/AgendaDiffModal';
 import { DigitalPodiumModal } from '../components/agenda/DigitalPodiumModal';
 import { OtherAgendasSection } from '../components/agenda/OtherAgendasSection';
 import { SendAgendaReminderModal } from '../components/agenda/SendAgendaReminderModal';
+import { MemberPicker } from '../components/agenda/MemberPicker';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSunday } from 'date-fns';
 import toast from 'react-hot-toast';
 
@@ -1207,52 +1208,22 @@ export function AgendasPage() {
                         {/* Presiding */}
                         <div className="grid sm:grid-cols-12 gap-3">
                           <div className="sm:col-span-8">
-                            <label className="block text-xs font-bold text-slate-700 mb-1">Presiding Officer</label>
-                            <div className="grid grid-cols-12 gap-2">
-                              <div className="col-span-4 sm:col-span-3">
-                                <select
-                                  value={parsePrefixAndName(activeAgenda.presiding, 'Bishop').prefix}
-                                  onChange={(e) => {
-                                    const newPref = e.target.value;
-                                    const parsed = parsePrefixAndName(activeAgenda.presiding, 'Bishop');
-                                    setActiveAgenda({ ...activeAgenda, presiding: parsed.name ? `${newPref} ${parsed.name}` : newPref });
-                                  }}
-                                  className="w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs font-semibold focus:border-blue-500 focus:outline-none"
-                                >
-                                  <option value="Bishop">Bishop</option>
-                                  <option value="President">President</option>
-                                  <option value="Elder">Elder</option>
-                                  <option value="Brother">Brother</option>
-                                  <option value="Sister">Sister</option>
-                                </select>
-                              </div>
-                              <div className="col-span-8 sm:col-span-9">
-                                <input
-                                  type="text"
-                                  placeholder="Search member or enter name..."
-                                  list="all_members_datalist"
-                                  value={parsePrefixAndName(activeAgenda.presiding, 'Bishop').name}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    const found = members.find((m) => m.name.toLowerCase() === val.toLowerCase());
-                                    const currentPref = parsePrefixAndName(activeAgenda.presiding, 'Bishop').prefix;
-                                    const pref = found ? (found.gender === 'F' ? 'Sister' : currentPref) : currentPref;
-                                    setActiveAgenda({ ...activeAgenda, presiding: val ? `${pref} ${val}` : '' });
-                                  }}
-                                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium focus:border-blue-500 focus:outline-none"
-                                />
-                              </div>
-                            </div>
+                            <MemberPicker
+                              label="Presiding Officer"
+                              value={activeAgenda.presiding || ''}
+                              onChange={(val) => setActiveAgenda({ ...activeAgenda, presiding: val })}
+                              members={members}
+                              prefixOptions={['Bishop', 'President', 'Elder', 'Brother', 'Sister']}
+                              defaultPrefix="Bishop"
+                              placeholder="Select Presiding Officer..."
+                            />
                           </div>
                           <div className="sm:col-span-4">
-                            <label className="block text-xs font-bold text-slate-700 mb-1">Presiding Position</label>
-                            <input
-                              type="text"
+                            <Input
+                              label="Presiding Position"
                               placeholder="e.g. Bishop / Stake President"
-                              list="presiding_positions_datalist"
                               value={activeAgenda.presiding_position || ''}
                               onChange={(e) => setActiveAgenda({ ...activeAgenda, presiding_position: e.target.value })}
-                              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium focus:border-blue-500 focus:outline-none"
                             />
                           </div>
                         </div>
@@ -1260,49 +1231,23 @@ export function AgendasPage() {
                         {/* Conducting */}
                         <div className="grid sm:grid-cols-12 gap-3">
                           <div className="sm:col-span-8">
-                            <label className="block text-xs font-bold text-slate-700 mb-1">Conducting Officer</label>
-                            <div className="grid grid-cols-12 gap-2">
-                              <div className="col-span-4 sm:col-span-3">
-                                <select
-                                  value={parsePrefixAndName(activeAgenda.conducting, 'Brother').prefix}
-                                  onChange={(e) => {
-                                    const newPref = e.target.value;
-                                    const parsed = parsePrefixAndName(activeAgenda.conducting, 'Brother');
-                                    setActiveAgenda({ ...activeAgenda, conducting: parsed.name ? `${newPref} ${parsed.name}` : newPref });
-                                  }}
-                                  className="w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs font-semibold focus:border-blue-500 focus:outline-none"
-                                >
-                                  <option value="Brother">Brother</option>
-                                  <option value="Bishop">Bishop</option>
-                                  <option value="Elder">Elder</option>
-                                  <option value="President">President</option>
-                                </select>
-                              </div>
-                              <div className="col-span-8 sm:col-span-9">
-                                <input
-                                  type="text"
-                                  placeholder="Search member or enter name..."
-                                  list="male_members_datalist"
-                                  value={parsePrefixAndName(activeAgenda.conducting, 'Brother').name}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    const currentPref = parsePrefixAndName(activeAgenda.conducting, 'Brother').prefix;
-                                    setActiveAgenda({ ...activeAgenda, conducting: val ? `${currentPref} ${val}` : '' });
-                                  }}
-                                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium focus:border-blue-500 focus:outline-none"
-                                />
-                              </div>
-                            </div>
+                            <MemberPicker
+                              label="Conducting Officer"
+                              value={activeAgenda.conducting || ''}
+                              onChange={(val) => setActiveAgenda({ ...activeAgenda, conducting: val })}
+                              members={members}
+                              filterGender="M"
+                              prefixOptions={['Brother', 'Bishop', 'Elder', 'President']}
+                              defaultPrefix="Brother"
+                              placeholder="Select Conducting Officer..."
+                            />
                           </div>
                           <div className="sm:col-span-4">
-                            <label className="block text-xs font-bold text-slate-700 mb-1">Conducting Position</label>
-                            <input
-                              type="text"
+                            <Input
+                              label="Conducting Position"
                               placeholder="e.g. 1st Counsellor"
-                              list="conducting_positions_datalist"
                               value={activeAgenda.conducting_position || ''}
                               onChange={(e) => setActiveAgenda({ ...activeAgenda, conducting_position: e.target.value })}
-                              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium focus:border-blue-500 focus:outline-none"
                             />
                           </div>
                         </div>
@@ -1310,112 +1255,37 @@ export function AgendasPage() {
                         {/* Music Leaders */}
                         <div className="grid sm:grid-cols-3 gap-4">
                           {/* Music Director */}
-                          <div>
-                            <label className="block text-xs font-bold text-slate-700 mb-1">Music Director (Chorister)</label>
-                            <div className="grid grid-cols-12 gap-1.5">
-                              <div className="col-span-5">
-                                <select
-                                  value={parsePrefixAndName(activeAgenda.music_director, 'Sister').prefix}
-                                  onChange={(e) => {
-                                    const newPref = e.target.value;
-                                    const parsed = parsePrefixAndName(activeAgenda.music_director, 'Sister');
-                                    setActiveAgenda({ ...activeAgenda, music_director: parsed.name ? `${newPref} ${parsed.name}` : newPref });
-                                  }}
-                                  className="w-full rounded-lg border border-slate-300 bg-white px-1.5 py-1.5 text-xs font-semibold focus:border-blue-500 focus:outline-none"
-                                >
-                                  <option value="Sister">Sister</option>
-                                  <option value="Brother">Brother</option>
-                                </select>
-                              </div>
-                              <div className="col-span-7">
-                                <input
-                                  type="text"
-                                  placeholder="Select member..."
-                                  list="all_members_datalist"
-                                  value={parsePrefixAndName(activeAgenda.music_director, 'Sister').name}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    const found = members.find((m) => m.name.toLowerCase() === val.toLowerCase());
-                                    const pref = found ? (found.gender === 'M' ? 'Brother' : 'Sister') : parsePrefixAndName(activeAgenda.music_director, 'Sister').prefix;
-                                    setActiveAgenda({ ...activeAgenda, music_director: val ? `${pref} ${val}` : '' });
-                                  }}
-                                  className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs font-medium focus:border-blue-500 focus:outline-none"
-                                />
-                              </div>
-                            </div>
-                          </div>
+                          <MemberPicker
+                            label="Music Director (Chorister)"
+                            value={activeAgenda.music_director || ''}
+                            onChange={(val) => setActiveAgenda({ ...activeAgenda, music_director: val })}
+                            members={members}
+                            prefixOptions={['Sister', 'Brother']}
+                            defaultPrefix="Sister"
+                            placeholder="Select Music Director..."
+                          />
 
                           {/* Choir Director */}
-                          <div>
-                            <label className="block text-xs font-bold text-slate-700 mb-1">Choir Director (Optional)</label>
-                            <div className="grid grid-cols-12 gap-1.5">
-                              <div className="col-span-5">
-                                <select
-                                  value={parsePrefixAndName(activeAgenda.choir_director, 'Sister').prefix}
-                                  onChange={(e) => {
-                                    const newPref = e.target.value;
-                                    const parsed = parsePrefixAndName(activeAgenda.choir_director, 'Sister');
-                                    setActiveAgenda({ ...activeAgenda, choir_director: parsed.name ? `${newPref} ${parsed.name}` : newPref });
-                                  }}
-                                  className="w-full rounded-lg border border-slate-300 bg-white px-1.5 py-1.5 text-xs font-semibold focus:border-blue-500 focus:outline-none"
-                                >
-                                  <option value="Sister">Sister</option>
-                                  <option value="Brother">Brother</option>
-                                </select>
-                              </div>
-                              <div className="col-span-7">
-                                <input
-                                  type="text"
-                                  placeholder="Select member..."
-                                  list="all_members_datalist"
-                                  value={parsePrefixAndName(activeAgenda.choir_director, 'Sister').name}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    const found = members.find((m) => m.name.toLowerCase() === val.toLowerCase());
-                                    const pref = found ? (found.gender === 'M' ? 'Brother' : 'Sister') : parsePrefixAndName(activeAgenda.choir_director, 'Sister').prefix;
-                                    setActiveAgenda({ ...activeAgenda, choir_director: val ? `${pref} ${val}` : '' });
-                                  }}
-                                  className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs font-medium focus:border-blue-500 focus:outline-none"
-                                />
-                              </div>
-                            </div>
-                          </div>
+                          <MemberPicker
+                            label="Choir Director (Optional)"
+                            value={activeAgenda.choir_director || ''}
+                            onChange={(val) => setActiveAgenda({ ...activeAgenda, choir_director: val })}
+                            members={members}
+                            prefixOptions={['Sister', 'Brother']}
+                            defaultPrefix="Sister"
+                            placeholder="Select Choir Director..."
+                          />
 
                           {/* Organist */}
-                          <div>
-                            <label className="block text-xs font-bold text-slate-700 mb-1">Organist / Pianist</label>
-                            <div className="grid grid-cols-12 gap-1.5">
-                              <div className="col-span-5">
-                                <select
-                                  value={parsePrefixAndName(activeAgenda.organist, 'Brother').prefix}
-                                  onChange={(e) => {
-                                    const newPref = e.target.value;
-                                    const parsed = parsePrefixAndName(activeAgenda.organist, 'Brother');
-                                    setActiveAgenda({ ...activeAgenda, organist: parsed.name ? `${newPref} ${parsed.name}` : newPref });
-                                  }}
-                                  className="w-full rounded-lg border border-slate-300 bg-white px-1.5 py-1.5 text-xs font-semibold focus:border-blue-500 focus:outline-none"
-                                >
-                                  <option value="Brother">Brother</option>
-                                  <option value="Sister">Sister</option>
-                                </select>
-                              </div>
-                              <div className="col-span-7">
-                                <input
-                                  type="text"
-                                  placeholder="Select member..."
-                                  list="all_members_datalist"
-                                  value={parsePrefixAndName(activeAgenda.organist, 'Brother').name}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    const found = members.find((m) => m.name.toLowerCase() === val.toLowerCase());
-                                    const pref = found ? (found.gender === 'F' ? 'Sister' : 'Brother') : parsePrefixAndName(activeAgenda.organist, 'Brother').prefix;
-                                    setActiveAgenda({ ...activeAgenda, organist: val ? `${pref} ${val}` : '' });
-                                  }}
-                                  className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs font-medium focus:border-blue-500 focus:outline-none"
-                                />
-                              </div>
-                            </div>
-                          </div>
+                          <MemberPicker
+                            label="Organist / Pianist"
+                            value={activeAgenda.organist || ''}
+                            onChange={(val) => setActiveAgenda({ ...activeAgenda, organist: val })}
+                            members={members}
+                            prefixOptions={['Brother', 'Sister']}
+                            defaultPrefix="Brother"
+                            placeholder="Select Organist / Pianist..."
+                          />
                         </div>
                       </CardBody>
                     </Card>
@@ -1486,68 +1356,38 @@ export function AgendasPage() {
                             />
                           </div>
                           <div className="sm:col-span-6">
-                            <label className="block text-xs font-bold text-slate-700 mb-1">Opening Prayer (Invocation)</label>
-                            <div className="grid grid-cols-12 gap-1.5">
-                              <div className="col-span-4">
-                                <select
-                                  value={parsePrefixAndName(activeAgenda.opening_prayer, 'Brother').prefix}
-                                  onChange={(e) => {
-                                    const newPref = e.target.value;
-                                    const parsed = parsePrefixAndName(activeAgenda.opening_prayer, 'Brother');
-                                    setActiveAgenda({ ...activeAgenda, opening_prayer: parsed.name ? `${newPref} ${parsed.name}` : newPref });
-                                  }}
-                                  className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs font-semibold focus:border-blue-500 focus:outline-none"
-                                >
-                                  <option value="Brother">Brother</option>
-                                  <option value="Sister">Sister</option>
-                                  <option value="Elder">Elder</option>
-                                  <option value="Bishop">Bishop</option>
-                                  <option value="President">President</option>
-                                </select>
-                              </div>
-                              <div className="col-span-8">
-                                <input
-                                  type="text"
-                                  placeholder="Select member..."
-                                  list="all_members_datalist"
-                                  value={parsePrefixAndName(activeAgenda.opening_prayer, 'Brother').name}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    const found = members.find((m) => m.name.toLowerCase() === val.toLowerCase());
-                                    const pref = found ? (found.gender === 'F' ? 'Sister' : 'Brother') : parsePrefixAndName(activeAgenda.opening_prayer, 'Brother').prefix;
-                                    setActiveAgenda({ ...activeAgenda, opening_prayer: val ? `${pref} ${val}` : '' });
-                                  }}
-                                  className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium focus:border-blue-500 focus:outline-none"
-                                />
-                              </div>
-                            </div>
+                            <MemberPicker
+                              label="Opening Prayer (Invocation)"
+                              value={activeAgenda.opening_prayer || ''}
+                              onChange={(val) => setActiveAgenda({ ...activeAgenda, opening_prayer: val })}
+                              members={members}
+                              prefixOptions={['Brother', 'Sister', 'Elder', 'Bishop', 'President']}
+                              defaultPrefix="Brother"
+                              placeholder="Select Member for Opening Prayer..."
+                            />
                           </div>
                         </div>
 
                         {/* Business By & Stake Business */}
                         <div className="grid sm:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-xs font-bold text-slate-700 mb-1">Ward/Branch Business (by)</label>
-                            <input
-                              type="text"
-                              placeholder="e.g. Bishop Adebayo Oyewusi"
-                              list="all_members_datalist"
-                              value={activeAgenda.ward_branch_business || ''}
-                              onChange={(e) => setActiveAgenda({ ...activeAgenda, ward_branch_business: e.target.value })}
-                              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium focus:border-blue-500 focus:outline-none"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-slate-700 mb-1">Stake/District Business (by)</label>
-                            <input
-                              type="text"
-                              placeholder="e.g. Stake Representative"
-                              list="all_members_datalist"
-                              value={activeAgenda.stake_district_business || ''}
-                              onChange={(e) => setActiveAgenda({ ...activeAgenda, stake_district_business: e.target.value })}
-                              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium focus:border-blue-500 focus:outline-none"
-                            />
-                          </div>
+                          <MemberPicker
+                            label="Ward/Branch Business (by)"
+                            value={activeAgenda.ward_branch_business || ''}
+                            onChange={(val) => setActiveAgenda({ ...activeAgenda, ward_branch_business: val })}
+                            members={members}
+                            prefixOptions={['Bishop', 'Brother', 'Elder', 'President']}
+                            defaultPrefix="Bishop"
+                            placeholder="Select Member for Ward Business..."
+                          />
+                          <MemberPicker
+                            label="Stake/District Business (by)"
+                            value={activeAgenda.stake_district_business || ''}
+                            onChange={(val) => setActiveAgenda({ ...activeAgenda, stake_district_business: val })}
+                            members={members}
+                            prefixOptions={['President', 'Elder', 'Brother', 'High Councilor']}
+                            defaultPrefix="President"
+                            placeholder="Select Stake Representative..."
+                          />
                         </div>
 
                         {/* Sacrament Hymn */}
@@ -1601,41 +1441,15 @@ export function AgendasPage() {
                             />
                           </div>
                           <div className="sm:col-span-6">
-                            <label className="block text-xs font-bold text-slate-700 mb-1">Closing Prayer (Benediction)</label>
-                            <div className="grid grid-cols-12 gap-1.5">
-                              <div className="col-span-4">
-                                <select
-                                  value={parsePrefixAndName(activeAgenda.closing_prayer, 'Brother').prefix}
-                                  onChange={(e) => {
-                                    const newPref = e.target.value;
-                                    const parsed = parsePrefixAndName(activeAgenda.closing_prayer, 'Brother');
-                                    setActiveAgenda({ ...activeAgenda, closing_prayer: parsed.name ? `${newPref} ${parsed.name}` : newPref });
-                                  }}
-                                  className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs font-semibold focus:border-blue-500 focus:outline-none"
-                                >
-                                  <option value="Brother">Brother</option>
-                                  <option value="Sister">Sister</option>
-                                  <option value="Elder">Elder</option>
-                                  <option value="Bishop">Bishop</option>
-                                  <option value="President">President</option>
-                                </select>
-                              </div>
-                              <div className="col-span-8">
-                                <input
-                                  type="text"
-                                  placeholder="Select member..."
-                                  list="all_members_datalist"
-                                  value={parsePrefixAndName(activeAgenda.closing_prayer, 'Brother').name}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    const found = members.find((m) => m.name.toLowerCase() === val.toLowerCase());
-                                    const pref = found ? (found.gender === 'F' ? 'Sister' : 'Brother') : parsePrefixAndName(activeAgenda.closing_prayer, 'Brother').prefix;
-                                    setActiveAgenda({ ...activeAgenda, closing_prayer: val ? `${pref} ${val}` : '' });
-                                  }}
-                                  className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium focus:border-blue-500 focus:outline-none"
-                                />
-                              </div>
-                            </div>
+                            <MemberPicker
+                              label="Closing Prayer (Benediction)"
+                              value={activeAgenda.closing_prayer || ''}
+                              onChange={(val) => setActiveAgenda({ ...activeAgenda, closing_prayer: val })}
+                              members={members}
+                              prefixOptions={['Brother', 'Sister', 'Elder', 'Bishop', 'President']}
+                              defaultPrefix="Brother"
+                              placeholder="Select Member for Closing Prayer..."
+                            />
                           </div>
                         </div>
                       </CardBody>
@@ -1671,107 +1485,77 @@ export function AgendasPage() {
                             </p>
                           </div>
                         ) : (
-                          speakersList.map((sp, idx) => {
-                            const parsedSp = parsePrefixAndName(sp.name, sp.gender === 'F' ? 'Sister' : 'Brother');
-                            return (
-                              <div key={idx} className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
-                                <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                                  <span>Testimony / Talk {idx + 1}</span>
-                                  {speakersList.length > 1 && (
-                                    <button
-                                      type="button"
-                                      onClick={() => setSpeakersList(speakersList.filter((_, i) => i !== idx))}
-                                      className="text-red-500 hover:underline cursor-pointer"
-                                    >
-                                      Remove
-                                    </button>
-                                  )}
+                          speakersList.map((sp, idx) => (
+                            <div key={idx} className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+                              <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                                <span>Testimony / Talk {idx + 1}</span>
+                                {speakersList.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setSpeakersList(speakersList.filter((_, i) => i !== idx))}
+                                    className="text-red-500 hover:underline cursor-pointer"
+                                  >
+                                    Remove
+                                  </button>
+                                )}
+                              </div>
+                              <div className="grid sm:grid-cols-12 gap-3">
+                                {/* Speaker Name with Dropdown & Prefix Selector */}
+                                <div className="sm:col-span-5">
+                                  <MemberPicker
+                                    label="Speaker's Name"
+                                    value={sp.name}
+                                    onChange={(val) => {
+                                      const next = [...speakersList];
+                                      next[idx].name = val;
+                                      setSpeakersList(next);
+                                    }}
+                                    members={members}
+                                    prefixOptions={['Brother', 'Sister', 'Elder', 'Bishop', 'President']}
+                                    defaultPrefix="Brother"
+                                    placeholder="Select speaker..."
+                                  />
                                 </div>
-                                <div className="grid sm:grid-cols-12 gap-3">
-                                  {/* Speaker Name with Prefix Dropdown */}
-                                  <div className="sm:col-span-5">
-                                    <label className="block text-xs font-bold text-slate-700 mb-1">Speaker's Name</label>
-                                    <div className="grid grid-cols-12 gap-1.5">
-                                      <div className="col-span-4">
-                                        <select
-                                          value={parsedSp.prefix}
-                                          onChange={(e) => {
-                                            const newPref = e.target.value;
-                                            const next = [...speakersList];
-                                            next[idx].name = parsedSp.name ? `${newPref} ${parsedSp.name}` : newPref;
-                                            next[idx].gender = newPref === 'Sister' ? 'F' : 'M';
-                                            setSpeakersList(next);
-                                          }}
-                                          className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs font-semibold focus:border-blue-500 focus:outline-none"
-                                        >
-                                          <option value="Brother">Brother</option>
-                                          <option value="Sister">Sister</option>
-                                          <option value="Elder">Elder</option>
-                                          <option value="Bishop">Bishop</option>
-                                          <option value="President">President</option>
-                                        </select>
-                                      </div>
-                                      <div className="col-span-8">
-                                        <input
-                                          type="text"
-                                          placeholder="Select member or type..."
-                                          list="all_members_datalist"
-                                          value={parsedSp.name}
-                                          onChange={(e) => {
-                                            const val = e.target.value;
-                                            const found = members.find((m) => m.name.toLowerCase() === val.toLowerCase());
-                                            const pref = found ? (found.gender === 'F' ? 'Sister' : 'Brother') : parsedSp.prefix;
-                                            const next = [...speakersList];
-                                            next[idx].name = val ? `${pref} ${val}` : '';
-                                            if (found) next[idx].gender = found.gender;
-                                            setSpeakersList(next);
-                                          }}
-                                          className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium focus:border-blue-500 focus:outline-none"
-                                        />
-                                      </div>
-                                    </div>
-                                  </div>
 
-                                  <div className="sm:col-span-3">
-                                    <Input
-                                      label="Subject"
-                                      placeholder="e.g. The Covenant Path"
-                                      value={sp.topic}
-                                      onChange={(e) => {
-                                        const next = [...speakersList];
-                                        next[idx].topic = e.target.value;
-                                        setSpeakersList(next);
-                                      }}
-                                    />
-                                  </div>
-                                  <div className="sm:col-span-3">
-                                    <Input
-                                      label="References"
-                                      placeholder="e.g. Alma 32 / Conference"
-                                      value={sp.scripture_ref || ''}
-                                      onChange={(e) => {
-                                        const next = [...speakersList];
-                                        next[idx].scripture_ref = e.target.value;
-                                        setSpeakersList(next);
-                                      }}
-                                    />
-                                  </div>
-                                  <div className="sm:col-span-1">
-                                    <Input
-                                      label="Min"
-                                      type="number"
-                                      value={sp.minutes || 10}
-                                      onChange={(e) => {
-                                        const next = [...speakersList];
-                                        next[idx].minutes = Number(e.target.value);
-                                        setSpeakersList(next);
-                                      }}
-                                    />
-                                  </div>
+                                <div className="sm:col-span-3">
+                                  <Input
+                                    label="Subject"
+                                    placeholder="e.g. The Covenant Path"
+                                    value={sp.topic}
+                                    onChange={(e) => {
+                                      const next = [...speakersList];
+                                      next[idx].topic = e.target.value;
+                                      setSpeakersList(next);
+                                    }}
+                                  />
+                                </div>
+                                <div className="sm:col-span-3">
+                                  <Input
+                                    label="References"
+                                    placeholder="e.g. Alma 32 / Conference"
+                                    value={sp.scripture_ref || ''}
+                                    onChange={(e) => {
+                                      const next = [...speakersList];
+                                      next[idx].scripture_ref = e.target.value;
+                                      setSpeakersList(next);
+                                    }}
+                                  />
+                                </div>
+                                <div className="sm:col-span-1">
+                                  <Input
+                                    label="Min"
+                                    type="number"
+                                    value={sp.minutes || 10}
+                                    onChange={(e) => {
+                                      const next = [...speakersList];
+                                      next[idx].minutes = Number(e.target.value);
+                                      setSpeakersList(next);
+                                    }}
+                                  />
                                 </div>
                               </div>
-                            );
-                          })
+                            </div>
+                          ))
                         )}
                       </CardBody>
                     </Card>
@@ -1828,57 +1612,46 @@ export function AgendasPage() {
                           </h3>
                         </CardHeader>
                         <CardBody className="space-y-2.5">
-                          {releasesList.map((r, idx) => {
-                            const parsedR = parsePrefixAndName(r.name, 'Brother');
-                            return (
-                              <div key={idx} className="flex items-center gap-1.5">
-                                <span className="text-xs font-bold text-slate-400 w-4">{idx + 1}</span>
-                                <select
-                                  value={parsedR.prefix}
-                                  onChange={(e) => {
-                                    const newPref = e.target.value;
+                          {releasesList.map((r, idx) => (
+                            <div key={idx} className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-slate-400 w-4">{idx + 1}</span>
+                              <div className="w-1/2 min-w-0">
+                                <MemberPicker
+                                  value={r.name}
+                                  onChange={(val) => {
+                                    const found = members.find((m) => val.toLowerCase().includes(m.name.toLowerCase()));
                                     const next = [...releasesList];
-                                    next[idx].name = parsedR.name ? `${newPref} ${parsedR.name}` : newPref;
-                                    setReleasesList(next);
-                                  }}
-                                  className="rounded border border-slate-300 bg-white px-1.5 py-1 text-2xs font-bold"
-                                >
-                                  <option value="Brother">Brother</option>
-                                  <option value="Sister">Sister</option>
-                                  <option value="Elder">Elder</option>
-                                  <option value="President">President</option>
-                                </select>
-                                <input
-                                  type="text"
-                                  placeholder="Member Name"
-                                  list="all_members_datalist"
-                                  value={parsedR.name}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    const found = members.find((m) => m.name.toLowerCase() === val.toLowerCase());
-                                    const pref = found ? (found.gender === 'F' ? 'Sister' : 'Brother') : parsedR.prefix;
-                                    const next = [...releasesList];
-                                    next[idx].name = val ? `${pref} ${val}` : '';
+                                    next[idx].name = val;
                                     if (found?.calling && !next[idx].calling) next[idx].calling = found.calling;
                                     setReleasesList(next);
                                   }}
-                                  className="w-1/2 rounded border border-slate-300 px-2 py-1 text-xs"
+                                  members={members}
+                                  prefixOptions={['Brother', 'Sister', 'Elder', 'President']}
+                                  defaultPrefix="Brother"
+                                  placeholder="Select member..."
+                                  size="xs"
                                 />
-                                <input
-                                  type="text"
-                                  placeholder="Released As (Calling)"
-                                  list="all_callings_datalist"
+                              </div>
+                              <div className="w-1/2 min-w-0">
+                                <select
                                   value={r.calling}
                                   onChange={(e) => {
                                     const next = [...releasesList];
                                     next[idx].calling = e.target.value;
                                     setReleasesList(next);
                                   }}
-                                  className="w-1/2 rounded border border-slate-300 px-2 py-1 text-xs"
-                                />
+                                  className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium focus:border-blue-500 focus:outline-none shadow-2xs"
+                                >
+                                  <option value="">Select Calling...</option>
+                                  {distinctCallings.map((c) => (
+                                    <option key={c} value={c}>
+                                      {c}
+                                    </option>
+                                  ))}
+                                </select>
                               </div>
-                            );
-                          })}
+                            </div>
+                          ))}
                         </CardBody>
                       </Card>
 
@@ -1890,56 +1663,44 @@ export function AgendasPage() {
                           </h3>
                         </CardHeader>
                         <CardBody className="space-y-2.5">
-                          {sustainingsList.map((c, idx) => {
-                            const parsedC = parsePrefixAndName(c.name, 'Brother');
-                            return (
-                              <div key={idx} className="flex items-center gap-1.5">
-                                <span className="text-xs font-bold text-slate-400 w-4">{idx + 1}</span>
-                                <select
-                                  value={parsedC.prefix}
-                                  onChange={(e) => {
-                                    const newPref = e.target.value;
+                          {sustainingsList.map((c, idx) => (
+                            <div key={idx} className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-slate-400 w-4">{idx + 1}</span>
+                              <div className="w-1/2 min-w-0">
+                                <MemberPicker
+                                  value={c.name}
+                                  onChange={(val) => {
                                     const next = [...sustainingsList];
-                                    next[idx].name = parsedC.name ? `${newPref} ${parsedC.name}` : newPref;
+                                    next[idx].name = val;
                                     setSustainingsList(next);
                                   }}
-                                  className="rounded border border-slate-300 bg-white px-1.5 py-1 text-2xs font-bold"
-                                >
-                                  <option value="Brother">Brother</option>
-                                  <option value="Sister">Sister</option>
-                                  <option value="Elder">Elder</option>
-                                  <option value="President">President</option>
-                                </select>
-                                <input
-                                  type="text"
-                                  placeholder="Member Name"
-                                  list="all_members_datalist"
-                                  value={parsedC.name}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    const found = members.find((m) => m.name.toLowerCase() === val.toLowerCase());
-                                    const pref = found ? (found.gender === 'F' ? 'Sister' : 'Brother') : parsedC.prefix;
-                                    const next = [...sustainingsList];
-                                    next[idx].name = val ? `${pref} ${val}` : '';
-                                    setSustainingsList(next);
-                                  }}
-                                  className="w-1/2 rounded border border-slate-300 px-2 py-1 text-xs"
+                                  members={members}
+                                  prefixOptions={['Brother', 'Sister', 'Elder', 'President']}
+                                  defaultPrefix="Brother"
+                                  placeholder="Select member..."
+                                  size="xs"
                                 />
-                                <input
-                                  type="text"
-                                  placeholder="Called As (Calling)"
-                                  list="all_callings_datalist"
+                              </div>
+                              <div className="w-1/2 min-w-0">
+                                <select
                                   value={c.calling}
                                   onChange={(e) => {
                                     const next = [...sustainingsList];
                                     next[idx].calling = e.target.value;
                                     setSustainingsList(next);
                                   }}
-                                  className="w-1/2 rounded border border-slate-300 px-2 py-1 text-xs"
-                                />
+                                  className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium focus:border-blue-500 focus:outline-none shadow-2xs"
+                                >
+                                  <option value="">Select Calling...</option>
+                                  {distinctCallings.map((call) => (
+                                    <option key={call} value={call}>
+                                      {call}
+                                    </option>
+                                  ))}
+                                </select>
                               </div>
-                            );
-                          })}
+                            </div>
+                          ))}
                         </CardBody>
                       </Card>
                     </div>
@@ -1956,18 +1717,20 @@ export function AgendasPage() {
                           {baptismsList.map((b, idx) => (
                             <div key={idx} className="flex items-center gap-2">
                               <span className="text-xs font-bold text-slate-400 w-5">{idx + 1}.</span>
-                              <input
-                                type="text"
-                                placeholder="Child Name (select or enter)"
-                                list="all_members_datalist"
-                                value={b.name}
-                                onChange={(e) => {
-                                  const next = [...baptismsList];
-                                  next[idx].name = e.target.value;
-                                  setBaptismsList(next);
-                                }}
-                                className="block w-full rounded border border-slate-300 px-2.5 py-1.5 text-xs font-medium"
-                              />
+                              <div className="flex-1">
+                                <MemberPicker
+                                  value={b.name}
+                                  onChange={(val) => {
+                                    const next = [...baptismsList];
+                                    next[idx].name = val;
+                                    setBaptismsList(next);
+                                  }}
+                                  members={members}
+                                  showPrefix={false}
+                                  placeholder="Select child name..."
+                                  size="xs"
+                                />
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -1982,84 +1745,70 @@ export function AgendasPage() {
                         </h3>
                       </CardHeader>
                       <CardBody className="space-y-2.5">
-                        {ordinationsList.map((o, idx) => {
-                          const parsedBy = parsePrefixAndName(o.ordained_by, 'Brother');
-                          return (
-                            <div key={idx} className="grid grid-cols-12 gap-2 items-center text-xs">
-                              <span className="col-span-1 font-bold text-slate-400 text-center">{idx + 1}</span>
-                              <input
-                                type="text"
-                                placeholder="Candidate name..."
-                                list="male_members_datalist"
+                        {ordinationsList.map((o, idx) => (
+                          <div key={idx} className="grid grid-cols-12 gap-2 items-center text-xs">
+                            <span className="col-span-1 font-bold text-slate-400 text-center">{idx + 1}</span>
+                            <div className="col-span-4">
+                              <MemberPicker
                                 value={o.name}
-                                onChange={(e) => {
+                                onChange={(val) => {
                                   const next = [...ordinationsList];
-                                  next[idx].name = e.target.value;
+                                  next[idx].name = val;
                                   setOrdinationsList(next);
                                 }}
-                                className="col-span-4 rounded border border-slate-300 px-2 py-1 text-xs"
+                                members={members}
+                                filterGender="M"
+                                showPrefix={false}
+                                placeholder="Candidate name..."
+                                size="xs"
                               />
-                              <select
-                                value={o.office}
-                                onChange={(e) => {
-                                  const next = [...ordinationsList];
-                                  next[idx].office = e.target.value;
-                                  setOrdinationsList(next);
-                                }}
-                                className="col-span-2 rounded border border-slate-300 bg-white px-1.5 py-1 text-xs font-semibold"
-                              >
-                                <option value="">Select Office</option>
-                                <option value="Deacon">Deacon</option>
-                                <option value="Teacher">Teacher</option>
-                                <option value="Priest">Priest</option>
-                              </select>
-                              <div className="col-span-3 flex items-center gap-1">
-                                <select
-                                  value={parsedBy.prefix}
-                                  onChange={(e) => {
-                                    const newPref = e.target.value;
-                                    const next = [...ordinationsList];
-                                    next[idx].ordained_by = parsedBy.name ? `${newPref} ${parsedBy.name}` : newPref;
-                                    setOrdinationsList(next);
-                                  }}
-                                  className="rounded border border-slate-300 bg-white px-1 py-1 text-2xs font-bold shrink-0"
-                                >
-                                  <option value="Brother">Brother</option>
-                                  <option value="Elder">Elder</option>
-                                  <option value="Bishop">Bishop</option>
-                                  <option value="President">President</option>
-                                </select>
-                                <input
-                                  type="text"
-                                  placeholder="Ordained by..."
-                                  list="male_members_datalist"
-                                  value={parsedBy.name}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    const next = [...ordinationsList];
-                                    next[idx].ordained_by = val ? `${parsedBy.prefix} ${val}` : '';
-                                    setOrdinationsList(next);
-                                  }}
-                                  className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
-                                />
-                              </div>
-                              <select
-                                value={o.ordained_by_office}
-                                onChange={(e) => {
-                                  const next = [...ordinationsList];
-                                  next[idx].ordained_by_office = e.target.value;
-                                  setOrdinationsList(next);
-                                }}
-                                className="col-span-2 rounded border border-slate-300 bg-white px-1.5 py-1 text-xs font-semibold"
-                              >
-                                <option value="">Office</option>
-                                <option value="High Priest">High Priest</option>
-                                <option value="Elder">Elder</option>
-                                <option value="Priest">Priest</option>
-                              </select>
                             </div>
-                          );
-                        })}
+                            <select
+                              value={o.office}
+                              onChange={(e) => {
+                                const next = [...ordinationsList];
+                                next[idx].office = e.target.value;
+                                setOrdinationsList(next);
+                              }}
+                              className="col-span-2 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-semibold focus:border-blue-500 focus:outline-none shadow-2xs"
+                            >
+                              <option value="">Select Office</option>
+                              <option value="Deacon">Deacon</option>
+                              <option value="Teacher">Teacher</option>
+                              <option value="Priest">Priest</option>
+                            </select>
+                            <div className="col-span-3">
+                              <MemberPicker
+                                value={o.ordained_by}
+                                onChange={(val) => {
+                                  const next = [...ordinationsList];
+                                  next[idx].ordained_by = val;
+                                  setOrdinationsList(next);
+                                }}
+                                members={members}
+                                filterGender="M"
+                                prefixOptions={['Brother', 'Elder', 'Bishop', 'President']}
+                                defaultPrefix="Brother"
+                                placeholder="Ordained by..."
+                                size="xs"
+                              />
+                            </div>
+                            <select
+                              value={o.ordained_by_office}
+                              onChange={(e) => {
+                                const next = [...ordinationsList];
+                                next[idx].ordained_by_office = e.target.value;
+                                setOrdinationsList(next);
+                              }}
+                              className="col-span-2 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-semibold focus:border-blue-500 focus:outline-none shadow-2xs"
+                            >
+                              <option value="">Office</option>
+                              <option value="High Priest">High Priest</option>
+                              <option value="Elder">Elder</option>
+                              <option value="Priest">Priest</option>
+                            </select>
+                          </div>
+                        ))}
                       </CardBody>
                     </Card>
 
@@ -2071,96 +1820,82 @@ export function AgendasPage() {
                         </h3>
                       </CardHeader>
                       <CardBody className="space-y-2.5">
-                        {advancementsList.map((a, idx) => {
-                          const parsedBy = parsePrefixAndName(a.ordained_by, 'Brother');
-                          return (
-                            <div key={idx} className="grid grid-cols-12 gap-2 items-center text-xs">
-                              <span className="col-span-1 font-bold text-slate-400 text-center">{idx + 1}</span>
-                              <input
-                                type="text"
-                                placeholder="Name"
-                                list="male_members_datalist"
+                        {advancementsList.map((a, idx) => (
+                          <div key={idx} className="grid grid-cols-12 gap-2 items-center text-xs">
+                            <span className="col-span-1 font-bold text-slate-400 text-center">{idx + 1}</span>
+                            <div className="col-span-4">
+                              <MemberPicker
                                 value={a.name}
-                                onChange={(e) => {
+                                onChange={(val) => {
                                   const next = [...advancementsList];
-                                  next[idx].name = e.target.value;
+                                  next[idx].name = val;
                                   setAdvancementsList(next);
                                 }}
-                                className="col-span-4 rounded border border-slate-300 px-2 py-1 text-xs"
+                                members={members}
+                                filterGender="M"
+                                showPrefix={false}
+                                placeholder="Candidate name..."
+                                size="xs"
                               />
-                              <select
-                                value={a.from_office}
-                                onChange={(e) => {
-                                  const next = [...advancementsList];
-                                  next[idx].from_office = e.target.value;
-                                  setAdvancementsList(next);
-                                }}
-                                className="col-span-1 rounded border border-slate-300 bg-white px-1 py-1 text-2xs font-semibold"
-                              >
-                                <option value="">From</option>
-                                <option value="Deacon">Deacon</option>
-                                <option value="Teacher">Teacher</option>
-                              </select>
-                              <select
-                                value={a.to_office}
-                                onChange={(e) => {
-                                  const next = [...advancementsList];
-                                  next[idx].to_office = e.target.value;
-                                  setAdvancementsList(next);
-                                }}
-                                className="col-span-1 rounded border border-slate-300 bg-white px-1 py-1 text-2xs font-semibold"
-                              >
-                                <option value="">To</option>
-                                <option value="Teacher">Teacher</option>
-                                <option value="Priest">Priest</option>
-                              </select>
-                              <div className="col-span-3 flex items-center gap-1">
-                                <select
-                                  value={parsedBy.prefix}
-                                  onChange={(e) => {
-                                    const newPref = e.target.value;
-                                    const next = [...advancementsList];
-                                    next[idx].ordained_by = parsedBy.name ? `${newPref} ${parsedBy.name}` : newPref;
-                                    setAdvancementsList(next);
-                                  }}
-                                  className="rounded border border-slate-300 bg-white px-1 py-1 text-2xs font-bold shrink-0"
-                                >
-                                  <option value="Brother">Brother</option>
-                                  <option value="Elder">Elder</option>
-                                  <option value="Bishop">Bishop</option>
-                                  <option value="President">President</option>
-                                </select>
-                                <input
-                                  type="text"
-                                  placeholder="Ordained by..."
-                                  list="male_members_datalist"
-                                  value={parsedBy.name}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    const next = [...advancementsList];
-                                    next[idx].ordained_by = val ? `${parsedBy.prefix} ${val}` : '';
-                                    setAdvancementsList(next);
-                                  }}
-                                  className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
-                                />
-                              </div>
-                              <select
-                                value={a.ordained_by_office}
-                                onChange={(e) => {
-                                  const next = [...advancementsList];
-                                  next[idx].ordained_by_office = e.target.value;
-                                  setAdvancementsList(next);
-                                }}
-                                className="col-span-2 rounded border border-slate-300 bg-white px-1.5 py-1 text-xs font-semibold"
-                              >
-                                <option value="">Office</option>
-                                <option value="High Priest">High Priest</option>
-                                <option value="Elder">Elder</option>
-                                <option value="Priest">Priest</option>
-                              </select>
                             </div>
-                          );
-                        })}
+                            <select
+                              value={a.from_office}
+                              onChange={(e) => {
+                                const next = [...advancementsList];
+                                next[idx].from_office = e.target.value;
+                                setAdvancementsList(next);
+                              }}
+                              className="col-span-1 rounded-lg border border-slate-300 bg-white px-1 py-1 text-2xs font-semibold focus:border-blue-500 focus:outline-none shadow-2xs"
+                            >
+                              <option value="">From</option>
+                              <option value="Deacon">Deacon</option>
+                              <option value="Teacher">Teacher</option>
+                            </select>
+                            <select
+                              value={a.to_office}
+                              onChange={(e) => {
+                                const next = [...advancementsList];
+                                next[idx].to_office = e.target.value;
+                                setAdvancementsList(next);
+                              }}
+                              className="col-span-1 rounded-lg border border-slate-300 bg-white px-1 py-1 text-2xs font-semibold focus:border-blue-500 focus:outline-none shadow-2xs"
+                            >
+                              <option value="">To</option>
+                              <option value="Teacher">Teacher</option>
+                              <option value="Priest">Priest</option>
+                            </select>
+                            <div className="col-span-3">
+                              <MemberPicker
+                                value={a.ordained_by}
+                                onChange={(val) => {
+                                  const next = [...advancementsList];
+                                  next[idx].ordained_by = val;
+                                  setAdvancementsList(next);
+                                }}
+                                members={members}
+                                filterGender="M"
+                                prefixOptions={['Brother', 'Elder', 'Bishop', 'President']}
+                                defaultPrefix="Brother"
+                                placeholder="Ordained by..."
+                                size="xs"
+                              />
+                            </div>
+                            <select
+                              value={a.ordained_by_office}
+                              onChange={(e) => {
+                                const next = [...advancementsList];
+                                next[idx].ordained_by_office = e.target.value;
+                                setAdvancementsList(next);
+                              }}
+                              className="col-span-2 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-semibold focus:border-blue-500 focus:outline-none shadow-2xs"
+                            >
+                              <option value="">Office</option>
+                              <option value="High Priest">High Priest</option>
+                              <option value="Elder">Elder</option>
+                              <option value="Priest">Priest</option>
+                            </select>
+                          </div>
+                        ))}
                       </CardBody>
                     </Card>
 
@@ -2176,18 +1911,35 @@ export function AgendasPage() {
                           {achievementsList.map((val, idx) => (
                             <div key={idx} className="flex items-center gap-2">
                               <span className="text-xs font-bold text-slate-400 w-5">{idx + 1}.</span>
-                              <input
-                                type="text"
-                                placeholder={`Achievement / Recognition ${idx + 1}`}
-                                list="all_members_datalist"
-                                value={val}
-                                onChange={(e) => {
-                                  const next = [...achievementsList];
-                                  next[idx] = e.target.value;
-                                  setAchievementsList(next);
-                                }}
-                                className="block w-full rounded border border-slate-300 px-2.5 py-1.5 text-xs font-medium"
-                              />
+                              <div className="w-1/2">
+                                <MemberPicker
+                                  value={val.split(' — ')[0] || ''}
+                                  onChange={(pickedMember) => {
+                                    const desc = val.includes(' — ') ? val.split(' — ').slice(1).join(' — ') : '';
+                                    const next = [...achievementsList];
+                                    next[idx] = desc ? `${pickedMember} — ${desc}` : pickedMember;
+                                    setAchievementsList(next);
+                                  }}
+                                  members={members}
+                                  showPrefix={true}
+                                  placeholder="Select member..."
+                                  size="xs"
+                                />
+                              </div>
+                              <div className="w-1/2">
+                                <input
+                                  type="text"
+                                  placeholder="Achievement / Recognition details..."
+                                  value={val.includes(' — ') ? val.split(' — ').slice(1).join(' — ') : (val && !members.some(m => val.includes(m.name)) ? val : '')}
+                                  onChange={(e) => {
+                                    const memberPart = val.split(' — ')[0] || '';
+                                    const next = [...achievementsList];
+                                    next[idx] = e.target.value ? `${memberPart} — ${e.target.value}` : memberPart;
+                                    setAchievementsList(next);
+                                  }}
+                                  className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium focus:border-blue-500 focus:outline-none shadow-2xs"
+                                />
+                              </div>
                             </div>
                           ))}
                         </div>
