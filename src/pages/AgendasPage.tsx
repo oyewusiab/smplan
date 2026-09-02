@@ -27,6 +27,7 @@ import { OtherAgendasSection } from '../components/agenda/OtherAgendasSection';
 import { SendAgendaReminderModal } from '../components/agenda/SendAgendaReminderModal';
 import { MemberPicker } from '../components/agenda/MemberPicker';
 import { HymnPicker, SingleMusicPicker } from '../components/agenda/HymnPicker';
+import { CustomSelectPicker } from '../components/agenda/CustomSelectPicker';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSunday } from 'date-fns';
 import toast from 'react-hot-toast';
 
@@ -1637,22 +1638,17 @@ export function AgendasPage() {
                                 />
                               </div>
                               <div className="w-1/2 min-w-0">
-                                <select
+                                <CustomSelectPicker
                                   value={r.calling}
-                                  onChange={(e) => {
+                                  onChange={(val) => {
                                     const next = [...releasesList];
-                                    next[idx].calling = e.target.value;
+                                    next[idx].calling = val;
                                     setReleasesList(next);
                                   }}
-                                  className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium focus:border-blue-500 focus:outline-none shadow-2xs"
-                                >
-                                  <option value="">Select Calling...</option>
-                                  {distinctCallings.map((c) => (
-                                    <option key={c} value={c}>
-                                      {c}
-                                    </option>
-                                  ))}
-                                </select>
+                                  options={distinctCallings}
+                                  placeholder="Select or type calling..."
+                                  size="xs"
+                                />
                               </div>
                             </div>
                           ))}
@@ -1686,22 +1682,17 @@ export function AgendasPage() {
                                 />
                               </div>
                               <div className="w-1/2 min-w-0">
-                                <select
+                                <CustomSelectPicker
                                   value={c.calling}
-                                  onChange={(e) => {
+                                  onChange={(val) => {
                                     const next = [...sustainingsList];
-                                    next[idx].calling = e.target.value;
+                                    next[idx].calling = val;
                                     setSustainingsList(next);
                                   }}
-                                  className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium focus:border-blue-500 focus:outline-none shadow-2xs"
-                                >
-                                  <option value="">Select Calling...</option>
-                                  {distinctCallings.map((call) => (
-                                    <option key={call} value={call}>
-                                      {call}
-                                    </option>
-                                  ))}
-                                </select>
+                                  options={distinctCallings}
+                                  placeholder="Select or type calling..."
+                                  size="xs"
+                                />
                               </div>
                             </div>
                           ))}
@@ -1767,21 +1758,20 @@ export function AgendasPage() {
                                 size="xs"
                               />
                             </div>
-                            <select
-                              value={o.office}
-                              onChange={(e) => {
-                                const next = [...ordinationsList];
-                                next[idx].office = e.target.value;
-                                setOrdinationsList(next);
-                              }}
-                              className="col-span-2 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-semibold focus:border-blue-500 focus:outline-none shadow-2xs"
-                            >
-                              <option value="">Select Office</option>
-                              <option value="Deacon">Deacon</option>
-                              <option value="Teacher">Teacher</option>
-                              <option value="Priest">Priest</option>
-                            </select>
-                            <div className="col-span-3">
+                            <div className="col-span-2">
+                              <CustomSelectPicker
+                                value={o.office}
+                                onChange={(val) => {
+                                  const next = [...ordinationsList];
+                                  next[idx].office = val;
+                                  setOrdinationsList(next);
+                                }}
+                                options={['Deacon', 'Teacher', 'Priest']}
+                                placeholder="Office"
+                                size="xs"
+                              />
+                            </div>
+                            <div className="col-span-4">
                               <MemberPicker
                                 value={o.ordained_by}
                                 onChange={(val) => {
@@ -1797,20 +1787,19 @@ export function AgendasPage() {
                                 size="xs"
                               />
                             </div>
-                            <select
-                              value={o.ordained_by_office}
-                              onChange={(e) => {
-                                const next = [...ordinationsList];
-                                next[idx].ordained_by_office = e.target.value;
-                                setOrdinationsList(next);
-                              }}
-                              className="col-span-2 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-semibold focus:border-blue-500 focus:outline-none shadow-2xs"
-                            >
-                              <option value="">Office</option>
-                              <option value="High Priest">High Priest</option>
-                              <option value="Elder">Elder</option>
-                              <option value="Priest">Priest</option>
-                            </select>
+                            <div className="col-span-2">
+                              <CustomSelectPicker
+                                value={o.ordained_by_office}
+                                onChange={(val) => {
+                                  const next = [...ordinationsList];
+                                  next[idx].ordained_by_office = val;
+                                  setOrdinationsList(next);
+                                }}
+                                options={['High Priest', 'Elder', 'Priest']}
+                                placeholder="Office"
+                                size="xs"
+                              />
+                            </div>
                           </div>
                         ))}
                       </CardBody>
@@ -1842,33 +1831,33 @@ export function AgendasPage() {
                                 size="xs"
                               />
                             </div>
-                            <select
-                              value={a.from_office}
-                              onChange={(e) => {
-                                const next = [...advancementsList];
-                                next[idx].from_office = e.target.value;
-                                setAdvancementsList(next);
-                              }}
-                              className="col-span-1 rounded-lg border border-slate-300 bg-white px-1 py-1 text-2xs font-semibold focus:border-blue-500 focus:outline-none shadow-2xs"
-                            >
-                              <option value="">From</option>
-                              <option value="Deacon">Deacon</option>
-                              <option value="Teacher">Teacher</option>
-                            </select>
-                            <select
-                              value={a.to_office}
-                              onChange={(e) => {
-                                const next = [...advancementsList];
-                                next[idx].to_office = e.target.value;
-                                setAdvancementsList(next);
-                              }}
-                              className="col-span-1 rounded-lg border border-slate-300 bg-white px-1 py-1 text-2xs font-semibold focus:border-blue-500 focus:outline-none shadow-2xs"
-                            >
-                              <option value="">To</option>
-                              <option value="Teacher">Teacher</option>
-                              <option value="Priest">Priest</option>
-                            </select>
-                            <div className="col-span-3">
+                            <div className="col-span-1">
+                              <CustomSelectPicker
+                                value={a.from_office}
+                                onChange={(val) => {
+                                  const next = [...advancementsList];
+                                  next[idx].from_office = val;
+                                  setAdvancementsList(next);
+                                }}
+                                options={['Deacon', 'Teacher']}
+                                placeholder="From"
+                                size="xs"
+                              />
+                            </div>
+                            <div className="col-span-1">
+                              <CustomSelectPicker
+                                value={a.to_office}
+                                onChange={(val) => {
+                                  const next = [...advancementsList];
+                                  next[idx].to_office = val;
+                                  setAdvancementsList(next);
+                                }}
+                                options={['Teacher', 'Priest']}
+                                placeholder="To"
+                                size="xs"
+                              />
+                            </div>
+                            <div className="col-span-4">
                               <MemberPicker
                                 value={a.ordained_by}
                                 onChange={(val) => {
@@ -1884,20 +1873,19 @@ export function AgendasPage() {
                                 size="xs"
                               />
                             </div>
-                            <select
-                              value={a.ordained_by_office}
-                              onChange={(e) => {
-                                const next = [...advancementsList];
-                                next[idx].ordained_by_office = e.target.value;
-                                setAdvancementsList(next);
-                              }}
-                              className="col-span-2 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-semibold focus:border-blue-500 focus:outline-none shadow-2xs"
-                            >
-                              <option value="">Office</option>
-                              <option value="High Priest">High Priest</option>
-                              <option value="Elder">Elder</option>
-                              <option value="Priest">Priest</option>
-                            </select>
+                            <div className="col-span-2">
+                              <CustomSelectPicker
+                                value={a.ordained_by_office}
+                                onChange={(val) => {
+                                  const next = [...advancementsList];
+                                  next[idx].ordained_by_office = val;
+                                  setAdvancementsList(next);
+                                }}
+                                options={['High Priest', 'Elder', 'Priest']}
+                                placeholder="Office"
+                                size="xs"
+                              />
+                            </div>
                           </div>
                         ))}
                       </CardBody>
