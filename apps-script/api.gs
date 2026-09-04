@@ -2504,12 +2504,7 @@ function handleSendAgendaReminders(body) {
         `With regards,\n` +
         `The Bishopric · ${wardName}`;
 
-      MailApp.sendEmail({
-        to: recipient.email,
-        subject: subject,
-        body: plainText,
-        htmlBody: htmlBody
-      });
+      sendEmail(recipient.email, subject, plainText, { html: htmlBody, name: 'SM Planner' });
 
       // Save to REMINDERS table
       const reminderRec = {

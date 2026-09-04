@@ -210,17 +210,16 @@ function sendEmail(to, subject, body, options) {
     return false;
   }
 
+  const senderName = (options && options.name) ? options.name : 'SM Planner';
   const cleanTo = to.trim();
   const mailOptions = {
     to: cleanTo,
     subject: subject || 'SM Planner Notification',
     body: body || '',
+    name: senderName,
   };
   if (options && options.html) {
     mailOptions.htmlBody = options.html;
-  }
-  if (options && options.name) {
-    mailOptions.name = options.name;
   }
 
   try {
@@ -230,11 +229,11 @@ function sendEmail(to, subject, body, options) {
   } catch (mailErr) {
     Logger.log('MailApp sendEmail failed (' + mailErr.message + '), attempting GmailApp fallback...');
     try {
+      const gmailOptions = { name: senderName };
       if (options && options.html) {
-        GmailApp.sendEmail(cleanTo, subject, body, { htmlBody: options.html, name: options && options.name });
-      } else {
-        GmailApp.sendEmail(cleanTo, subject, body, { name: options && options.name });
+        gmailOptions.htmlBody = options.html;
       }
+      GmailApp.sendEmail(cleanTo, subject, body, gmailOptions);
       Logger.log('GmailApp fallback sent email successfully to: ' + cleanTo);
       return true;
     } catch (gmailErr) {
