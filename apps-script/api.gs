@@ -3933,7 +3933,8 @@ function handleSendOtherAgendaEmails(body) {
   const existing = dbFindOne('OTHER_AGENDAS', 'other_agenda_id', body.other_agenda_id);
   if (!existing) throw new Error('Agenda not found');
 
-  const emailSummary = sendOtherAgendaNotifications(existing);
+  const customRecipients = Array.isArray(body.recipients) ? body.recipients : null;
+  const emailSummary = sendOtherAgendaNotifications(existing, customRecipients);
   if (emailSummary && emailSummary.sentCount > 0) {
     dbUpdate('OTHER_AGENDAS', 'other_agenda_id', body.other_agenda_id, {
       email_sent_count: (existing.email_sent_count || 0) + emailSummary.sentCount,
@@ -3962,7 +3963,7 @@ function handleDeleteOtherAgenda(body) {
 /**
  * Sends automated HTML notification emails to attendees and assignees for an approved Other Agenda.
  */
-function sendOtherAgendaNotifications(agendaInput) {
+function sendOtherAgendaNotifications(agendaInput, customRecipients) {
   let agenda = agendaInput;
   if (!agenda) return { sentCount: 0, details: [] };
   if (agenda.updated && typeof agenda.updated === 'object') {
@@ -3983,7 +3984,7 @@ function sendOtherAgendaNotifications(agendaInput) {
     if (!s) return '';
     return String(s)
       .toLowerCase()
-      .replace(/^(brother|sister|elder|bishop|president|bro\.|bro|sis\.|sis|eld\.|eld|bp\.|bp|pres\.|pres)\s+/i, '')
+      .replace(/^(brother|sister|elder|bishop|president|patriarch|bro\.|bro|sis\.|sis|eld\.|eld|bp\.|bp|pres\.|pres)\s+/i, '')
       .replace(/[^a-z0-9]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
@@ -4164,105 +4165,149 @@ function sendOtherAgendaNotifications(agendaInput) {
     return 'Brother ' + baseName;
   };
 
-  const recipients = {}; // email -> { name, roles: [], assignments: [] }
+  const recipients = {}; // email -> { name, roles: [], assignments: [], isAttendee: boolean }
 
-  // 1. Check Opening Prayer
-  if (agenda.opening_prayer) {
-    const em = getEmailForName(agenda.opening_prayer);
-    if (em) {
-      const rec = getMemberRecordForName(agenda.opening_prayer);
-      const hName = formatHonorificName(agenda.opening_prayer, rec);
-      if (!recipients[em]) recipients[em] = { name: hName, roles: [], assignments: [] };
-      recipients[em].roles.push('Opening Prayer');
-    }
-  }
-
-  // 2. Check Spiritual Thought
-  if (agenda.spiritual_thought_by) {
-    const em = getEmailForName(agenda.spiritual_thought_by);
-    if (em) {
-      const rec = getMemberRecordForName(agenda.spiritual_thought_by);
-      const hName = formatHonorificName(agenda.spiritual_thought_by, rec);
-      if (!recipients[em]) recipients[em] = { name: hName, roles: [], assignments: [] };
-      recipients[em].roles.push(`Spiritual Thought${agenda.spiritual_thought_topic ? ` (${agenda.spiritual_thought_topic})` : ''}`);
-    }
-  }
-
-  // 3. Check Closing Remarks
-  if (agenda.closing_remarks_by) {
-    const em = getEmailForName(agenda.closing_remarks_by);
-    if (em) {
-      const rec = getMemberRecordForName(agenda.closing_remarks_by);
-      const hName = formatHonorificName(agenda.closing_remarks_by, rec);
-      if (!recipients[em]) recipients[em] = { name: hName, roles: [], assignments: [] };
-      recipients[em].roles.push('Closing Remarks');
-    }
-  }
-
-  // 4. Check Closing Prayer
-  if (agenda.closing_prayer) {
-    const em = getEmailForName(agenda.closing_prayer);
-    if (em) {
-      const rec = getMemberRecordForName(agenda.closing_prayer);
-      const hName = formatHonorificName(agenda.closing_prayer, rec);
-      if (!recipients[em]) recipients[em] = { name: hName, roles: [], assignments: [] };
-      recipients[em].roles.push('Closing Prayer');
-    }
-  }
-
-  // 5. Check Action Items / Assignments
-  assignmentsList.forEach(item => {
-    const assigneeName = item.assignee || '';
-    let email = (item.assignee_email || '').trim();
-    if (!email && assigneeName) {
-      email = getEmailForName(assigneeName);
-    }
-
-    if (email && email.includes('@')) {
-      const rec = getMemberRecordForName(assigneeName);
-      const hName = formatHonorificName(assigneeName, rec);
-      if (!recipients[email]) {
-        recipients[email] = { name: hName || 'Ward Leader', roles: [], assignments: [] };
+  if (Array.isArray(customRecipients) && customRecipients.length > 0) {
+    customRecipients.forEach(r => {
+      const rawEmail = r.email ? String(r.email).trim() : '';
+      if (rawEmail && rawEmail.includes('@')) {
+        const hName = r.name ? String(r.name).trim() : 'Leader';
+        if (!recipients[rawEmail]) {
+          recipients[rawEmail] = {
+            name: hName,
+            roles: Array.isArray(r.roles) ? r.roles : (r.role ? [String(r.role)] : (Array.isArray(r.assignments) ? r.assignments : [])),
+            assignments: Array.isArray(r.assignmentsList) ? r.assignmentsList : [],
+            isAttendee: Boolean(r.isAttendee)
+          };
+        } else {
+          if (Array.isArray(r.roles)) {
+            r.roles.forEach(rl => { if (!recipients[rawEmail].roles.includes(rl)) recipients[rawEmail].roles.push(rl); });
+          }
+          if (Array.isArray(r.assignmentsList)) {
+            r.assignmentsList.forEach(asg => recipients[rawEmail].assignments.push(asg));
+          }
+        }
       }
-      recipients[email].assignments.push({
-        task: item.task || 'Assigned Item',
-        dueDate: item.due_date || 'Next Meeting',
-        notes: item.notes || '',
-      });
+    });
+  } else {
+    // 1. Presiding & Conducting Officers
+    if (agenda.presiding) {
+      const em = getEmailForName(agenda.presiding);
+      if (em) {
+        const rec = getMemberRecordForName(agenda.presiding);
+        const hName = formatHonorificName(agenda.presiding, agenda.presiding_role || rec);
+        if (!recipients[em]) recipients[em] = { name: hName, roles: [], assignments: [] };
+        recipients[em].roles.push(`Presiding Officer (${agenda.presiding_role || 'Presiding'})`);
+      }
     }
-  });
-
-  // 6. Check Attendees & Leadership Roll (so all listed attendees receive a full copy of the agenda)
-  let attendeesList = [];
-  try {
-    if (typeof agenda.attendees === 'string') {
-      attendeesList = JSON.parse(agenda.attendees || '[]');
-    } else if (Array.isArray(agenda.attendees)) {
-      attendeesList = agenda.attendees;
+    if (agenda.conducting) {
+      const em = getEmailForName(agenda.conducting);
+      if (em) {
+        const rec = getMemberRecordForName(agenda.conducting);
+        const hName = formatHonorificName(agenda.conducting, agenda.conducting_role || rec);
+        if (!recipients[em]) recipients[em] = { name: hName, roles: [], assignments: [] };
+        recipients[em].roles.push(`Conducting Officer (${agenda.conducting_role || 'Conducting'})`);
+      }
     }
-  } catch (e) {
-    attendeesList = [];
-  }
 
-  attendeesList.forEach(att => {
-    if (att.name && att.name.trim()) {
-      const attName = att.name.trim();
-      let email = (att.email || '').trim();
-      if (!email) {
-        email = getEmailForName(attName);
+    // 2. Check Opening Prayer
+    if (agenda.opening_prayer) {
+      const em = getEmailForName(agenda.opening_prayer);
+      if (em) {
+        const rec = getMemberRecordForName(agenda.opening_prayer);
+        const hName = formatHonorificName(agenda.opening_prayer, rec);
+        if (!recipients[em]) recipients[em] = { name: hName, roles: [], assignments: [] };
+        recipients[em].roles.push('Opening Prayer');
+      }
+    }
+
+    // 3. Check Spiritual Thought
+    if (agenda.spiritual_thought_by) {
+      const em = getEmailForName(agenda.spiritual_thought_by);
+      if (em) {
+        const rec = getMemberRecordForName(agenda.spiritual_thought_by);
+        const hName = formatHonorificName(agenda.spiritual_thought_by, rec);
+        if (!recipients[em]) recipients[em] = { name: hName, roles: [], assignments: [] };
+        recipients[em].roles.push(`Spiritual Thought${agenda.spiritual_thought_topic ? ` (${agenda.spiritual_thought_topic})` : ''}`);
+      }
+    }
+
+    // 4. Check Closing Remarks
+    if (agenda.closing_remarks_by) {
+      const em = getEmailForName(agenda.closing_remarks_by);
+      if (em) {
+        const rec = getMemberRecordForName(agenda.closing_remarks_by);
+        const hName = formatHonorificName(agenda.closing_remarks_by, rec);
+        if (!recipients[em]) recipients[em] = { name: hName, roles: [], assignments: [] };
+        recipients[em].roles.push('Closing Remarks');
+      }
+    }
+
+    // 5. Check Closing Prayer
+    if (agenda.closing_prayer) {
+      const em = getEmailForName(agenda.closing_prayer);
+      if (em) {
+        const rec = getMemberRecordForName(agenda.closing_prayer);
+        const hName = formatHonorificName(agenda.closing_prayer, rec);
+        if (!recipients[em]) recipients[em] = { name: hName, roles: [], assignments: [] };
+        recipients[em].roles.push('Closing Prayer');
+      }
+    }
+
+    // 6. Check Action Items / Assignments
+    assignmentsList.forEach(item => {
+      const assigneeName = item.assignee || '';
+      let email = (item.assignee_email || '').trim();
+      if (!email && assigneeName) {
+        email = getEmailForName(assigneeName);
       }
 
       if (email && email.includes('@')) {
-        const rec = getMemberRecordForName(attName);
-        const hName = formatHonorificName(attName, att.calling || rec);
+        const rec = getMemberRecordForName(assigneeName);
+        const hName = formatHonorificName(assigneeName, rec);
         if (!recipients[email]) {
-          recipients[email] = { name: hName, roles: [], assignments: [], isAttendee: true };
-        } else {
-          recipients[email].isAttendee = true;
+          recipients[email] = { name: hName || 'Ward Leader', roles: [], assignments: [] };
+        }
+        recipients[email].assignments.push({
+          task: item.task || 'Assigned Item',
+          dueDate: item.due_date || 'Next Meeting',
+          notes: item.notes || '',
+        });
+      }
+    });
+
+    // 7. Check Attendees & Leadership Roll (so all listed attendees receive a full copy of the agenda)
+    let attendeesList = [];
+    try {
+      if (typeof agenda.attendees === 'string') {
+        attendeesList = JSON.parse(agenda.attendees || '[]');
+      } else if (Array.isArray(agenda.attendees)) {
+        attendeesList = agenda.attendees;
+      }
+    } catch (e) {
+      attendeesList = [];
+    }
+
+    attendeesList.forEach(att => {
+      if (att.name && att.name.trim()) {
+        const attName = att.name.trim();
+        let email = (att.email || '').trim();
+        if (!email) {
+          email = getEmailForName(attName);
+        }
+
+        if (email && email.includes('@')) {
+          const rec = getMemberRecordForName(attName);
+          const hName = formatHonorificName(attName, att.calling || rec);
+          if (!recipients[email]) {
+            recipients[email] = { name: hName, roles: [], assignments: [], isAttendee: true };
+          } else {
+            recipients[email].isAttendee = true;
+          }
         }
       }
-    }
-  });
+    });
+  }
 
   const meetingTypeLabels = {
     BISHOPRIC_MEETING: 'Bishopric Meeting',

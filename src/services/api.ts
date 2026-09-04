@@ -320,11 +320,11 @@ export const otherAgendasApi = {
   update: (token: string, data: Record<string, unknown>) =>
     post(withTokenBody(token, { action: 'UPDATE_OTHER_AGENDA', ...data })),
 
-  approve: (token: string, other_agenda_id: string) =>
-    post(withTokenBody(token, { action: 'APPROVE_OTHER_AGENDA', other_agenda_id })),
+  approve: (token: string, other_agenda_id: string, recipients?: Array<Record<string, unknown>>) =>
+    post(withTokenBody(token, { action: 'APPROVE_OTHER_AGENDA', other_agenda_id, ...(recipients ? { recipients } : {}) })),
 
-  sendEmails: (token: string, other_agenda_id: string) =>
-    post(withTokenBody(token, { action: 'SEND_OTHER_AGENDA_EMAILS', other_agenda_id })),
+  sendEmails: (token: string, other_agenda_id: string, recipients?: Array<Record<string, unknown>>) =>
+    post(withTokenBody(token, { action: 'SEND_OTHER_AGENDA_EMAILS', other_agenda_id, ...(recipients ? { recipients } : {}) })),
 
   delete: (token: string, other_agenda_id: string) =>
     post(withTokenBody(token, { action: 'DELETE_OTHER_AGENDA', other_agenda_id })),

@@ -11,6 +11,7 @@ import { OtherAgendaModal } from './OtherAgendaModal';
 import { OtherAgendaPrintModal } from './OtherAgendaPrintModal';
 import { OtherAgendaWhatsAppModal } from './OtherAgendaWhatsAppModal';
 import { LeadershipAgendaSettingsModal } from './LeadershipAgendaSettingsModal';
+import { SendOtherAgendaReminderModal } from './SendOtherAgendaReminderModal';
 import type { OtherAgenda, OtherAgendaMeetingType, OtherAgendaState, Member } from '../../types';
 import { otherAgendasApi } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
@@ -43,6 +44,8 @@ export function OtherAgendasSection({ members, unitName }: OtherAgendasSectionPr
   const [whatsAppModalOpen, setWhatsAppModalOpen] = useState(false);
   const [whatsAppAgenda, setWhatsAppAgenda] = useState<OtherAgenda | null>(null);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [emailModalAgenda, setEmailModalAgenda] = useState<OtherAgenda | null>(null);
 
   const loadOtherAgendas = async () => {
     if (!session) return;
@@ -215,26 +218,14 @@ export function OtherAgendasSection({ members, unitName }: OtherAgendasSectionPr
     }
   };
 
-  // Resend Emails
-  const handleResendEmails = async (agenda: OtherAgenda) => {
-    if (!session) return;
-    if (!window.confirm(`Dispatch / Resend email notices to all leaders with assignments in "${agenda.title}"?`)) {
-      return;
-    }
+  // Send / Resend Emails Modal Trigger
+  const handleOpenEmailModal = (agenda: OtherAgenda) => {
+    setEmailModalAgenda(agenda);
+    setEmailModalOpen(true);
+  };
 
-    try {
-      const res = await otherAgendasApi.sendEmails(session.token, agenda.other_agenda_id) as { ok: boolean; emailSummary?: { sentCount: number } };
-      if (res && res.ok) {
-        toast.success(
-          res.emailSummary && res.emailSummary.sentCount > 0
-            ? `Sent! ${res.emailSummary.sentCount} notification emails delivered.`
-            : 'No recipients with valid email addresses found.'
-        );
-        loadOtherAgendas();
-      }
-    } catch (e: any) {
-      toast.error(e?.message || 'Email dispatch failed');
-    }
+  const handleResendEmails = (agenda: OtherAgenda) => {
+    handleOpenEmailModal(agenda);
   };
 
   // Delete Handler
@@ -628,6 +619,22 @@ export function OtherAgendasSection({ members, unitName }: OtherAgendasSectionPr
           isOpen={settingsModalOpen}
           onClose={() => setSettingsModalOpen(false)}
           members={members}
+        />
+      )}
+
+      {/* Leadership Agenda Email Notification Dispatch Modal */}
+      {emailModalOpen && emailModalAgenda && (
+        <SendOtherAgendaReminderModal
+          open={emailModalOpen}
+          onClose={() => {
+            setEmailModalOpen(false);
+            setEmailModalAgenda(null);
+          }}
+          agenda={emailModalAgenda}
+          members={members}
+          onSentSuccess={() => {
+            loadOtherAgendas();
+          }}
         />
       )}
 
