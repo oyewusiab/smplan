@@ -4067,6 +4067,7 @@ function sendOtherAgendaNotifications(agendaInput, customRecipients) {
         const val = String(obj[key] || '').trim();
         if (val.includes('@')) return val;
       }
+    }
     return '';
   };
 
