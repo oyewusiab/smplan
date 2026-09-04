@@ -3980,14 +3980,42 @@ function sendOtherAgendaNotifications(agendaInput, customRecipients) {
   const allMembers = dbReadAll('MEMBERS_LIST');
   const allUsers = dbReadAll('USERS');
 
-  const normalize = (s) => {
-    if (!s) return '';
-    return String(s)
+  const tokenizeName = (name) => {
+    if (!name) return [];
+    return String(name)
       .toLowerCase()
       .replace(/^(brother|sister|elder|bishop|president|patriarch|bro\.|bro|sis\.|sis|eld\.|eld|bp\.|bp|pres\.|pres)\s+/i, '')
       .replace(/[^a-z0-9]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+      .split(/\s+/)
+      .filter(t => t.length > 0 && !/^(brother|sister|elder|bishop|president|patriarch|bro|sis|eld|bp|pres)$/.test(t));
+  };
+
+  const namesMatch = (nameA, nameB) => {
+    if (!nameA || !nameB) return false;
+    const rawA = String(nameA).trim().toLowerCase();
+    const rawB = String(nameB).trim().toLowerCase();
+    if (rawA === rawB) return true;
+
+    const tokensA = tokenizeName(nameA);
+    const tokensB = tokenizeName(nameB);
+    if (tokensA.length === 0 || tokensB.length === 0) return false;
+
+    if (tokensA.join(' ') === tokensB.join(' ')) return true;
+
+    const setB = {};
+    tokensB.forEach(t => { setB[t] = true; });
+    const setA = {};
+    tokensA.forEach(t => { setA[t] = true; });
+
+    const intersect = tokensA.filter(t => setB[t]);
+    if (tokensA.length >= 2 && tokensB.length >= 2 && intersect.length >= 2) return true;
+    if (tokensA.length > 0 && tokensA.every(t => setB[t])) return true;
+    if (tokensB.length > 0 && tokensB.every(t => setA[t])) return true;
+
+    if (tokensA.length === 1 && tokensB.includes(tokensA[0]) && tokensA[0].length >= 3) return true;
+    if (tokensB.length === 1 && tokensA.includes(tokensB[0]) && tokensB[0].length >= 3) return true;
+
+    return false;
   };
 
   // Helper to extract email regardless of column name casing or spaces (e.g. email, Email, EMAIL, Email Address, E-mail)
@@ -4002,123 +4030,46 @@ function sendOtherAgendaNotifications(agendaInput, customRecipients) {
     return '';
   };
 
-  const emailLookup = {};
-
-  // Index members
-  allMembers.forEach(m => {
-    const rawEmail = extractEmailFromObj(m);
-    if (rawEmail) {
-      if (m.name) {
-        emailLookup[String(m.name).trim().toLowerCase()] = rawEmail;
-        const norm = normalize(m.name);
-        if (norm) emailLookup[norm] = rawEmail;
-      }
-    }
-  });
-
-  // Index users (ward leadership accounts)
-  allUsers.forEach(u => {
-    const rawEmail = extractEmailFromObj(u);
-    if (rawEmail) {
-      if (u.name) {
-        emailLookup[String(u.name).trim().toLowerCase()] = rawEmail;
-        const norm = normalize(u.name);
-        if (norm) emailLookup[norm] = rawEmail;
-      }
-      if (u.preferred_name) {
-        emailLookup[String(u.preferred_name).trim().toLowerCase()] = rawEmail;
-        const normP = normalize(u.preferred_name);
-        if (normP) emailLookup[normP] = rawEmail;
-      }
-      if (u.username) {
-        emailLookup[String(u.username).trim().toLowerCase()] = rawEmail;
-      }
-    }
-  });
-
   const getEmailForName = (name) => {
     if (!name) return '';
-    const exact = String(name).trim().toLowerCase();
-    if (emailLookup[exact]) return emailLookup[exact];
+    const clean = String(name).trim();
 
-    const norm = normalize(name);
-    if (norm && emailLookup[norm]) return emailLookup[norm];
-
-    // Substring matching
-    const keys = Object.keys(emailLookup);
-    for (let i = 0; i < keys.length; i++) {
-      const k = keys[i];
-      if (norm.length > 3 && (k.includes(norm) || norm.includes(k))) {
-        return emailLookup[k];
+    // 1. Direct search in MEMBERS_LIST with token matching
+    for (let i = 0; i < allMembers.length; i++) {
+      const m = allMembers[i];
+      if (namesMatch(m.name, clean)) {
+        const em = extractEmailFromObj(m);
+        if (em) return em;
       }
     }
+
+    // 2. Direct search in USERS with token matching
+    for (let i = 0; i < allUsers.length; i++) {
+      const u = allUsers[i];
+      if (namesMatch(u.name, clean) || namesMatch(u.preferred_name, clean)) {
+        const em = extractEmailFromObj(u);
+        if (em) return em;
+      }
+    }
+
     return '';
-  };
-
-  let assignmentsList = [];
-  try {
-    if (typeof agenda.assignments === 'string') {
-      assignmentsList = JSON.parse(agenda.assignments || '[]');
-    } else if (Array.isArray(agenda.assignments)) {
-      assignmentsList = agenda.assignments;
-    }
-  } catch (e) {
-    assignmentsList = [];
-  }
-
-  let topicsList = [];
-  try {
-    if (typeof agenda.topics === 'string') {
-      topicsList = JSON.parse(agenda.topics || '[]');
-    } else if (Array.isArray(agenda.topics)) {
-      topicsList = agenda.topics;
-    }
-  } catch (e) {
-    topicsList = [];
-  }
-
-  const stripAllHonorifics = (rawName) => {
-    if (!rawName || !String(rawName).trim()) return { baseName: '', detectedTitle: '' };
-    let clean = String(rawName).trim();
-    let highestTitle = '';
-    const prefixRegex = /^(brother|sister|elder|bishop|president|patriarch|bro\.|bro|sis\.|sis|eld\.|eld|bp\.|bp|pres\.|pres)\s+/i;
-    let match;
-    while ((match = clean.match(prefixRegex))) {
-      const p = match[1].toLowerCase();
-      if (p.startsWith('bp') || p.startsWith('bishop')) highestTitle = 'Bishop';
-      else if (p.startsWith('pres') && highestTitle !== 'Bishop') highestTitle = 'President';
-      else if (p.startsWith('patr') && !['Bishop', 'President'].includes(highestTitle)) highestTitle = 'Patriarch';
-      else if (p.startsWith('eld') && !['Bishop', 'President', 'Patriarch'].includes(highestTitle)) highestTitle = 'Elder';
-      else if (p.startsWith('sis') && !['Bishop', 'President', 'Patriarch'].includes(highestTitle)) highestTitle = 'Sister';
-      else if (p.startsWith('bro') && !highestTitle) highestTitle = 'Brother';
-      clean = clean.substring(match[0].length).trim();
-    }
-    return { baseName: clean, detectedTitle: highestTitle };
   };
 
   const getMemberRecordForName = (name) => {
     if (!name) return null;
-    const { baseName } = stripAllHonorifics(name);
-    const cleanBase = normalize(baseName);
-    const cleanRaw = normalize(name);
+    const clean = String(name).trim();
 
-    return allMembers.find(m => {
-      const mName = normalize(m.name);
-      const mId = normalize(m.members_id || m.member_id);
-      if (mId && (cleanRaw.includes(mId) || cleanBase.includes(mId))) return true;
-      if (mName === cleanBase || mName === cleanRaw) return true;
-      if (mName.includes(',')) {
-        const parts = mName.split(',').map(p => p.trim());
-        if (parts.length === 2 && `${parts[1]} ${parts[0]}` === cleanBase) return true;
-      }
-      return false;
-    }) || allUsers.find(u => {
-      const uName = normalize(u.name);
-      const uPref = normalize(u.preferred_name);
-      const uId = normalize(u.members_id || u.member_id || u.user_id);
-      if (uId && (cleanRaw.includes(uId) || cleanBase.includes(uId))) return true;
-      return uName === cleanBase || uName === cleanRaw || uPref === cleanBase || uPref === cleanRaw;
-    });
+    for (let i = 0; i < allMembers.length; i++) {
+      const m = allMembers[i];
+      if (namesMatch(m.name, clean)) return m;
+    }
+
+    for (let i = 0; i < allUsers.length; i++) {
+      const u = allUsers[i];
+      if (namesMatch(u.name, clean) || namesMatch(u.preferred_name, clean)) return u;
+    }
+
+    return null;
   };
 
   const formatHonorificName = (rawName, memberRecord, genderFallback) => {

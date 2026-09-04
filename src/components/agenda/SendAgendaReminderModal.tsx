@@ -5,6 +5,7 @@ import { Button } from '../ui/Button';
 import { useAuthStore } from '../../store/authStore';
 import { agendasApi } from '../../services/api';
 import type { Agenda, SpeakerItem, Member } from '../../types';
+import { getMemberEmail, namesMatch, tokenizeName } from '../../utils/memberTitle';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 
@@ -62,31 +63,20 @@ export function SendAgendaReminderModal({
     return '15 minutes before start time';
   }, [agenda.start_time]);
 
-  // Clean name helper to match directory
-  const cleanNameForLookup = (name: string) => {
-    return name
-      .replace(/^(brother|sister|elder|bishop|president|bro\.|sis\.|pres\.)\s+/i, '')
-      .replace(/,/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .toLowerCase();
-  };
-
-  const findMemberEmail = (name: string): string => {
-    const clean = cleanNameForLookup(name);
-    if (!clean) return '';
-    const match = members.find((m) => {
-      const mClean = cleanNameForLookup(m.name || '');
-      return mClean === clean || mClean.includes(clean) || clean.includes(mClean);
-    });
-    return match?.email || '';
-  };
-
   // Build recipients list on open or agenda change
   useEffect(() => {
     if (!open) return;
 
     const map: Record<string, { name: string; email: string; assignments: string[] }> = {};
+
+    const findExistingKey = (name: string): string | null => {
+      for (const k in map) {
+        if (namesMatch(map[k].name, name)) {
+          return k;
+        }
+      }
+      return null;
+    };
 
     const add = (name: string | undefined, assignment: string) => {
       if (!name || typeof name !== 'string') return;
@@ -94,11 +84,12 @@ export function SendAgendaReminderModal({
       if (!trimmed || trimmed.length < 2) return;
       if (/^(tbd|none|n\/a|unassigned|brother|sister)$/i.test(trimmed)) return;
 
-      const key = cleanNameForLookup(trimmed) || trimmed;
+      const existingKey = findExistingKey(trimmed);
+      const key = existingKey || tokenizeName(trimmed).sort().join('_') || trimmed;
       if (!map[key]) {
         map[key] = {
           name: trimmed,
-          email: findMemberEmail(trimmed),
+          email: getMemberEmail(trimmed, members),
           assignments: [],
         };
       }

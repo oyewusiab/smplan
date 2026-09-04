@@ -1,5 +1,5 @@
 import type { OtherAgendaMeetingType, Member } from '../types';
-import { formatHonorificName } from './memberTitle';
+import { formatHonorificName, findMemberInList, getMemberEmail, namesMatch } from './memberTitle';
 
 export interface DefaultAttendeeSetting {
   id: string;
@@ -134,13 +134,10 @@ export function autoPopulateAttendeesFromMembers(
   return attendees.map((att) => {
     // If name is already set by user, keep it and update email if missing
     if (att.name && att.name.trim()) {
-      const cleanName = att.name.replace(/^(brother|sister|elder|bishop|president|bro\.|sis\.|pres\.)\s+/i, '').trim().toLowerCase();
-      const found = members.find(
-        (m) => m.name.toLowerCase() === att.name.toLowerCase() || m.name.toLowerCase() === cleanName
-      );
+      const found = findMemberInList(att.name, members);
       return {
         ...att,
-        email: att.email || found?.email || '',
+        email: att.email || found?.email || getMemberEmail(att.name, members) || '',
         phone: att.phone || found?.phone || '',
       };
     }

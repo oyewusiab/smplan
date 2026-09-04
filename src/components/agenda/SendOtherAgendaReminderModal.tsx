@@ -5,6 +5,7 @@ import { Button } from '../ui/Button';
 import { useAuthStore } from '../../store/authStore';
 import { otherAgendasApi } from '../../services/api';
 import type { OtherAgenda, Member, OtherAgendaActionItem, OtherAgendaAttendee } from '../../types';
+import { getMemberEmail, namesMatch, tokenizeName } from '../../utils/memberTitle';
 import toast from 'react-hot-toast';
 
 interface RecipientItem {
@@ -37,26 +38,6 @@ export function SendOtherAgendaReminderModal({
   const [sending, setSending] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
 
-  // Clean name helper to match directory
-  const cleanNameForLookup = (name: string) => {
-    return name
-      .replace(/^(brother|sister|elder|bishop|president|patriarch|bro\.|bro|sis\.|sis|eld\.|eld|bp\.|bp|pres\.|pres)\s+/i, '')
-      .replace(/,/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .toLowerCase();
-  };
-
-  const findMemberEmail = (name: string): string => {
-    const clean = cleanNameForLookup(name);
-    if (!clean) return '';
-    const match = members.find((m) => {
-      const mClean = cleanNameForLookup(m.name || '');
-      return mClean === clean || mClean.includes(clean) || clean.includes(mClean);
-    });
-    return match?.email || '';
-  };
-
   const readableType = useMemo(() => {
     if (!agenda) return 'Ward Leadership Meeting';
     const labels: Record<string, string> = {
@@ -81,6 +62,15 @@ export function SendOtherAgendaReminderModal({
       isAttendee: boolean;
     }> = {};
 
+    const findExistingKey = (name: string): string | null => {
+      for (const k in map) {
+        if (namesMatch(map[k].name, name)) {
+          return k;
+        }
+      }
+      return null;
+    };
+
     const addPerson = (
       name: string | undefined,
       roleOrTask: string,
@@ -92,17 +82,23 @@ export function SendOtherAgendaReminderModal({
       if (!trimmed || trimmed.length < 2) return;
       if (/^(tbd|none|n\/a|unassigned|brother|sister)$/i.test(trimmed)) return;
 
-      const key = cleanNameForLookup(trimmed) || trimmed.toLowerCase();
+      const existingKey = findExistingKey(trimmed);
+      const key = existingKey || tokenizeName(trimmed).sort().join('_') || trimmed.toLowerCase();
+
+      const resolvedEmail = (directEmail && directEmail.includes('@')) 
+        ? directEmail.trim() 
+        : getMemberEmail(trimmed, members);
+
       if (!map[key]) {
         map[key] = {
           name: trimmed,
-          email: directEmail || findMemberEmail(trimmed),
+          email: resolvedEmail,
           roles: [],
           assignments: [],
           isAttendee: false,
         };
-      } else if (!map[key].email && directEmail) {
-        map[key].email = directEmail;
+      } else if (!map[key].email && resolvedEmail) {
+        map[key].email = resolvedEmail;
       }
 
       if (type === 'role' && !map[key].roles.includes(roleOrTask)) {

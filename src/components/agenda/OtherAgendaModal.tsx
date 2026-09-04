@@ -10,7 +10,7 @@ import type {
   OtherAgenda, OtherAgendaMeetingType, OtherAgendaTopic,
   OtherAgendaAssignment, OtherAgendaAttendee, Member
 } from '../../types';
-import { formatHonorificName, getMemberDisplayWithTitle } from '../../utils/memberTitle';
+import { formatHonorificName, getMemberDisplayWithTitle, findMemberInList, getMemberEmail, namesMatch } from '../../utils/memberTitle';
 import { useAuthStore } from '../../store/authStore';
 import { AttendeeSelectPicker } from './AttendeeSelectPicker';
 import { loadLeadershipSettings } from '../../utils/leadershipAgendaSettings';
@@ -311,13 +311,12 @@ export function OtherAgendaModal({
 
   // Helper to auto-lookup email and phone when an assignee name is typed
   const handleAssigneeChange = (index: number, name: string) => {
-    const cleanName = name.replace(/^(brother|sister|elder|bishop|president|bro\.|bro|sis\.|sis|eld\.|eld|bp\.|bp|pres\.|pres)\s+/i, '').trim().toLowerCase();
-    const found = members.find(m => m.name.toLowerCase() === name.toLowerCase() || m.name.toLowerCase() === cleanName);
+    const found = findMemberInList(name, members);
     const updated = [...assignments];
     updated[index] = {
       ...updated[index],
       assignee: name,
-      assignee_email: found?.email || updated[index].assignee_email || '',
+      assignee_email: found?.email || getMemberEmail(name, members) || updated[index].assignee_email || '',
       assignee_phone: found?.phone || updated[index].assignee_phone || '',
     };
     setAssignments(updated);
@@ -703,13 +702,13 @@ export function OtherAgendaModal({
                   value={att.name}
                   onChange={(e) => {
                     const val = e.target.value;
-                    const found = members.find(m => m.name.toLowerCase() === val.toLowerCase());
+                    const found = findMemberInList(val, members);
                     const updated = [...attendees];
                     updated[idx] = {
                       ...updated[idx],
                       name: val,
                       calling: found?.calling || updated[idx].calling || '',
-                      email: found?.email || updated[idx].email || '',
+                      email: found?.email || getMemberEmail(val, members) || updated[idx].email || '',
                     };
                     setAttendees(updated);
                   }}
