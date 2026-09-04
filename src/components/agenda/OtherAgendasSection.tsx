@@ -1,3 +1,4 @@
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Plus, Search, RefreshCw, Printer, Edit3, Trash2, CheckCircle2,
   Share2, Mail, Users, Calendar, Clock, MapPin, Sparkles, Filter,
