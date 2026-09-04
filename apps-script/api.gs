@@ -4436,6 +4436,52 @@ Approved by ${formatHonorificName(agenda.approved_by_name) || 'Bishopric'}.
 }
 
 /**
+ * One-Click Authorization & Email Permissions Test for Google Apps Script.
+ * Select this function from the function dropdown in Apps Script and click "Run":
+ * 1. Google will prompt: "Authorization required" -> Click "Review Permissions" -> Choose account -> "Advanced" -> "Go to SM Planner (unsafe)" -> "Allow".
+ * 2. It will send a test email to your account and output status in the Apps Script Execution Log.
+ */
+function testEmailPermissions() {
+  const activeUserEmail = Session.getActiveUser().getEmail() || Session.getEffectiveUser().getEmail();
+  Logger.log('Active user email: ' + activeUserEmail);
+  
+  if (!activeUserEmail) {
+    Logger.log('Could not automatically determine user email. Please check that you are running from the Apps Script editor.');
+    return { ok: false, message: 'Email address not found' };
+  }
+
+  const subject = 'SM Planner — Email Service Authorization Test';
+  const body = 'Hello!\n\nIf you received this message, Google Apps Script MailApp / GmailApp permissions are successfully authorized and ready to send meeting reminders and leadership agendas.';
+  const html = '<div style="font-family: Arial, sans-serif; padding: 16px; border: 1px solid #e2e8f0; border-radius: 8px;">' +
+    '<h3 style="color: #1e3a8a; margin-top: 0;">SM Planner — Email Authorization Successful</h3>' +
+    '<p style="color: #334155;">Google Apps Script email service is fully authorized and functional.</p>' +
+    '<p style="font-size: 12px; color: #64748b;">Timestamp: ' + new Date().toISOString() + '</p>' +
+    '</div>';
+
+  try {
+    MailApp.sendEmail({
+      to: activeUserEmail,
+      subject: subject,
+      body: body,
+      htmlBody: html,
+      name: 'SM Planner'
+    });
+    Logger.log('SUCCESS: Email sent via MailApp to ' + activeUserEmail);
+    return { ok: true, sentTo: activeUserEmail, method: 'MailApp' };
+  } catch (e) {
+    Logger.log('MailApp error: ' + e.message + ', trying GmailApp...');
+    try {
+      GmailApp.sendEmail(activeUserEmail, subject, body, { htmlBody: html, name: 'SM Planner' });
+      Logger.log('SUCCESS: Email sent via GmailApp fallback to ' + activeUserEmail);
+      return { ok: true, sentTo: activeUserEmail, method: 'GmailApp' };
+    } catch (e2) {
+      Logger.log('ERROR: Both MailApp and GmailApp failed: ' + e2.message);
+      return { ok: false, error: e2.message };
+    }
+  }
+}
+
+/**
  * Diagnostic & Authorization Helper for Google Apps Script.
  * Select this function in the Apps Script editor and click "Run" to:
  * 1. Trigger Google's one-time OAuth email authorization prompt ("Review permissions" -> "Allow").

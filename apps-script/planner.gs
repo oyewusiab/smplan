@@ -17,13 +17,27 @@ function dispatchRequest(e, isPost) {
     if (!action) return errorResponse('Missing action', 'INVALID_REQUEST');
 
     const handlerName = actionToHandlerName(action);
-    const handler = this[handlerName];
-    if (typeof handler !== 'function') {
-      return errorResponse('Unrecognized ' + (isPost ? 'POST' : 'GET') + ' action or payload format.', 'UNKNOWN_ACTION');
+    let handler = null;
+    if (typeof globalThis !== 'undefined' && typeof globalThis[handlerName] === 'function') {
+      handler = globalThis[handlerName];
+    } else if (typeof this !== 'undefined' && typeof this[handlerName] === 'function') {
+      handler = this[handlerName];
+    }
+    
+    if (!handler) {
+      try {
+        const fn = eval(handlerName);
+        if (typeof fn === 'function') handler = fn;
+      } catch (evalErr) {}
     }
 
+    if (typeof handler !== 'function') {
+      return errorResponse('Unrecognized ' + (isPost ? 'POST' : 'GET') + ' action: ' + action + ' (looked for ' + handlerName + ')', 'UNKNOWN_ACTION');
+    }
+
+    const result = handler(params);
     return ContentService
-      .createTextOutput(JSON.stringify(handler(params)))
+      .createTextOutput(JSON.stringify(result))
       .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
     Logger.log('Request failed: ' + (err && err.stack ? err.stack : err));
