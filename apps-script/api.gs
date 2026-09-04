@@ -4331,6 +4331,7 @@ function sendOtherAgendaNotifications(agendaInput, customRecipients) {
 
   const readableType = meetingTypeLabels[agenda.meeting_type] || agenda.title || 'Ward Meeting';
   const meetingTypeHeading = readableType.endsWith('Agenda') ? readableType : `${readableType} Agenda`;
+  const wardName = sanitizeString(agenda.ward_branch || (agenda.venue && agenda.venue.includes('Ward') ? agenda.venue : 'OBANTOKO WARD'));
 
   const displayDateStr = formatDisplayDate(agenda.date);
   const startTimeStr = formatDisplayTime(agenda.start_time);
