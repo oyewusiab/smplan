@@ -3980,6 +3980,25 @@ function sendOtherAgendaNotifications(agendaInput, customRecipients) {
   const allMembers = dbReadAll('MEMBERS_LIST');
   const allUsers = dbReadAll('USERS');
 
+  const stripAllHonorifics = (rawName) => {
+    if (!rawName || !String(rawName).trim()) return { baseName: '', detectedTitle: '' };
+    let clean = String(rawName).trim();
+    let highestTitle = '';
+    const prefixRegex = /^(brother|sister|elder|bishop|president|patriarch|bro\.|bro|sis\.|sis|eld\.|eld|bp\.|bp|pres\.|pres)\s+/i;
+    let match;
+    while ((match = clean.match(prefixRegex))) {
+      const p = match[1].toLowerCase();
+      if (p.startsWith('bp') || p.startsWith('bishop')) highestTitle = 'Bishop';
+      else if (p.startsWith('pres') && highestTitle !== 'Bishop') highestTitle = 'President';
+      else if (p.startsWith('patr') && !['Bishop', 'President'].includes(highestTitle)) highestTitle = 'Patriarch';
+      else if (p.startsWith('eld') && !['Bishop', 'President', 'Patriarch'].includes(highestTitle)) highestTitle = 'Elder';
+      else if (p.startsWith('sis') && !['Bishop', 'President', 'Patriarch'].includes(highestTitle)) highestTitle = 'Sister';
+      else if (p.startsWith('bro') && !highestTitle) highestTitle = 'Brother';
+      clean = clean.substring(match[0].length).trim();
+    }
+    return { baseName: clean, detectedTitle: highestTitle };
+  };
+
   const tokenizeName = (name) => {
     if (!name) return [];
     return String(name)
@@ -4017,6 +4036,28 @@ function sendOtherAgendaNotifications(agendaInput, customRecipients) {
 
     return false;
   };
+
+  let assignmentsList = [];
+  try {
+    if (typeof agenda.assignments === 'string') {
+      assignmentsList = JSON.parse(agenda.assignments || '[]');
+    } else if (Array.isArray(agenda.assignments)) {
+      assignmentsList = agenda.assignments;
+    }
+  } catch (e) {
+    assignmentsList = [];
+  }
+
+  let topicsList = [];
+  try {
+    if (typeof agenda.topics === 'string') {
+      topicsList = JSON.parse(agenda.topics || '[]');
+    } else if (Array.isArray(agenda.topics)) {
+      topicsList = agenda.topics;
+    }
+  } catch (e) {
+    topicsList = [];
+  }
 
   // Helper to extract email regardless of column name casing or spaces (e.g. email, Email, EMAIL, Email Address, E-mail)
   const extractEmailFromObj = (obj) => {
