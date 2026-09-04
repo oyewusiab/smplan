@@ -5,7 +5,7 @@ import { Button } from '../ui/Button';
 import { useAuthStore } from '../../store/authStore';
 import { otherAgendasApi } from '../../services/api';
 import type { OtherAgenda, Member, OtherAgendaActionItem, OtherAgendaAttendee } from '../../types';
-import { getMemberEmail, namesMatch, tokenizeName } from '../../utils/memberTitle';
+import { getMemberEmail, namesMatch, tokenizeName, findMemberInList, formatHonorificName } from '../../utils/memberTitle';
 import toast from 'react-hot-toast';
 
 interface RecipientItem {
@@ -88,6 +88,8 @@ export function SendOtherAgendaReminderModal({
       const resolvedEmail = (directEmail && directEmail.includes('@')) 
         ? directEmail.trim() 
         : (matchedMem?.email || getMemberEmail(trimmed, members));
+
+      const key = findExistingKey(trimmed) || (matchedMem?.member_id ? String(matchedMem.member_id) : trimmed.toLowerCase());
 
       if (!map[key]) {
         map[key] = {
