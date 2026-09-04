@@ -1,5 +1,5 @@
-import React from 'react';
-import { Printer, Download, X } from 'lucide-react';
+import React, { useState } from 'react';
+import { Printer, Download, X, CheckSquare, Square, FileText, Users } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import type { OtherAgenda } from '../../types';
@@ -18,14 +18,20 @@ export function OtherAgendaPrintModal({
   agenda,
   unitName,
 }: OtherAgendaPrintModalProps) {
+  const [includeProposedRoll, setIncludeProposedRoll] = useState(false);
+  const [requestSignature, setRequestSignature] = useState(true);
+
   if (!agenda) return null;
 
-  const htmlContent = generateOtherAgendaHtml(agenda, unitName);
+  const htmlContent = generateOtherAgendaHtml(agenda, unitName, {
+    includeProposedRoll,
+    requestSignature,
+  });
 
   const handlePrint = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
-      alert('Please allow popups to print the agenda.');
+      alert('Please allow popups to print / save as PDF.');
       return;
     }
     printWindow.document.write(htmlContent);
@@ -33,7 +39,7 @@ export function OtherAgendaPrintModal({
     printWindow.focus();
     setTimeout(() => {
       printWindow.print();
-    }, 300);
+    }, 350);
   };
 
   const handleDownloadHtml = () => {
@@ -52,36 +58,69 @@ export function OtherAgendaPrintModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Print Preview — ${agenda.title}`}
-      size="xl"
+      title={
+        <div className="flex items-center gap-2">
+          <FileText className="h-5 w-5 text-blue-600" />
+          <span>Print & Export Agenda — {agenda.title}</span>
+        </div>
+      }
+      size="4xl"
     >
       <div className="space-y-4">
-        <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl">
-          <span className="text-xs text-slate-600 font-medium">
-            This document follows standard church administrative guidelines for meeting records.
-          </span>
-          <div className="flex items-center gap-2">
+        {/* Controls & Export Options Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            {/* Toggle Include Roll */}
+            <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-bold text-slate-800">
+              <input
+                type="checkbox"
+                checked={includeProposedRoll}
+                onChange={(e) => setIncludeProposedRoll(e.target.checked)}
+                className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
+              />
+              <span className="flex items-center gap-1">
+                <Users className="h-3.5 w-3.5 text-blue-600" />
+                Include Proposed Attendees Roll (Page 2)
+              </span>
+            </label>
+
+            {/* Sub-option Request Signature */}
+            {includeProposedRoll && (
+              <label className="flex items-center gap-1.5 cursor-pointer select-none text-xs font-semibold text-slate-700 ml-2 sm:ml-0 pl-3 sm:pl-3 border-l border-slate-300">
+                <input
+                  type="checkbox"
+                  checked={requestSignature}
+                  onChange={(e) => setRequestSignature(e.target.checked)}
+                  className="rounded text-blue-600 focus:ring-blue-500 h-3.5 w-3.5"
+                />
+                <span>Request Signatures</span>
+              </label>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 self-end sm:self-auto">
             <Button
               size="sm"
               variant="outline"
               icon={<Download className="h-4 w-4" />}
               onClick={handleDownloadHtml}
             >
-              Download HTML / PDF
+              Download PDF / HTML
             </Button>
             <Button
               size="sm"
               variant="primary"
+              className="bg-blue-600 hover:bg-blue-700"
               icon={<Printer className="h-4 w-4" />}
               onClick={handlePrint}
             >
-              Print Document
+              Print / Save as PDF
             </Button>
           </div>
         </div>
 
-        {/* Live Preview Iframe */}
-        <div className="border border-slate-300 rounded-xl overflow-hidden shadow-inner bg-white h-[65vh]">
+        {/* Live Document Preview */}
+        <div className="border border-slate-300 rounded-xl overflow-hidden shadow-inner bg-white h-[70vh]">
           <iframe
             title="Agenda Print Preview"
             srcDoc={htmlContent}

@@ -2,7 +2,18 @@ import type { OtherAgenda, OtherAgendaAssignment, OtherAgendaTopic, OtherAgendaA
 import { formatHonorificName } from './memberTitle';
 import { formatTime12h } from './formatters';
 
-export function generateOtherAgendaHtml(agenda: OtherAgenda, unitName?: string): string {
+export interface OtherAgendaPrintOptions {
+  includeProposedRoll?: boolean; // Default false
+  requestSignature?: boolean;    // Default true when roll is enabled
+}
+
+export function generateOtherAgendaHtml(
+  agenda: OtherAgenda,
+  unitName?: string,
+  options: OtherAgendaPrintOptions = {}
+): string {
+  const { includeProposedRoll = false, requestSignature = true } = options;
+
   const meetingTypeNames: Record<string, string> = {
     BISHOPRIC_MEETING: 'Bishopric Meeting',
     WARD_COUNCIL: 'Ward Council Meeting',
@@ -11,8 +22,18 @@ export function generateOtherAgendaHtml(agenda: OtherAgenda, unitName?: string):
     OTHER_MEETING: agenda.meeting_type_other || 'Ward Meeting',
   };
 
-  const meetingName = meetingTypeNames[agenda.meeting_type] || agenda.title || 'Ward Meeting';
+  const rawMeetingName = meetingTypeNames[agenda.meeting_type] || agenda.title || 'Ward Meeting';
+  const meetingTitle = rawMeetingName.toLowerCase().endsWith('agenda')
+    ? rawMeetingName
+    : `${rawMeetingName} Agenda`;
 
+  const wardDisplay = unitName
+    ? (unitName.toUpperCase().endsWith('WARD') || unitName.toUpperCase().endsWith('BRANCH')
+        ? unitName.toUpperCase()
+        : `${unitName.toUpperCase()} WARD`)
+    : 'OBANTOKO WARD';
+
+  // Parse topics
   let topicsList: OtherAgendaTopic[] = [];
   try {
     if (typeof agenda.topics === 'string') {
@@ -24,6 +45,7 @@ export function generateOtherAgendaHtml(agenda: OtherAgenda, unitName?: string):
     topicsList = [];
   }
 
+  // Parse assignments
   let assignmentsList: OtherAgendaAssignment[] = [];
   try {
     if (typeof agenda.assignments === 'string') {
@@ -35,6 +57,7 @@ export function generateOtherAgendaHtml(agenda: OtherAgenda, unitName?: string):
     assignmentsList = [];
   }
 
+  // Parse attendees
   let attendeesList: OtherAgendaAttendee[] = [];
   try {
     if (typeof agenda.attendees === 'string') {
@@ -46,16 +69,29 @@ export function generateOtherAgendaHtml(agenda: OtherAgenda, unitName?: string):
     attendeesList = [];
   }
 
+  const cleanDate = agenda.date || '';
+  const cleanStartTime = formatTime12h(agenda.start_time);
+  const cleanEndTime = formatTime12h(agenda.end_time);
+  const timeDisplay = cleanStartTime && cleanEndTime ? `${cleanStartTime} - ${cleanEndTime}` : cleanStartTime || '07:00 AM';
+
+  const presidingDisplay = formatHonorificName(agenda.presiding, agenda.presiding_role) || 'Bishop';
+  const presidingFull = agenda.presiding_role ? `${presidingDisplay} (${agenda.presiding_role})` : presidingDisplay;
+
+  const conductingDisplay = formatHonorificName(agenda.conducting, agenda.conducting_role) || 'Conducting Officer';
+  const conductingFull = agenda.conducting_role ? `${conductingDisplay} (${agenda.conducting_role})` : conductingDisplay;
+
+  const statusDisplay = agenda.state === 'APPROVED' ? 'APPROVED' : agenda.state === 'SUBMITTED' ? 'PENDING APPROVAL' : 'DRAFT';
+
   return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>${agenda.title} - ${agenda.date}</title>
+  <title>${wardDisplay} - ${meetingTitle} - ${cleanDate}</title>
   <style>
     @page {
       size: A4 portrait;
-      margin: 15mm 15mm 15mm 15mm;
+      margin: 12mm 14mm 12mm 14mm;
     }
     * {
       box-sizing: border-box;
@@ -63,300 +99,300 @@ export function generateOtherAgendaHtml(agenda: OtherAgenda, unitName?: string):
       padding: 0;
     }
     body {
-      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
-      color: #1e293b;
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+      color: #0f172a;
       background: #ffffff;
-      line-height: 1.4;
-      font-size: 13px;
+      line-height: 1.35;
+      font-size: 11.5px;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
-    .container {
+    .page-container {
       width: 100%;
       max-width: 800px;
       margin: 0 auto;
     }
-    .header-block {
-      text-align: center;
-      border-bottom: 2px solid #1e3a8a;
-      padding-bottom: 12px;
-      margin-bottom: 16px;
-    .church-title {
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      color: #64748b;
-      margin-bottom: 4px;
-    }
-    .ward-title {
-      font-size: 16px;
-      font-weight: 800;
-      color: #1e3a8a;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 2px;
-    }
-    .meeting-title {
-      font-size: 19px;
-      font-weight: 800;
-      color: #0f172a;
-      letter-spacing: 0.5px;
-      margin-bottom: 4px;
-    }
-    
-    .meta-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-      background-color: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      padding: 12px 14px;
-      margin-bottom: 16px;
-    }
-    .meta-item {
-      display: flex;
-      flex-direction: column;
-    }
-    .meta-label {
-      font-size: 10px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: #64748b;
-      margin-bottom: 2px;
-    }
-    .meta-value {
-      font-size: 13px;
-      font-weight: 700;
-      color: #0f172a;
+    .page-break {
+      page-break-before: always;
+      break-before: page;
+      margin-top: 24px;
+      padding-top: 10px;
     }
 
-    .section-box {
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      margin-bottom: 16px;
-      overflow: hidden;
+    /* Header */
+    .church-header {
+      text-align: center;
+      margin-bottom: 12px;
+      border-bottom: 2px solid #1e3a8a;
+      padding-bottom: 8px;
     }
-    .section-header {
-      background-color: #f1f5f9;
-      padding: 7px 12px;
-      font-size: 11px;
+    .church-sub {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: #475569;
+      margin-bottom: 3px;
+    }
+    .ward-name {
+      font-size: 17px;
+      font-weight: 900;
+      color: #1e3a8a;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+    .agenda-heading {
+      font-size: 15px;
       font-weight: 800;
+      color: #0f172a;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      color: #1e3a8a;
-      border-bottom: 1px solid #e2e8f0;
+    }
+
+    /* Metadata Table Grid */
+    .meta-box {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      margin-bottom: 12px;
+      background-color: #f8fafc;
+      border-collapse: separate;
+      border-spacing: 0;
+      overflow: hidden;
+    }
+    .meta-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+    .meta-table td {
+      padding: 5px 9px;
+      border: 1px solid #e2e8f0;
+      vertical-align: middle;
+    }
+    .meta-lbl {
+      font-weight: 800;
+      font-size: 9.5px;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background-color: #f1f5f9;
+      width: 13%;
+    }
+    .meta-val {
+      font-weight: 700;
+      color: #0f172a;
+      width: 20%;
+    }
+
+    /* Section Boxes */
+    .section-card {
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      margin-bottom: 11px;
+      overflow: hidden;
+      background-color: #ffffff;
+      break-inside: avoid;
+    }
+    .section-title {
+      background-color: #1e3a8a;
+      color: #ffffff;
+      padding: 4.5px 9px;
+      font-size: 10.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
-    .section-content {
-      padding: 10px 12px;
+    .section-body {
+      padding: 7px 9px;
     }
 
-    .table-custom {
+    /* Grid for Opening / Closing */
+    .exercises-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 12px;
-    }
-    .table-custom th {
-      background-color: #f8fafc;
-      color: #475569;
-      font-weight: 700;
-      text-align: left;
-      padding: 6px 10px;
-      border-bottom: 1px solid #e2e8f0;
       font-size: 11px;
-      text-transform: uppercase;
     }
-    .table-custom td {
-      padding: 7px 10px;
-      border-bottom: 1px solid #f1f5f9;
+    .exercises-table td {
+      padding: 3.5px 0;
       vertical-align: top;
     }
-    .table-custom tr:last-child td {
-      border-bottom: none;
-    }
-
-    .exercises-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-    .exercise-row {
-      display: flex;
-      gap: 6px;
-      font-size: 12px;
-    }
-    .exercise-label {
+    .ex-label {
       font-weight: 700;
       color: #475569;
-      min-width: 120px;
+      width: 135px;
     }
-    .exercise-val {
+    .ex-val {
       font-weight: 600;
       color: #0f172a;
     }
 
-    .attendees-wrap {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-    .attendee-pill {
+    /* Tables */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
       font-size: 11px;
-      padding: 3px 8px;
-      background-color: #f1f5f9;
-      border: 1px solid #cbd5e1;
-      border-radius: 4px;
-      color: #334155;
     }
-    .attendee-pill.present {
-      background-color: #dcfce7;
-      border-color: #86efac;
-      color: #166534;
-      font-weight: 600;
+    .data-table th {
+      background-color: #f1f5f9;
+      color: #334155;
+      font-weight: 800;
+      text-align: left;
+      padding: 5px 8px;
+      border: 1px solid #cbd5e1;
+      font-size: 9.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .data-table td {
+      padding: 5.5px 8px;
+      border: 1px solid #cbd5e1;
+      vertical-align: top;
+    }
+    .data-table tbody tr:nth-child(even) {
+      background-color: #fbfcfe;
     }
 
-    .footer-block {
-      margin-top: 20px;
-      padding-top: 10px;
-      border-top: 1px solid #e2e8f0;
+    /* Signatures & Footer */
+    .sign-block {
+      margin-top: 10px;
+      border-top: 1px solid #cbd5e1;
+      padding-top: 8px;
       display: flex;
       justify-content: space-between;
-      font-size: 11px;
-      color: #94a3b8;
+      align-items: flex-end;
+      font-size: 10px;
+      color: #475569;
+    }
+    .sign-line {
+      margin-top: 18px;
+      border-top: 1px dashed #94a3b8;
+      width: 180px;
+      padding-top: 2px;
+      font-weight: 700;
+      color: #0f172a;
+      text-align: center;
+    }
+
+    /* Roll specific */
+    .roll-header {
+      text-align: center;
+      border-bottom: 2px solid #1e3a8a;
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+    }
+    .signature-cell {
+      height: 24px;
+      vertical-align: bottom;
+      border-bottom: 1px dotted #94a3b8 !important;
     }
 
     @media print {
       body {
         padding: 0;
+        background: transparent;
       }
       .no-print {
         display: none !important;
       }
-      .section-box {
+      .section-card {
         break-inside: avoid;
       }
     }
   </style>
 </head>
 <body>
-  <div class="container">
+  <div class="page-container">
     
-    <!-- Header -->
-    <div class="header-block">
-      <div class="church-title">The Church of Jesus Christ of Latter-day Saints</div>
-      <div class="ward-title">Ward: ${unitName ? (unitName.toUpperCase().endsWith('WARD') || unitName.toUpperCase().endsWith('BRANCH') ? unitName.toUpperCase() : `${unitName.toUpperCase()} WARD`) : 'OBANTOKO WARD'}</div>
-      <div class="meeting-title">Meeting type: ${meetingName.endsWith('Agenda') ? meetingName : `${meetingName} Agenda`}</div>
+    <!-- ==================== PAGE 1: ORDER OF SERVICE & AGENDA ==================== -->
+    <div class="church-header">
+      <div class="church-sub">The Church of Jesus Christ of Latter-day Saints</div>
+      <div class="ward-name">${wardDisplay}</div>
+      <div class="agenda-heading">${meetingTitle}</div>
     </div>
 
-    <!-- Metadata Grid -->
-    <div class="meta-grid">
-      <div class="meta-item">
-        <span class="meta-label">Date</span>
-        <span class="meta-value">📅 ${agenda.date}</span>
-      </div>
-      <div class="meta-item">
-        <span class="meta-label">Time</span>
-        <span class="meta-value">⏰ ${formatTime12h(agenda.start_time)} - ${formatTime12h(agenda.end_time)}</span>
-      </div>
-      <div class="meta-item">
-        <span class="meta-label">Venue</span>
-        <span class="meta-value">📍 ${agenda.venue || "Bishop's Office / Council Room"}</span>
-      </div>
-      <div class="meta-item">
-        <span class="meta-label">Presiding</span>
-        <span class="meta-value">👤 ${formatHonorificName(agenda.presiding, agenda.presiding_role) || 'Bishop'} (${agenda.presiding_role || 'Bishop'})</span>
-      </div>
-      <div class="meta-item">
-        <span class="meta-label">Conducting</span>
-        <span class="meta-value">🗣️ ${formatHonorificName(agenda.conducting, agenda.conducting_role) || 'Conducting Officer'} (${agenda.conducting_role || 'Counselor'})</span>
-      </div>
-      <div class="meta-item">
-        <span class="meta-label">Status</span>
-        <span class="meta-value">
-          ${agenda.state === 'APPROVED' ? '✅ APPROVED' : agenda.state === 'SUBMITTED' ? '⏳ PENDING APPROVAL' : '📝 DRAFT'}
-        </span>
-      </div>
-    </div>
+    <!-- Executive Metadata Table Grid -->
+    <table class="meta-table meta-box">
+      <tr>
+        <td class="meta-lbl">Date</td>
+        <td class="meta-val">${cleanDate}</td>
+        <td class="meta-lbl">Time</td>
+        <td class="meta-val">${timeDisplay}</td>
+        <td class="meta-lbl">Venue</td>
+        <td class="meta-val">${agenda.venue || "Bishop's Office"}</td>
+      </tr>
+      <tr>
+        <td class="meta-lbl">Presiding</td>
+        <td class="meta-val">${presidingFull}</td>
+        <td class="meta-lbl">Conducting</td>
+        <td class="meta-val">${conductingFull}</td>
+        <td class="meta-lbl">Status</td>
+        <td class="meta-val">${statusDisplay}</td>
+      </tr>
+    </table>
 
-    <!-- Opening Exercises -->
-    <div class="section-box">
-      <div class="section-header">
-        <span>Opening Exercises</span>
+    <!-- 1. Opening Exercises & Spiritual Thought -->
+    <div class="section-card">
+      <div class="section-title">
+        <span>1. Opening Exercises & Spiritual Thought</span>
       </div>
-      <div class="section-content">
-        <div class="exercises-grid">
+      <div class="section-body">
+        <table class="exercises-table">
           ${agenda.opening_hymn ? `
-            <div class="exercise-row">
-              <span class="exercise-label">Opening Hymn:</span>
-              <span class="exercise-val">${agenda.opening_hymn}</span>
-            </div>
+            <tr>
+              <td class="ex-label">Opening Hymn:</td>
+              <td class="ex-val">${agenda.opening_hymn}</td>
+            </tr>
           ` : ''}
-          <div class="exercise-row">
-            <span class="exercise-label">Opening Prayer:</span>
-            <span class="exercise-val">${agenda.opening_prayer ? formatHonorificName(agenda.opening_prayer) : 'TBD'}</span>
-          </div>
-          <div class="exercise-row" style="grid-column: span 2;">
-            <span class="exercise-label">Spiritual Thought:</span>
-            <span class="exercise-val">
-              ${agenda.spiritual_thought_by ? formatHonorificName(agenda.spiritual_thought_by) : 'Assigned Member'} 
-              ${agenda.spiritual_thought_topic ? `— <em>"${agenda.spiritual_thought_topic}"</em>` : ''}
-            </span>
-          </div>
-        </div>
+          <tr>
+            <td class="ex-label">Opening Prayer:</td>
+            <td class="ex-val">${agenda.opening_prayer ? formatHonorificName(agenda.opening_prayer) : 'To be assigned'}</td>
+          </tr>
+          <tr>
+            <td class="ex-label">Spiritual Thought By:</td>
+            <td class="ex-val">
+              ${agenda.spiritual_thought_by ? formatHonorificName(agenda.spiritual_thought_by) : 'Assigned Leader'}
+              ${agenda.spiritual_thought_topic ? ` — <em>"${agenda.spiritual_thought_topic}"</em>` : ''}
+            </td>
+          </tr>
+        </table>
       </div>
     </div>
 
-    <!-- Council / Leadership Roll -->
-    ${attendeesList.length > 0 ? `
-      <div class="section-box">
-        <div class="section-header">
-          <span>Attendees & Quorum Roll (${attendeesList.length})</span>
-        </div>
-        <div class="section-content">
-          <div class="attendees-wrap">
-            ${attendeesList.map(a => `
-              <span class="attendee-pill ${a.present ? 'present' : ''}">
-                ${a.present ? '✓ ' : ''}${formatHonorificName(a.name, a.calling)} ${a.calling ? `(${a.calling})` : ''}
-              </span>
-            `).join('')}
-          </div>
-        </div>
+    <!-- 2. Agenda Discussion & Council Items -->
+    <div class="section-card">
+      <div class="section-title">
+        <span>2. Agenda Discussion & Council Items</span>
+        <span style="font-size: 9.5px; opacity: 0.9;">${topicsList.length} Item(s)</span>
       </div>
-    ` : ''}
-
-    <!-- Discussion Topics -->
-    <div class="section-box">
-      <div class="section-header">
-        <span>Agenda Discussion & Council Items</span>
-        <span>${topicsList.length} Item(s)</span>
-      </div>
-      <div class="section-content" style="padding: 0;">
-        <table class="table-custom">
+      <div style="padding: 0;">
+        <table class="data-table">
           <thead>
             <tr>
-              <th style="width: 40px; text-align: center;">#</th>
-              <th>Topic / Business</th>
-              <th style="width: 140px;">Discussion Leader</th>
-              <th style="width: 70px; text-align: right;">Time</th>
+              <th style="width: 32px; text-align: center;">#</th>
+              <th>Topic / Business Item</th>
+              <th style="width: 170px;">Discussion Leader</th>
+              <th style="width: 55px; text-align: right;">Time</th>
             </tr>
           </thead>
           <tbody>
             ${topicsList.length > 0 ? topicsList.map((t, idx) => `
               <tr>
-                <td style="text-align: center; font-weight: bold; color: #64748b;">${idx + 1}</td>
+                <td style="text-align: center; font-weight: bold; color: #475569;">${idx + 1}</td>
                 <td>
-                  <strong>${t.title}</strong>
-                  ${t.notes ? `<div style="font-size: 11px; color: #64748b; margin-top: 3px;">${t.notes}</div>` : ''}
+                  <strong style="color: #0f172a;">${t.title}</strong>
+                  ${t.notes ? `<div style="font-size: 10px; color: #475569; margin-top: 2px;">${t.notes}</div>` : ''}
                 </td>
-                <td style="font-weight: 600; color: #334155;">${t.presenter ? formatHonorificName(t.presenter) : '—'}</td>
-                <td style="text-align: right; color: #64748b; font-weight: 600;">${t.minutes ? `${t.minutes}m` : '—'}</td>
+                <td style="font-weight: 700; color: #1e3a8a;">${t.presenter ? formatHonorificName(t.presenter) : '—'}</td>
+                <td style="text-align: right; color: #475569; font-weight: 700;">${t.minutes ? `${t.minutes}m` : '—'}</td>
               </tr>
             `).join('') : `
               <tr>
-                <td colspan="4" style="text-align: center; color: #94a3b8; padding: 14px;">No specific topics listed.</td>
+                <td colspan="4" style="text-align: center; color: #94a3b8; padding: 12px;">No specific discussion topics recorded.</td>
               </tr>
             `}
           </tbody>
@@ -364,36 +400,36 @@ export function generateOtherAgendaHtml(agenda: OtherAgenda, unitName?: string):
       </div>
     </div>
 
-    <!-- Action Items & Assignments -->
-    <div class="section-box">
-      <div class="section-header">
-        <span>Action Items & Assignments</span>
-        <span>${assignmentsList.length} Action(s)</span>
+    <!-- 3. Action Items & Assignments -->
+    <div class="section-card">
+      <div class="section-title">
+        <span>3. Action Items & Follow-up Assignments</span>
+        <span style="font-size: 9.5px; opacity: 0.9;">${assignmentsList.length} Assignment(s)</span>
       </div>
-      <div class="section-content" style="padding: 0;">
-        <table class="table-custom">
+      <div style="padding: 0;">
+        <table class="data-table">
           <thead>
             <tr>
-              <th style="width: 40px; text-align: center;">#</th>
+              <th style="width: 32px; text-align: center;">#</th>
               <th>Action Item / Task</th>
-              <th style="width: 150px;">Assigned To</th>
+              <th style="width: 170px;">Assigned To</th>
               <th style="width: 110px;">Target Due Date</th>
             </tr>
           </thead>
           <tbody>
             ${assignmentsList.length > 0 ? assignmentsList.map((a, idx) => `
               <tr>
-                <td style="text-align: center; font-weight: bold; color: #64748b;">${idx + 1}</td>
+                <td style="text-align: center; font-weight: bold; color: #475569;">${idx + 1}</td>
                 <td>
-                  <strong>${a.task}</strong>
-                  ${a.notes ? `<div style="font-size: 11px; color: #64748b; margin-top: 2px;">${a.notes}</div>` : ''}
+                  <strong style="color: #0f172a;">${a.task}</strong>
+                  ${a.notes ? `<div style="font-size: 10px; color: #475569; margin-top: 2px;">${a.notes}</div>` : ''}
                 </td>
                 <td style="font-weight: 700; color: #1e3a8a;">${formatHonorificName(a.assignee)}</td>
-                <td style="font-weight: 600; color: #b45309;">${a.due_date || 'Next Meeting'}</td>
+                <td style="font-weight: 700; color: #b45309;">${a.due_date || 'Next Meeting'}</td>
               </tr>
             `).join('') : `
               <tr>
-                <td colspan="4" style="text-align: center; color: #94a3b8; padding: 14px;">No action items recorded.</td>
+                <td colspan="4" style="text-align: center; color: #94a3b8; padding: 12px;">No pending action items recorded.</td>
               </tr>
             `}
           </tbody>
@@ -401,37 +437,118 @@ export function generateOtherAgendaHtml(agenda: OtherAgenda, unitName?: string):
       </div>
     </div>
 
-    <!-- Closing Exercises & Notes -->
-    <div class="section-box">
-      <div class="section-header">
-        <span>Closing Exercises & General Notes</span>
+    <!-- 4. Closing Exercises & General Notes -->
+    <div class="section-card">
+      <div class="section-title">
+        <span>4. Closing Exercises & Special Notes</span>
       </div>
-      <div class="section-content">
-        ${agenda.closing_remarks_by ? `
-          <div class="exercise-row" style="margin-bottom: 8px;">
-            <span class="exercise-label">Closing Remarks:</span>
-            <span class="exercise-val">${formatHonorificName(agenda.closing_remarks_by)}</span>
-          </div>
-        ` : ''}
-        <div class="exercise-row" style="margin-bottom: 8px;">
-          <span class="exercise-label">Closing Prayer:</span>
-          <span class="exercise-val">${agenda.closing_prayer ? formatHonorificName(agenda.closing_prayer) : 'TBD'}</span>
-        </div>
+      <div class="section-body">
+        <table class="exercises-table">
+          ${agenda.closing_remarks_by ? `
+            <tr>
+              <td class="ex-label">Closing Remarks:</td>
+              <td class="ex-val">${formatHonorificName(agenda.closing_remarks_by)}</td>
+            </tr>
+          ` : ''}
+          <tr>
+            <td class="ex-label">Closing Prayer:</td>
+            <td class="ex-val">${agenda.closing_prayer ? formatHonorificName(agenda.closing_prayer) : 'To be assigned'}</td>
+          </tr>
+        </table>
         ${agenda.general_notes ? `
-          <div style="margin-top: 8px; font-size: 12px; color: #475569; background: #f8fafc; padding: 8px 10px; border-radius: 4px; border-left: 3px solid #cbd5e1;">
+          <div style="margin-top: 6px; font-size: 10.5px; color: #334155; background: #f8fafc; padding: 6px 8px; border-radius: 4px; border-left: 3px solid #1e3a8a;">
             <strong>Special Notes:</strong> ${agenda.general_notes}
           </div>
         ` : ''}
       </div>
     </div>
 
-    <!-- Footer -->
-    <div class="footer-block">
-      <span>Created by: ${formatHonorificName(agenda.created_by_name) || 'Clerk / Secretary'} on ${agenda.created_date ? agenda.created_date.substring(0, 10) : 'Record'}</span>
-      <span>
-        ${agenda.approved_by_name ? `Approved by: <strong>${formatHonorificName(agenda.approved_by_name)}</strong> (${agenda.approved_date ? agenda.approved_date.substring(0, 10) : ''})` : 'Pending Bishopric Approval'}
-      </span>
+    <!-- Sign-off Block -->
+    <div class="sign-block">
+      <div>
+        <div>Prepared by: <strong>${formatHonorificName(agenda.created_by_name) || 'Clerk / Secretary'}</strong></div>
+        <div style="font-size: 9px; color: #64748b; margin-top: 1px;">Date Created: ${agenda.created_date ? agenda.created_date.substring(0, 10) : cleanDate}</div>
+      </div>
+      <div>
+        ${agenda.approved_by_name ? `
+          <div style="text-align: right;">
+            <div>Approved by: <strong>${formatHonorificName(agenda.approved_by_name)}</strong></div>
+            <div style="font-size: 9px; color: #166534; font-weight: 700; margin-top: 1px;">Status: APPROVED (${agenda.approved_date ? agenda.approved_date.substring(0, 10) : cleanDate})</div>
+          </div>
+        ` : `
+          <div style="text-align: right;">
+            <div class="sign-line">Presiding Officer Signature</div>
+          </div>
+        `}
+      </div>
     </div>
+
+    <!-- ==================== PAGE 2: PROPOSED ATTENDEES & QUORUM ROLL (OPTIONAL) ==================== -->
+    ${includeProposedRoll ? `
+      <div class="page-break">
+        <div class="roll-header">
+          <div class="church-sub">The Church of Jesus Christ of Latter-day Saints · ${wardDisplay}</div>
+          <div class="ward-name">Proposed Attendees & Quorum Roll</div>
+          <div class="agenda-heading" style="font-size: 13px; font-weight: 700; color: #475569;">
+            ${meetingTitle} · Date: ${cleanDate}
+          </div>
+        </div>
+
+        <div class="section-card" style="margin-top: 14px;">
+          <div class="section-title">
+            <span>Leadership & Attendance Roll (${attendeesList.length} Leaders)</span>
+            <span style="font-size: 9.5px; opacity: 0.9;">
+              ${requestSignature ? 'Signature Requested' : 'Attendance Record'}
+            </span>
+          </div>
+          <div style="padding: 0;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th style="width: 32px; text-align: center;">S/N</th>
+                  <th style="width: 200px;">Leader Name</th>
+                  <th style="width: 170px;">Calling / Role</th>
+                  <th style="width: 110px;">Phone Number</th>
+                  ${requestSignature ? '<th style="width: 160px; text-align: center;">Signature</th>' : '<th style="width: 100px; text-align: center;">Attendance</th>'}
+                </tr>
+              </thead>
+              <tbody>
+                ${attendeesList.length > 0 ? attendeesList.map((att, idx) => `
+                  <tr>
+                    <td style="text-align: center; font-weight: bold; color: #475569;">${idx + 1}</td>
+                    <td style="font-weight: 700; color: #0f172a;">${formatHonorificName(att.name, att.calling)}</td>
+                    <td style="color: #334155; font-weight: 600;">${att.calling || 'Leader'}</td>
+                    <td style="color: #475569;">${att.phone || '—'}</td>
+                    ${requestSignature ? '<td class="signature-cell"></td>' : `<td style="text-align: center; font-weight: 700; color: ${att.present !== false ? '#166534' : '#94a3b8'};">${att.present !== false ? 'Present' : 'Excused'}</td>`}
+                  </tr>
+                `).join('') : `
+                  <tr>
+                    <td colspan="${requestSignature ? 5 : 5}" style="text-align: center; color: #94a3b8; padding: 16px;">
+                      No attendees listed for this meeting.
+                    </td>
+                  </tr>
+                `}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        ${requestSignature ? `
+          <div style="margin-top: 12px; font-size: 10px; color: #64748b; font-style: italic; text-align: center;">
+            * Please sign beside your name to acknowledge attendance and receipt of agenda assignments.
+          </div>
+        ` : ''}
+
+        <div class="sign-block" style="margin-top: 30px;">
+          <div>
+            <div>Meeting Clerk / Recorder: ___________________________</div>
+          </div>
+          <div>
+            <div>Conducting Officer Verification: ___________________________</div>
+          </div>
+        </div>
+      </div>
+    ` : ''}
 
   </div>
 </body>
