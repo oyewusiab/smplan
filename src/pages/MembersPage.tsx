@@ -38,6 +38,7 @@ import {
 } from '../utils/memberAnalyticsEngine';
 import { exportMembersToCsv } from '../utils/memberRosterParsers';
 import { formatMemberTitle } from '../utils/memberTitles';
+import { setMembersDirectoryRegistry } from '../utils/memberTitle';
 import type { Member, Assignment, Agenda, Planner, RoleCandidate } from '../types';
 import toast from 'react-hot-toast';
 
@@ -163,7 +164,9 @@ export function MembersPage() {
       ]);
 
       if (membersRes.status === 'fulfilled' && membersRes.value?.ok) {
-        setMembers(membersRes.value.data || []);
+        const mems = membersRes.value.data || [];
+        setMembers(mems);
+        setMembersDirectoryRegistry(mems);
       }
       if (assignmentsRes.status === 'fulfilled' && assignmentsRes.value?.ok) {
         setAssignments(assignmentsRes.value.data || []);

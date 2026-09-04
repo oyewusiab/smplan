@@ -88,6 +88,51 @@ function now() {
   return new Date().toISOString();
 }
 
+function formatDisplayDate(val) {
+  if (!val) return '';
+  const tz = getAppTimeZone();
+  if (val instanceof Date && !isNaN(val.getTime())) {
+    return Utilities.formatDate(val, tz, 'EEEE, MMMM d, yyyy');
+  }
+  const s = String(val).trim();
+  const match = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    const d = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    return Utilities.formatDate(d, tz, 'EEEE, MMMM d, yyyy');
+  }
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    return Utilities.formatDate(d, tz, 'EEEE, MMMM d, yyyy');
+  }
+  return s;
+}
+
+function formatDisplayTime(val) {
+  if (!val) return '';
+  const tz = getAppTimeZone();
+  if (val instanceof Date && !isNaN(val.getTime())) {
+    return Utilities.formatDate(val, tz, 'hh:mm a');
+  }
+  const s = String(val).trim();
+  if (s.includes('1899-12-30') || s.includes('GMT') || s.includes('T')) {
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) {
+      return Utilities.formatDate(d, tz, 'hh:mm a');
+    }
+  }
+  const tMatch = s.match(/^(\d{1,2}):(\d{2})$/);
+  if (tMatch) {
+    let hours = parseInt(tMatch[1], 10);
+    const mins = tMatch[2];
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    const strHours = hours < 10 ? '0' + hours : '' + hours;
+    return strHours + ':' + mins + ' ' + ampm;
+  }
+  return s;
+}
+
 function daysBetween(dateStr1, dateStr2) {
   const d1 = new Date(dateStr1);
   const d2 = new Date(dateStr2 || new Date());

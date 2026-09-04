@@ -75,10 +75,16 @@ export function generateOtherAgendaHtml(
   const timeDisplay = cleanStartTime && cleanEndTime ? `${cleanStartTime} - ${cleanEndTime}` : cleanStartTime || '07:00 AM';
 
   const presidingDisplay = formatHonorificName(agenda.presiding, agenda.presiding_role) || 'Bishop';
-  const presidingFull = agenda.presiding_role ? `${presidingDisplay} (${agenda.presiding_role})` : presidingDisplay;
+  const presidingRoleClean = agenda.presiding_role ? String(agenda.presiding_role).trim() : '';
+  const presidingFull = (presidingRoleClean && !presidingDisplay.toLowerCase().includes(presidingRoleClean.toLowerCase()))
+    ? `${presidingDisplay} (${presidingRoleClean})`
+    : presidingDisplay;
 
   const conductingDisplay = formatHonorificName(agenda.conducting, agenda.conducting_role) || 'Conducting Officer';
-  const conductingFull = agenda.conducting_role ? `${conductingDisplay} (${agenda.conducting_role})` : conductingDisplay;
+  const conductingRoleClean = agenda.conducting_role ? String(agenda.conducting_role).trim() : '';
+  const conductingFull = (conductingRoleClean && !conductingDisplay.toLowerCase().includes(conductingRoleClean.toLowerCase()))
+    ? `${conductingDisplay} (${conductingRoleClean})`
+    : conductingDisplay;
 
   const statusDisplay = agenda.state === 'APPROVED' ? 'APPROVED' : agenda.state === 'SUBMITTED' ? 'PENDING APPROVAL' : 'DRAFT';
 
@@ -126,16 +132,8 @@ export function generateOtherAgendaHtml(
       border-bottom: 2px solid #1e3a8a;
       padding-bottom: 8px;
     }
-    .church-sub {
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 1.5px;
-      text-transform: uppercase;
-      color: #475569;
-      margin-bottom: 3px;
-    }
     .ward-name {
-      font-size: 17px;
+      font-size: 18px;
       font-weight: 900;
       color: #1e3a8a;
       letter-spacing: 0.8px;
@@ -310,7 +308,6 @@ export function generateOtherAgendaHtml(
     
     <!-- ==================== PAGE 1: ORDER OF SERVICE & AGENDA ==================== -->
     <div class="church-header">
-      <div class="church-sub">The Church of Jesus Christ of Latter-day Saints</div>
       <div class="ward-name">${wardDisplay}</div>
       <div class="agenda-heading">${meetingTitle}</div>
     </div>
@@ -455,8 +452,9 @@ export function generateOtherAgendaHtml(
             <td class="ex-val">${agenda.closing_prayer ? formatHonorificName(agenda.closing_prayer) : 'To be assigned'}</td>
           </tr>
         </table>
+
         ${agenda.general_notes ? `
-          <div style="margin-top: 6px; font-size: 10.5px; color: #334155; background: #f8fafc; padding: 6px 8px; border-radius: 4px; border-left: 3px solid #1e3a8a;">
+          <div style="margin-top: 8px; padding: 6px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 10.5px; color: #334155;">
             <strong>Special Notes:</strong> ${agenda.general_notes}
           </div>
         ` : ''}
@@ -487,8 +485,7 @@ export function generateOtherAgendaHtml(
     ${includeProposedRoll ? `
       <div class="page-break">
         <div class="roll-header">
-          <div class="church-sub">The Church of Jesus Christ of Latter-day Saints · ${wardDisplay}</div>
-          <div class="ward-name">Proposed Attendees & Quorum Roll</div>
+          <div class="ward-name">${wardDisplay} — Proposed Attendees & Quorum Roll</div>
           <div class="agenda-heading" style="font-size: 13px; font-weight: 700; color: #475569;">
             ${meetingTitle} · Date: ${cleanDate}
           </div>

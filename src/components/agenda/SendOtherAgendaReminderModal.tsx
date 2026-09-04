@@ -82,23 +82,28 @@ export function SendOtherAgendaReminderModal({
       if (!trimmed || trimmed.length < 2) return;
       if (/^(tbd|none|n\/a|unassigned|brother|sister)$/i.test(trimmed)) return;
 
-      const existingKey = findExistingKey(trimmed);
-      const key = existingKey || tokenizeName(trimmed).sort().join('_') || trimmed.toLowerCase();
+      const matchedMem = findMemberInList(trimmed, members);
+      const formattedName = formatHonorificName(trimmed, matchedMem || (type === 'role' ? roleOrTask : undefined));
 
       const resolvedEmail = (directEmail && directEmail.includes('@')) 
         ? directEmail.trim() 
-        : getMemberEmail(trimmed, members);
+        : (matchedMem?.email || getMemberEmail(trimmed, members));
 
       if (!map[key]) {
         map[key] = {
-          name: trimmed,
+          name: formattedName,
           email: resolvedEmail,
           roles: [],
           assignments: [],
           isAttendee: false,
         };
-      } else if (!map[key].email && resolvedEmail) {
-        map[key].email = resolvedEmail;
+      } else {
+        if (formattedName.startsWith('Bishop') || formattedName.startsWith('President')) {
+          map[key].name = formattedName;
+        }
+        if (!map[key].email && resolvedEmail) {
+          map[key].email = resolvedEmail;
+        }
       }
 
       if (type === 'role' && !map[key].roles.includes(roleOrTask)) {
@@ -416,9 +421,6 @@ export function SendOtherAgendaReminderModal({
             <div className="p-4 bg-white border border-slate-200 rounded-lg text-xs space-y-3 shadow-2xs font-sans">
               <div className="border-b border-blue-600 pb-2 text-center">
                 <div className="text-blue-900 font-extrabold text-sm uppercase">
-                  The Church of Jesus Christ of Latter-day Saints
-                </div>
-                <div className="text-blue-700 font-bold text-xs">
                   {readableType} — {agenda.date}
                 </div>
               </div>

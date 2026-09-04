@@ -15,6 +15,7 @@ import { SendOtherAgendaReminderModal } from './SendOtherAgendaReminderModal';
 import type { OtherAgenda, OtherAgendaMeetingType, OtherAgendaState, Member } from '../../types';
 import { otherAgendasApi } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
+import { setMembersDirectoryRegistry } from '../../utils/memberTitle';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 
@@ -65,6 +66,12 @@ export function OtherAgendasSection({ members, unitName }: OtherAgendasSectionPr
   useEffect(() => {
     loadOtherAgendas();
   }, [session]);
+
+  useEffect(() => {
+    if (members && members.length > 0) {
+      setMembersDirectoryRegistry(members);
+    }
+  }, [members]);
 
   // Filtered Agendas
   const filteredAgendas = useMemo(() => {

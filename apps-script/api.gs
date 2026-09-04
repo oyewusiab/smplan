@@ -4067,32 +4067,6 @@ function sendOtherAgendaNotifications(agendaInput, customRecipients) {
         const val = String(obj[key] || '').trim();
         if (val.includes('@')) return val;
       }
-    }
-    return '';
-  };
-
-  const getEmailForName = (name) => {
-    if (!name) return '';
-    const clean = String(name).trim();
-
-    // 1. Direct search in MEMBERS_LIST with token matching
-    for (let i = 0; i < allMembers.length; i++) {
-      const m = allMembers[i];
-      if (namesMatch(m.name, clean)) {
-        const em = extractEmailFromObj(m);
-        if (em) return em;
-      }
-    }
-
-    // 2. Direct search in USERS with token matching
-    for (let i = 0; i < allUsers.length; i++) {
-      const u = allUsers[i];
-      if (namesMatch(u.name, clean) || namesMatch(u.preferred_name, clean)) {
-        const em = extractEmailFromObj(u);
-        if (em) return em;
-      }
-    }
-
     return '';
   };
 
@@ -4100,6 +4074,21 @@ function sendOtherAgendaNotifications(agendaInput, customRecipients) {
     if (!name) return null;
     const clean = String(name).trim();
 
+    // 1. Direct ID match if 6-digit or member_id
+    for (let i = 0; i < allMembers.length; i++) {
+      const m = allMembers[i];
+      if ((m.member_id && String(m.member_id).trim() === clean) || (m.members_id && String(m.members_id).trim() === clean)) {
+        return m;
+      }
+    }
+    for (let i = 0; i < allUsers.length; i++) {
+      const u = allUsers[i];
+      if ((u.user_id && String(u.user_id).trim() === clean) || (u.member_id && String(u.member_id).trim() === clean) || (u.members_id && String(u.members_id).trim() === clean)) {
+        return u;
+      }
+    }
+
+    // 2. Name match
     for (let i = 0; i < allMembers.length; i++) {
       const m = allMembers[i];
       if (namesMatch(m.name, clean)) return m;
@@ -4123,37 +4112,64 @@ function sendOtherAgendaNotifications(agendaInput, customRecipients) {
     let role = '';
     let priesthoodOffice = '';
 
-    if (typeof memberRecord === 'string') {
-      calling = memberRecord;
-    } else if (memberRecord && typeof memberRecord === 'object') {
-      calling = memberRecord.calling || '';
-      if (!gender && memberRecord.gender) gender = memberRecord.gender;
-      if (memberRecord.role) role = memberRecord.role;
-      if (memberRecord.priesthood_office) priesthoodOffice = memberRecord.priesthood_office;
+    let record = memberRecord;
+    if (!record || typeof record === 'string') {
+      if (typeof record === 'string') calling = record;
+      record = getMemberRecordForName(rawName) || getMemberRecordForName(baseName);
     }
 
-    // Calling/Role Priority 1: Bishop (always Bishop, never Brother Bishop)
-    if (detectedTitle === 'Bishop' || role === 'ADMIN' || /bishop/i.test(calling) || /bishop/i.test(priesthoodOffice)) {
+    if (record && typeof record === 'object') {
+      if (!calling && record.calling) calling = record.calling;
+      if (!gender && record.gender) gender = record.gender;
+      if (!role && record.role) role = record.role;
+      if (!priesthoodOffice && record.priesthood_office) priesthoodOffice = record.priesthood_office;
+    }
+
+    // 1. Calling / Role Priority 1: Bishop (always Bishop, never Brother or Brother Bishop)
+    if (
+      detectedTitle === 'Bishop' ||
+      /bishop/i.test(calling) ||
+      /bishop/i.test(priesthoodOffice) ||
+      (role === 'BISHOPRIC' && /bishop/i.test(calling)) ||
+      baseName.toLowerCase() === 'bishop'
+    ) {
+      if (baseName.toLowerCase() === 'bishop') {
+        const bRec = allMembers.find(m => m.calling && /bishop/i.test(m.calling)) || allUsers.find(u => u.calling && /bishop/i.test(u.calling));
+        if (bRec) {
+          const { baseName: bName } = stripAllHonorifics(bRec.name || bRec.preferred_name);
+          return 'Bishop ' + bName;
+        }
+        return 'Bishop';
+      }
       return 'Bishop ' + baseName;
     }
-    // Calling/Role Priority 2: President
-    if (detectedTitle === 'President' || /stake president|district president|branch president|mission president|temple president|area president/i.test(calling) || /stake presidency|district presidency|branch presidency/i.test(calling)) {
+
+    // 2. Calling / Role Priority 2: President
+    if (
+      detectedTitle === 'President' ||
+      /stake president|district president|branch president|mission president|temple president|area president/i.test(calling) ||
+      /stake presidency|district presidency|branch presidency/i.test(calling)
+    ) {
       return 'President ' + baseName;
     }
-    // Priesthood Office: Patriarch
+
+    // 3. Priesthood Office: Patriarch
     if (detectedTitle === 'Patriarch' || /patriarch/i.test(calling) || /patriarch/i.test(priesthoodOffice)) {
       return 'Patriarch ' + baseName;
     }
-    // Calling / Office: Elder
+
+    // 4. Calling / Office: Elder
     if (detectedTitle === 'Elder' || /full[- ]time missionary|missionary/i.test(calling)) {
       return 'Elder ' + baseName;
     }
-    // Gender / Auxiliary: Sister
+
+    // 5. Gender / Auxiliary: Sister
     const gUpper = String(gender).toUpperCase();
     if (detectedTitle === 'Sister' || gUpper === 'F' || gUpper === 'FEMALE' || /relief society|young women|primary/i.test(calling)) {
       return 'Sister ' + baseName;
     }
-    // Default to Brother
+
+    // 6. Default to Brother
     return 'Brother ' + baseName;
   };
 
@@ -4163,7 +4179,7 @@ function sendOtherAgendaNotifications(agendaInput, customRecipients) {
     customRecipients.forEach(r => {
       const rawEmail = r.email ? String(r.email).trim() : '';
       if (rawEmail && rawEmail.includes('@')) {
-        const hName = r.name ? String(r.name).trim() : 'Leader';
+        const hName = r.name ? formatHonorificName(String(r.name).trim()) : 'Leader';
         if (!recipients[rawEmail]) {
           recipients[rawEmail] = {
             name: hName,
@@ -4172,6 +4188,9 @@ function sendOtherAgendaNotifications(agendaInput, customRecipients) {
             isAttendee: Boolean(r.isAttendee)
           };
         } else {
+          if (hName.startsWith('Bishop') || hName.startsWith('President')) {
+            recipients[rawEmail].name = hName;
+          }
           if (Array.isArray(r.roles)) {
             r.roles.forEach(rl => { if (!recipients[rawEmail].roles.includes(rl)) recipients[rawEmail].roles.push(rl); });
           }
@@ -4268,7 +4287,7 @@ function sendOtherAgendaNotifications(agendaInput, customRecipients) {
       }
     });
 
-    // 7. Check Attendees & Leadership Roll (so all listed attendees receive a full copy of the agenda)
+    // 7. Check Attendees & Leadership Roll
     let attendeesList = [];
     try {
       if (typeof agenda.attendees === 'string') {
@@ -4311,11 +4330,30 @@ function sendOtherAgendaNotifications(agendaInput, customRecipients) {
 
   const readableType = meetingTypeLabels[agenda.meeting_type] || agenda.title || 'Ward Meeting';
   const meetingTypeHeading = readableType.endsWith('Agenda') ? readableType : `${readableType} Agenda`;
+
+  const displayDateStr = formatDisplayDate(agenda.date);
+  const startTimeStr = formatDisplayTime(agenda.start_time);
+  const endTimeStr = formatDisplayTime(agenda.end_time);
+  const displayTimeStr = startTimeStr && endTimeStr ? `${startTimeStr} - ${endTimeStr}` : (startTimeStr || '07:00 AM');
+
+  const presidingDisplay = formatHonorificName(agenda.presiding, agenda.presiding_role);
+  const pRole = sanitizeString(agenda.presiding_role);
+  const presidingDisplayFull = (pRole && !presidingDisplay.toLowerCase().includes(pRole.toLowerCase()))
+    ? `${presidingDisplay} (${pRole})`
+    : (presidingDisplay || 'Bishop');
+
+  const conductingDisplay = formatHonorificName(agenda.conducting, agenda.conducting_role);
+  const cRole = sanitizeString(agenda.conducting_role);
+  const conductingDisplayFull = (cRole && !conductingDisplay.toLowerCase().includes(cRole.toLowerCase()))
+    ? `${conductingDisplay} (${cRole})`
+    : (conductingDisplay || 'Conducting Officer');
+
   let sentCount = 0;
   const sentDetails = [];
 
   Object.entries(recipients).forEach(([email, data]) => {
-    const subject = `[${meetingTypeHeading}] ${agenda.date}`;
+    const recipientFormattedName = formatHonorificName(data.name);
+    const subject = `[${meetingTypeHeading}] ${displayDateStr}`;
     
     let rolesHtml = '';
     if (data.roles.length > 0) {
@@ -4385,20 +4423,17 @@ function sendOtherAgendaNotifications(agendaInput, customRecipients) {
       <body style="font-family: Arial, sans-serif; line-height: 1.5; color: #1e293b; background-color: #f8fafc; margin: 0; padding: 20px;">
         <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
           
-          <div style="background-color: #1e3a8a; padding: 22px; text-align: center; color: #ffffff;">
-            <div style="font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #93c5fd; margin-bottom: 6px;">
-              The Church of Jesus Christ of Latter-day Saints
+          <div style="background-color: #1e3a8a; padding: 18px; text-align: center; color: #ffffff;">
+            <div style="font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">
+              ${wardName}
             </div>
-            <div style="font-size: 17px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">
-              Ward: OBANTOKO WARD
-            </div>
-            <div style="font-size: 15px; font-weight: 700; color: #ffffff;">
-              Meeting type: ${meetingTypeHeading}
+            <div style="font-size: 14px; font-weight: 700; color: #93c5fd;">
+              ${meetingTypeHeading}
             </div>
           </div>
 
           <div style="padding: 24px;">
-            <p style="font-size: 15px; margin-top: 0;">Dear <strong>${data.name}</strong>,</p>
+            <p style="font-size: 15px; margin-top: 0;">Dear <strong>${recipientFormattedName}</strong>,</p>
             <p style="font-size: 14px; color: #475569;">
               This is to provide you with the official meeting agenda and assignments for the upcoming <strong>${readableType}</strong>:
             </p>
@@ -4406,11 +4441,11 @@ function sendOtherAgendaNotifications(agendaInput, customRecipients) {
             <table style="width: 100%; margin: 16px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px;">
               <tr>
                 <td style="padding: 8px 12px; font-weight: bold; width: 120px; color: #64748b;">📅 Date:</td>
-                <td style="padding: 8px 12px; color: #0f172a; font-weight: bold;">${agenda.date}</td>
+                <td style="padding: 8px 12px; color: #0f172a; font-weight: bold;">${displayDateStr}</td>
               </tr>
               <tr>
                 <td style="padding: 8px 12px; font-weight: bold; color: #64748b;">⏰ Time:</td>
-                <td style="padding: 8px 12px; color: #0f172a;">${agenda.start_time} - ${agenda.end_time}</td>
+                <td style="padding: 8px 12px; color: #0f172a;">${displayTimeStr}</td>
               </tr>
               <tr>
                 <td style="padding: 8px 12px; font-weight: bold; color: #64748b;">📍 Venue:</td>
@@ -4418,11 +4453,11 @@ function sendOtherAgendaNotifications(agendaInput, customRecipients) {
               </tr>
               <tr>
                 <td style="padding: 8px 12px; font-weight: bold; color: #64748b;">👤 Presiding:</td>
-                <td style="padding: 8px 12px; color: #0f172a;">${formatHonorificName(agenda.presiding, agenda.presiding_role) || 'Bishop'} (${agenda.presiding_role || 'Bishop'})</td>
+                <td style="padding: 8px 12px; color: #0f172a;">${presidingDisplayFull}</td>
               </tr>
               <tr>
                 <td style="padding: 8px 12px; font-weight: bold; color: #64748b;">🗣️ Conducting:</td>
-                <td style="padding: 8px 12px; color: #0f172a;">${formatHonorificName(agenda.conducting, agenda.conducting_role) || 'Conducting Officer'} (${agenda.conducting_role || 'Counselor'})</td>
+                <td style="padding: 8px 12px; color: #0f172a;">${conductingDisplayFull}</td>
               </tr>
             </table>
 
@@ -4438,7 +4473,7 @@ function sendOtherAgendaNotifications(agendaInput, customRecipients) {
             ` : ''}
 
             <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 13px; color: #64748b; text-align: center;">
-              <p style="margin: 0 0 4px 0;">Approved by <strong>${formatHonorificName(agenda.approved_by_name) || 'Bishopric'}</strong> on ${agenda.approved_date ? agenda.approved_date.substring(0, 10) : 'Record'}.</p>
+              <p style="margin: 0 0 4px 0;">Approved by <strong>${formatHonorificName(agenda.approved_by_name) || 'Bishopric'}</strong> on ${agenda.approved_date ? formatDisplayDate(agenda.approved_date) : 'Record'}.</p>
               <p style="margin: 0; font-size: 11px;">Thank you for your dedicated service and commitment to the Lord's work.</p>
             </div>
           </div>
@@ -4450,14 +4485,14 @@ function sendOtherAgendaNotifications(agendaInput, customRecipients) {
 
     const plainText = `
 ${meetingTypeHeading}
-Ward: OBANTOKO WARD
-Date: ${agenda.date}
-Time: ${agenda.start_time} - ${agenda.end_time}
-Venue: ${agenda.venue}
-Presiding: ${formatHonorificName(agenda.presiding, agenda.presiding_role)}
-Conducting: ${formatHonorificName(agenda.conducting, agenda.conducting_role)}
+Ward: ${wardName}
+Date: ${displayDateStr}
+Time: ${displayTimeStr}
+Venue: ${agenda.venue || "Bishop's Office"}
+Presiding: ${presidingDisplayFull}
+Conducting: ${conductingDisplayFull}
 
-Dear ${data.name},
+Dear ${recipientFormattedName},
 Please review your assignments and meeting details for the upcoming ${readableType}.
 Approved by ${formatHonorificName(agenda.approved_by_name) || 'Bishopric'}.
     `.trim();
@@ -4465,7 +4500,7 @@ Approved by ${formatHonorificName(agenda.approved_by_name) || 'Bishopric'}.
     const success = sendEmail(email, subject, plainText, { html: htmlBody });
     if (success) {
       sentCount++;
-      sentDetails.push({ email: email, name: data.name });
+      sentDetails.push({ email: email, name: recipientFormattedName });
     }
   });
 

@@ -35,15 +35,23 @@ export function formatOtherAgendaWhatsApp(agenda: OtherAgenda): string {
     assignmentsList = [];
   }
 
-  let text = `🏛️ *THE CHURCH OF JESUS CHRIST OF LATTER-DAY SAINTS*\n`;
-  text += `🏛️ *Ward:* ${agenda.venue ? (agenda.venue.includes('Ward') ? agenda.venue : 'OBANTOKO WARD') : 'OBANTOKO WARD'}\n`;
-  text += `📋 *Meeting type:* ${meetingName.endsWith('Agenda') ? meetingName : `${meetingName} Agenda`}\n\n`;
+  let text = `📋 *${meetingName.endsWith('Agenda') ? meetingName : `${meetingName} Agenda`}*\n`;
+  if (agenda.venue && agenda.venue.includes('Ward')) {
+    text += `🏛️ *Ward:* ${agenda.venue}\n`;
+  }
+  text += `\n`;
 
   text += `📅 *Date:* ${agenda.date}\n`;
   text += `⏰ *Time:* ${formatTime12h(agenda.start_time)} - ${formatTime12h(agenda.end_time)}\n`;
   text += `📍 *Venue:* ${agenda.venue || "Bishop's Office / Council Room"}\n`;
-  text += `👤 *Presiding:* ${formatHonorificName(agenda.presiding, agenda.presiding_role) || 'Bishop'} (${agenda.presiding_role || 'Bishop'})\n`;
-  text += `🗣️ *Conducting:* ${formatHonorificName(agenda.conducting, agenda.conducting_role) || 'Conducting Officer'} (${agenda.conducting_role || 'Counselor'})\n\n`;
+
+  const presidingDisplay = formatHonorificName(agenda.presiding, agenda.presiding_role) || 'Bishop';
+  const presidingRoleDisplay = agenda.presiding_role && !presidingDisplay.toLowerCase().includes(agenda.presiding_role.toLowerCase()) ? ` (${agenda.presiding_role})` : '';
+  text += `👤 *Presiding:* ${presidingDisplay}${presidingRoleDisplay}\n`;
+
+  const conductingDisplay = formatHonorificName(agenda.conducting, agenda.conducting_role) || 'Conducting Officer';
+  const conductingRoleDisplay = agenda.conducting_role && !conductingDisplay.toLowerCase().includes(agenda.conducting_role.toLowerCase()) ? ` (${agenda.conducting_role})` : '';
+  text += `🗣️ *Conducting:* ${conductingDisplay}${conductingRoleDisplay}\n\n`;
 
   text += `*─── OPENING EXERCISES ───*\n`;
   if (agenda.opening_hymn) text += `🎵 *Opening Hymn:* ${agenda.opening_hymn}\n`;
@@ -109,14 +117,16 @@ export function formatParticipantWhatsApp(
   const meetingName = meetingTypeNames[agenda.meeting_type] || agenda.title || 'Ward Meeting';
   const honorificParticipant = formatHonorificName(participantName);
 
-  let text = `🏛️ *THE CHURCH OF JESUS CHRIST OF LATTER-DAY SAINTS*\n`;
-  text += `🏛️ *Ward:* ${agenda.venue ? (agenda.venue.includes('Ward') ? agenda.venue : 'OBANTOKO WARD') : 'OBANTOKO WARD'}\n`;
-  text += `📋 *Meeting type:* ${meetingName.endsWith('Agenda') ? meetingName : `${meetingName} Agenda`}\n\n`;
+  let text = `📋 *${meetingName.endsWith('Agenda') ? meetingName : `${meetingName} Agenda`}*\n`;
+  if (agenda.venue && agenda.venue.includes('Ward')) {
+    text += `🏛️ *Ward:* ${agenda.venue}\n`;
+  }
+  text += `\n`;
   text += `Dear *${honorificParticipant}*,\n\n`;
   text += `Here are your assigned responsibilities and action items for the upcoming *${meetingName}*:\n\n`;
 
   text += `📅 *Date:* ${agenda.date}\n`;
-  text += `⏰ *Time:* ${agenda.start_time} - ${agenda.end_time}\n`;
+  text += `⏰ *Time:* ${formatTime12h(agenda.start_time)} - ${formatTime12h(agenda.end_time)}\n`;
   text += `📍 *Venue:* ${agenda.venue || "Bishop's Office / Council Room"}\n`;
   text += `👤 *Presiding:* ${formatHonorificName(agenda.presiding, agenda.presiding_role) || 'Bishop'}\n\n`;
 

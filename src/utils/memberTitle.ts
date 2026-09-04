@@ -1,4 +1,31 @@
-import type { Member } from '../types';
+import type { Member, User } from '../types';
+
+let _MEMBERS_CACHE: Member[] = [];
+
+/**
+ * Registers the active ward members directory in-memory for automatic title and calling resolution.
+ */
+export function setMembersDirectoryRegistry(members: Member[]): void {
+  if (Array.isArray(members)) {
+    _MEMBERS_CACHE = members;
+  }
+}
+
+export function getMembersDirectoryRegistry(): Member[] {
+  return _MEMBERS_CACHE;
+}
+
+/**
+ * Normalizes "Last, First Middle" into "First Middle Last"
+ */
+export function normalizeNameOrder(name: string): string {
+  if (!name || !name.includes(',')) return name;
+  const parts = name.split(',').map((p) => p.trim()).filter(Boolean);
+  if (parts.length === 2) {
+    return `${parts[1]} ${parts[0]}`;
+  }
+  return name.replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
+}
 
 /**
  * Strips all prefixes (Brother, Sister, Elder, Bishop, President, Patriarch, Bro, Sis, Pres, Bp, Eld)
@@ -8,6 +35,9 @@ export function stripAllHonorifics(rawName?: string | null): { baseName: string;
   if (!rawName || !rawName.trim()) return { baseName: '' };
   let clean = rawName.trim();
   let highestTitle: string | undefined = undefined;
+
+  // Normalize "Oyewusi, Adebayo Babatunde" to "Adebayo Babatunde Oyewusi"
+  clean = normalizeNameOrder(clean);
 
   const prefixRegex = /^(brother|sister|elder|bishop|president|patriarch|bro\.|bro|sis\.|sis|eld\.|eld|bp\.|bp|pres\.|pres)\s+/i;
   let match;
@@ -29,18 +59,25 @@ export function stripAllHonorifics(rawName?: string | null): { baseName: string;
     clean = clean.substring(match[0].length).trim();
   }
 
+  // Also clean any trailing commas or double spaces
+  clean = clean.replace(/,/g, '').replace(/\s{2,}/g, ' ').trim();
+
   return { baseName: clean, detectedTitle: highestTitle };
 }
 
 /**
  * Ensures a name always includes its single respectful LDS title/prefix
  * (Bishop, President, Patriarch, Elder, Sister, Brother).
- * Calling-based titles ALWAYS supersede gender-based titles.
- * Multiple stacked titles (e.g. "Brother Bishop") are strictly prevented.
+ * 
+ * Rules:
+ * 1. Calling-based titles ALWAYS supersede gender-based titles.
+ * 2. If a member is the Bishop, their title is ALWAYS "Bishop" (never "Brother Bishop", never "Brother").
+ * 3. Gender determines Brother vs Sister automatically without requiring manual editing.
+ * 4. Resolves against 6-digit member_id and members directory registry when available.
  */
 export function formatHonorificName(
   name?: string | null,
-  memberOrCallingOrOptions?: Member | string | {
+  memberOrCallingOrOptions?: Member | User | string | {
     calling?: string;
     gender?: string;
     role?: string;
@@ -52,20 +89,22 @@ export function formatHonorificName(
 ): string {
   if (!name || !name.trim()) return '';
 
-  const { baseName, detectedTitle } = stripAllHonorifics(name);
+  const rawInput = name.trim();
+  const { baseName, detectedTitle } = stripAllHonorifics(rawInput);
   if (!baseName) return '';
 
   let calling = '';
   let gender = genderFallback || '';
   let role = '';
   let priesthoodOffice = '';
+  let memberId = '';
 
   if (typeof memberOrCallingOrOptions === 'string') {
     calling = memberOrCallingOrOptions;
   } else if (memberOrCallingOrOptions && typeof memberOrCallingOrOptions === 'object') {
-    calling = memberOrCallingOrOptions.calling || '';
-    if (!gender && memberOrCallingOrOptions.gender) {
-      gender = memberOrCallingOrOptions.gender;
+    calling = ('calling' in memberOrCallingOrOptions && memberOrCallingOrOptions.calling) ? String(memberOrCallingOrOptions.calling) : '';
+    if (!gender && 'gender' in memberOrCallingOrOptions && memberOrCallingOrOptions.gender) {
+      gender = String(memberOrCallingOrOptions.gender);
     }
     if ('role' in memberOrCallingOrOptions && memberOrCallingOrOptions.role) {
       role = String(memberOrCallingOrOptions.role);
@@ -73,15 +112,46 @@ export function formatHonorificName(
     if ('priesthood_office' in memberOrCallingOrOptions && memberOrCallingOrOptions.priesthood_office) {
       priesthoodOffice = String(memberOrCallingOrOptions.priesthood_office);
     }
+    if ('member_id' in memberOrCallingOrOptions && memberOrCallingOrOptions.member_id) {
+      memberId = String(memberOrCallingOrOptions.member_id);
+    } else if ('members_id' in memberOrCallingOrOptions && memberOrCallingOrOptions.members_id) {
+      memberId = String(memberOrCallingOrOptions.members_id);
+    }
   }
 
-  // 1. Calling / Role Priority 1: Bishop (always Bishop, never Brother Bishop)
+  // If calling or gender wasn't passed directly, look up the member in the registry
+  if ((!calling || !gender) && _MEMBERS_CACHE.length > 0) {
+    let matchedMem: Member | undefined;
+    if (memberId) {
+      matchedMem = _MEMBERS_CACHE.find((m) => (m.member_id === memberId || m.members_id === memberId));
+    }
+    if (!matchedMem) {
+      matchedMem = findMemberInList(baseName, _MEMBERS_CACHE);
+    }
+    if (matchedMem) {
+      if (!calling && matchedMem.calling) calling = matchedMem.calling;
+      if (!gender && matchedMem.gender) gender = matchedMem.gender;
+      if (!priesthoodOffice && matchedMem.priesthood_office) priesthoodOffice = matchedMem.priesthood_office;
+    }
+  }
+
+  // 1. Calling / Role Priority 1: Bishop (always Bishop, never Brother or Brother Bishop)
   if (
     detectedTitle === 'Bishop' ||
-    role === 'ADMIN' ||
     /bishop/i.test(calling) ||
-    /bishop/i.test(priesthoodOffice)
+    /bishop/i.test(priesthoodOffice) ||
+    (role === 'BISHOPRIC' && /bishop/i.test(calling)) ||
+    baseName.toLowerCase() === 'bishop'
   ) {
+    if (baseName.toLowerCase() === 'bishop') {
+      // Find the ward bishop's actual name if available
+      const bishopMember = _MEMBERS_CACHE.find((m) => m.calling && /bishop/i.test(m.calling));
+      if (bishopMember) {
+        const { baseName: bName } = stripAllHonorifics(bishopMember.name);
+        return `Bishop ${bName}`;
+      }
+      return 'Bishop';
+    }
     return `Bishop ${baseName}`;
   }
 
@@ -127,7 +197,7 @@ export function formatHonorificName(
 }
 
 /**
- * Formats a member dropdown/datalist label with title and calling
+ * Formats a member dropdown/datalist label with title, 6-digit ID badge, and calling
  */
 export function getMemberDisplayWithTitle(member: Member): string {
   const titleName = formatHonorificName(member.name, member);
@@ -180,7 +250,7 @@ export function namesMatch(nameA?: string | null, nameB?: string | null): boolea
   if (tokensA.length > 0 && tokensA.every((t) => setB.has(t))) return true;
   if (tokensB.length > 0 && tokensB.every((t) => setA.has(t))) return true;
 
-  // Handle single-token or initial match (e.g. "Oyewusi" or "Adebayo")
+  // Handle single-token match
   if (tokensA.length === 1 && tokensB.includes(tokensA[0]) && tokensA[0].length >= 3) return true;
   if (tokensB.length === 1 && tokensA.includes(tokensB[0]) && tokensB[0].length >= 3) return true;
 
@@ -188,11 +258,20 @@ export function namesMatch(nameA?: string | null, nameB?: string | null): boolea
 }
 
 /**
- * Searches a list of members for a matching member record using robust name matching.
+ * Searches a list of members for a matching member record using ID or robust name matching.
  */
-export function findMemberInList(name?: string | null, members: Member[] = []): Member | undefined {
-  if (!name || !name.trim() || members.length === 0) return undefined;
-  return members.find((m) => namesMatch(m.name, name));
+export function findMemberInList(nameOrId?: string | null, members: Member[] = []): Member | undefined {
+  if (!nameOrId || !nameOrId.trim()) return undefined;
+  const target = nameOrId.trim();
+  const list = members.length > 0 ? members : _MEMBERS_CACHE;
+  if (list.length === 0) return undefined;
+
+  // 1. Direct ID match (6-digit member_id or members_id)
+  const idMatch = list.find((m) => (m.member_id === target || m.members_id === target));
+  if (idMatch) return idMatch;
+
+  // 2. Name matching
+  return list.find((m) => namesMatch(m.name, target));
 }
 
 /**
