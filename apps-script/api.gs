@@ -4076,52 +4076,92 @@ function sendOtherAgendaNotifications(agendaInput) {
     topicsList = [];
   }
 
+  const stripAllHonorifics = (rawName) => {
+    if (!rawName || !String(rawName).trim()) return { baseName: '', detectedTitle: '' };
+    let clean = String(rawName).trim();
+    let highestTitle = '';
+    const prefixRegex = /^(brother|sister|elder|bishop|president|patriarch|bro\.|bro|sis\.|sis|eld\.|eld|bp\.|bp|pres\.|pres)\s+/i;
+    let match;
+    while ((match = clean.match(prefixRegex))) {
+      const p = match[1].toLowerCase();
+      if (p.startsWith('bp') || p.startsWith('bishop')) highestTitle = 'Bishop';
+      else if (p.startsWith('pres') && highestTitle !== 'Bishop') highestTitle = 'President';
+      else if (p.startsWith('patr') && !['Bishop', 'President'].includes(highestTitle)) highestTitle = 'Patriarch';
+      else if (p.startsWith('eld') && !['Bishop', 'President', 'Patriarch'].includes(highestTitle)) highestTitle = 'Elder';
+      else if (p.startsWith('sis') && !['Bishop', 'President', 'Patriarch'].includes(highestTitle)) highestTitle = 'Sister';
+      else if (p.startsWith('bro') && !highestTitle) highestTitle = 'Brother';
+      clean = clean.substring(match[0].length).trim();
+    }
+    return { baseName: clean, detectedTitle: highestTitle };
+  };
+
+  const getMemberRecordForName = (name) => {
+    if (!name) return null;
+    const { baseName } = stripAllHonorifics(name);
+    const cleanBase = normalize(baseName);
+    const cleanRaw = normalize(name);
+
+    return allMembers.find(m => {
+      const mName = normalize(m.name);
+      const mId = normalize(m.members_id || m.member_id);
+      if (mId && (cleanRaw.includes(mId) || cleanBase.includes(mId))) return true;
+      if (mName === cleanBase || mName === cleanRaw) return true;
+      if (mName.includes(',')) {
+        const parts = mName.split(',').map(p => p.trim());
+        if (parts.length === 2 && `${parts[1]} ${parts[0]}` === cleanBase) return true;
+      }
+      return false;
+    }) || allUsers.find(u => {
+      const uName = normalize(u.name);
+      const uPref = normalize(u.preferred_name);
+      const uId = normalize(u.members_id || u.member_id || u.user_id);
+      if (uId && (cleanRaw.includes(uId) || cleanBase.includes(uId))) return true;
+      return uName === cleanBase || uName === cleanRaw || uPref === cleanBase || uPref === cleanRaw;
+    });
+  };
+
   const formatHonorificName = (rawName, memberRecord, genderFallback) => {
     if (!rawName || !String(rawName).trim()) return '';
-    const trimmed = String(rawName).trim();
-    // If it already starts with an honorific prefix, normalize and return
-    const prefixMatch = trimmed.match(/^(brother|sister|elder|bishop|president|bro\.|bro|sis\.|sis|eld\.|eld|bp\.|bp|pres\.|pres)\s+/i);
-    if (prefixMatch) {
-      const rawPrefix = prefixMatch[1].toLowerCase();
-      const restOfName = trimmed.substring(prefixMatch[0].length).trim();
-      let std = 'Brother';
-      if (rawPrefix.startsWith('sis')) std = 'Sister';
-      else if (rawPrefix.startsWith('eld')) std = 'Elder';
-      else if (rawPrefix.startsWith('bp') || rawPrefix.startsWith('bishop')) std = 'Bishop';
-      else if (rawPrefix.startsWith('pres')) std = 'President';
-      else if (rawPrefix.startsWith('bro')) std = 'Brother';
-      return std + ' ' + restOfName;
-    }
+    const { baseName, detectedTitle } = stripAllHonorifics(rawName);
+    if (!baseName) return '';
 
     let calling = '';
     let gender = genderFallback || '';
+    let role = '';
+    let priesthoodOffice = '';
+
     if (typeof memberRecord === 'string') {
       calling = memberRecord;
     } else if (memberRecord && typeof memberRecord === 'object') {
       calling = memberRecord.calling || '';
       if (!gender && memberRecord.gender) gender = memberRecord.gender;
+      if (memberRecord.role) role = memberRecord.role;
+      if (memberRecord.priesthood_office) priesthoodOffice = memberRecord.priesthood_office;
     }
 
-    if (calling) {
-      if (/bishop/i.test(calling)) return 'Bishop ' + trimmed;
-      if (/stake president|district president|branch president|mission president/i.test(calling)) return 'President ' + trimmed;
-      if (/relief society|young women|primary/i.test(calling)) return 'Sister ' + trimmed;
-      if (/elders quorum|high priest/i.test(calling)) return 'Brother ' + trimmed;
+    // Calling/Role Priority 1: Bishop (always Bishop, never Brother Bishop)
+    if (detectedTitle === 'Bishop' || role === 'ADMIN' || /bishop/i.test(calling) || /bishop/i.test(priesthoodOffice)) {
+      return 'Bishop ' + baseName;
     }
-
-    if (gender) {
-      if (String(gender).toUpperCase().startsWith('F')) return 'Sister ' + trimmed;
-      if (String(gender).toUpperCase().startsWith('M')) return 'Brother ' + trimmed;
+    // Calling/Role Priority 2: President
+    if (detectedTitle === 'President' || /stake president|district president|branch president|mission president|temple president|area president/i.test(calling) || /stake presidency|district presidency|branch presidency/i.test(calling)) {
+      return 'President ' + baseName;
     }
-
-    return 'Brother ' + trimmed;
-  };
-
-  const getMemberRecordForName = (name) => {
-    if (!name) return null;
-    const clean = normalize(name);
-    return allMembers.find(m => normalize(m.name) === clean) ||
-           allUsers.find(u => normalize(u.name) === clean || normalize(u.preferred_name) === clean);
+    // Priesthood Office: Patriarch
+    if (detectedTitle === 'Patriarch' || /patriarch/i.test(calling) || /patriarch/i.test(priesthoodOffice)) {
+      return 'Patriarch ' + baseName;
+    }
+    // Calling / Office: Elder
+    if (detectedTitle === 'Elder' || /full[- ]time missionary|missionary/i.test(calling)) {
+      return 'Elder ' + baseName;
+    }
+    // Gender / Auxiliary: Sister
+    const gUpper = String(gender).toUpperCase();
+    if (detectedTitle === 'Sister' || gUpper === 'F' || gUpper === 'FEMALE' || /relief society|young women|primary/i.test(calling)) {
+      return 'Sister ' + baseName;
+    }
+    // Default to Brother
+    return 'Brother ' + baseName;
   };
 
   const recipients = {}; // email -> { name, roles: [], assignments: [] }

@@ -1,3 +1,5 @@
+import { formatHonorificName, stripAllHonorifics } from './memberTitle';
+
 /**
  * Utility for formatting Latter-day Saint church titles and respectful prefixes.
  */
@@ -19,33 +21,7 @@ export function formatMemberTitle(
   calling?: string,
   role?: string
 ): string {
-  if (!name || !name.trim()) return '';
-  const trimmed = name.trim();
-
-  // Already prefixed
-  if (
-    /^(Bishop|President|Elder|Brother|Bro\.|Sister|Sis\.|Patriarch)\s+/i.test(trimmed)
-  ) {
-    return trimmed;
-  }
-
-  // Role or calling is Bishop/Bishopric
-  if (role === 'ADMIN' || (calling && /bishop/i.test(calling))) {
-    return 'Bishop ' + trimmed;
-  }
-  if (calling && /president/i.test(calling)) {
-    return 'President ' + trimmed;
-  }
-
-  // Gender based
-  const g = (gender || '').toUpperCase();
-  if (g === 'F' || g === 'FEMALE') {
-    return 'Sister ' + trimmed;
-  }
-  if (g === 'M' || g === 'MALE') {
-    return 'Brother ' + trimmed;
-  }
-
-  // Default
-  return 'Brother ' + trimmed;
+  return formatHonorificName(name, { gender, calling, role });
 }
+
+export { stripAllHonorifics, formatHonorificName };

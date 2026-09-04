@@ -55,9 +55,12 @@ export function formatHymnDisplay(number?: string | number, title?: string): str
   return titleStr;
 }
 
+import { formatHonorificName } from './memberTitle';
+
 /**
  * Formats a person's name with LDS honorifics (Brother/Sister/Elder/President/Bishop)
  * If no honorific is present, it looks up gender from the member list or gender field.
+ * Strictly prevents duplicate stacked titles like "Brother Bishop".
  */
 export function formatPersonWithTitle(
   name: string,
@@ -65,20 +68,7 @@ export function formatPersonWithTitle(
   existingPrefix?: string
 ): string {
   if (!name) return '';
-  const trimmed = name.trim();
-  
-  // Check if name already starts with a common title
-  if (/^(Brother|Bro\.|Sister|Sis\.|Elder|President|Pres\.|Bishop|Bp\.|Sister |Brother )/i.test(trimmed)) {
-    return trimmed;
-  }
-
-  if (existingPrefix && existingPrefix.trim()) {
-    return `${existingPrefix.trim()} ${trimmed}`;
-  }
-
-  if (gender === 'M') return `Brother ${trimmed}`;
-  if (gender === 'F') return `Sister ${trimmed}`;
-  return trimmed;
+  return formatHonorificName(name, { gender }, existingPrefix);
 }
 
 /**
