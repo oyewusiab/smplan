@@ -109,12 +109,12 @@ export function OtherAgendasSection({ members, unitName }: OtherAgendasSectionPr
   }, [agendas]);
 
   // Save / Update Handler
-  const handleSaveAgenda = async (payload: Partial<OtherAgenda>, actionType: 'DRAFT' | 'SUBMIT' | 'APPROVE') => {
+  const handleSaveAgenda = async (payload: Partial<OtherAgenda>, actionType: 'DRAFT' | 'SUBMIT' | 'APPROVE' | 'APPROVE_NO_EMAIL') => {
     if (!session) return;
     setSaving(true);
     try {
       let finalState: OtherAgendaState = 'DRAFT';
-      if (actionType === 'APPROVE') finalState = 'APPROVED';
+      if (actionType === 'APPROVE' || actionType === 'APPROVE_NO_EMAIL') finalState = 'APPROVED';
       else if (actionType === 'SUBMIT') finalState = 'SUBMITTED';
 
       const dataToSave = {
@@ -124,7 +124,7 @@ export function OtherAgendasSection({ members, unitName }: OtherAgendasSectionPr
 
       if (editingAgenda) {
         if (actionType === 'APPROVE') {
-          const res = await otherAgendasApi.approve(session.token, editingAgenda.other_agenda_id) as { ok: boolean; emailSummary?: { sentCount: number } };
+          const res = await otherAgendasApi.approve(session.token, editingAgenda.other_agenda_id, { skipEmails: false }) as { ok: boolean; emailSummary?: { sentCount: number } };
           if (res && res.ok) {
             toast.success(
               res.emailSummary && res.emailSummary.sentCount > 0
@@ -132,6 +132,9 @@ export function OtherAgendasSection({ members, unitName }: OtherAgendasSectionPr
                 : 'Agenda approved successfully!'
             );
           }
+        } else if (actionType === 'APPROVE_NO_EMAIL') {
+          await otherAgendasApi.approve(session.token, editingAgenda.other_agenda_id, { skipEmails: true });
+          toast.success('Agenda approved successfully (no emails sent).');
         } else {
           await otherAgendasApi.update(session.token, {
             other_agenda_id: editingAgenda.other_agenda_id,
@@ -140,7 +143,8 @@ export function OtherAgendasSection({ members, unitName }: OtherAgendasSectionPr
           toast.success(actionType === 'SUBMIT' ? 'Agenda submitted for Bishopric approval!' : 'Agenda draft saved!');
         }
       } else {
-        const res = await otherAgendasApi.create(session.token, dataToSave) as { ok: boolean; emailSummary?: { sentCount: number } };
+        const skipEmails = actionType === 'APPROVE_NO_EMAIL';
+        const res = await otherAgendasApi.create(session.token, { ...dataToSave, ...(skipEmails ? { skip_emails: true } : {}) }) as { ok: boolean; emailSummary?: { sentCount: number } };
         if (res && res.ok) {
           if (actionType === 'APPROVE') {
             toast.success(
@@ -148,6 +152,8 @@ export function OtherAgendasSection({ members, unitName }: OtherAgendasSectionPr
                 ? `Agenda created & approved! Automated emails sent to ${res.emailSummary.sentCount} leaders.`
                 : 'Agenda created & approved!'
             );
+          } else if (actionType === 'APPROVE_NO_EMAIL') {
+            toast.success('Agenda created & approved (no emails sent).');
           } else if (actionType === 'SUBMIT') {
             toast.success('Agenda created and submitted for Bishopric approval!');
           } else {
@@ -198,7 +204,7 @@ export function OtherAgendasSection({ members, unitName }: OtherAgendasSectionPr
   };
 
   // Direct Quick Approve
-  const handleQuickApprove = async (agenda: OtherAgenda) => {
+  const handleQuickApprove = async (agenda: OtherAgenda, sendEmail: boolean = true) => {
     if (!session) return;
     const check = checkCanApprove(agenda);
     if (!check.allowed) {
@@ -206,15 +212,19 @@ export function OtherAgendasSection({ members, unitName }: OtherAgendasSectionPr
       return;
     }
 
-    if (!window.confirm(`Approve agenda for "${agenda.title}" (${agenda.date}) and send automated email notifications to all assigned leaders?`)) {
+    const confirmMsg = sendEmail
+      ? `Approve agenda for "${agenda.title}" (${agenda.date}) and send automated email notifications to all assigned leaders?`
+      : `Approve agenda for "${agenda.title}" (${agenda.date}) without sending email notifications?`;
+
+    if (!window.confirm(confirmMsg)) {
       return;
     }
 
     try {
-      const res = await otherAgendasApi.approve(session.token, agenda.other_agenda_id) as { ok: boolean; emailSummary?: { sentCount: number } };
+      const res = await otherAgendasApi.approve(session.token, agenda.other_agenda_id, { skipEmails: !sendEmail }) as { ok: boolean; emailSummary?: { sentCount: number } };
       if (res && res.ok) {
         toast.success(
-          res.emailSummary && res.emailSummary.sentCount > 0
+          sendEmail && res.emailSummary && res.emailSummary.sentCount > 0
             ? `Approved! Automated notifications sent to ${res.emailSummary.sentCount} assigned leaders.`
             : 'Agenda approved successfully!'
         );
@@ -561,14 +571,26 @@ export function OtherAgendasSection({ members, unitName }: OtherAgendasSectionPr
 
                     {/* Approve Action for Bishopric */}
                     {isBishopricOrAdmin && item.state !== 'APPROVED' && (
-                      <Button
-                        size="xs"
-                        variant="primary"
-                        icon={<CheckCircle2 className="h-3.5 w-3.5" />}
-                        onClick={() => handleQuickApprove(item)}
-                      >
-                        Approve & Send Emails
-                      </Button>
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          icon={<CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />}
+                          onClick={() => handleQuickApprove(item, false)}
+                          title="Approve without sending email notifications"
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="primary"
+                          icon={<Mail className="h-3.5 w-3.5" />}
+                          onClick={() => handleQuickApprove(item, true)}
+                          title="Approve and send email notifications to all attendees & assigned leaders"
+                        >
+                          Approve & Send Email
+                        </Button>
+                      </div>
                     )}
                   </div>
 

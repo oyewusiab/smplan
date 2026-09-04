@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import type { Member } from '../../types';
 import { Edit2, List } from 'lucide-react';
+import { stripAllHonorifics, namesMatch } from '../../utils/memberTitle';
 
 interface MemberPickerProps {
   label?: string;
@@ -18,15 +19,8 @@ interface MemberPickerProps {
 
 export function parseNameWithPrefix(raw: string | undefined, defaultPrefix = 'Brother') {
   if (!raw) return { prefix: defaultPrefix, name: '' };
-  const match = raw.match(/^(Brother|Sister|Elder|Bishop|President|Bro\.|Sis\.|Pres\.)\s+(.*)$/i);
-  if (match) {
-    let p = match[1];
-    if (/^bro/i.test(p)) p = 'Brother';
-    if (/^sis/i.test(p)) p = 'Sister';
-    if (/^pres/i.test(p)) p = 'President';
-    return { prefix: p, name: match[2].trim() };
-  }
-  return { prefix: defaultPrefix, name: raw.trim() };
+  const { baseName, detectedTitle } = stripAllHonorifics(raw);
+  return { prefix: detectedTitle || defaultPrefix, name: baseName };
 }
 
 export function MemberPicker({
@@ -60,7 +54,7 @@ export function MemberPicker({
   // Check if current name matches any member in directory
   const isMemberInList = useMemo(() => {
     if (!name) return false;
-    return filteredMembers.some((m) => m.name.toLowerCase() === name.toLowerCase());
+    return filteredMembers.some((m) => namesMatch(m.name, name) || m.name.toLowerCase() === name.toLowerCase());
   }, [filteredMembers, name]);
 
   const handlePrefixChange = (newPrefix: string) => {
@@ -80,7 +74,8 @@ export function MemberPicker({
       onChange('');
       return;
     }
-    const memberObj = filteredMembers.find((m) => m.name === selectedMemberName);
+    const cleanBase = stripAllHonorifics(selectedMemberName).baseName;
+    const memberObj = filteredMembers.find((m) => namesMatch(m.name, cleanBase) || m.name === selectedMemberName);
     let newPref = prefix;
     if (memberObj) {
       if (memberObj.gender === 'F' && (prefix === 'Brother' || prefix === 'Elder' || prefix === 'Bishop')) {
@@ -90,14 +85,15 @@ export function MemberPicker({
       }
     }
     if (showPrefix) {
-      onChange(`${newPref} ${selectedMemberName}`);
+      onChange(`${newPref} ${cleanBase}`);
     } else {
-      onChange(selectedMemberName);
+      onChange(cleanBase);
     }
   };
 
   const handleCustomInputChange = (typedName: string) => {
-    const found = filteredMembers.find((m) => m.name.toLowerCase() === typedName.toLowerCase());
+    const cleanBase = stripAllHonorifics(typedName).baseName;
+    const found = filteredMembers.find((m) => namesMatch(m.name, cleanBase) || m.name.toLowerCase() === typedName.toLowerCase());
     let newPref = prefix;
     if (found) {
       if (found.gender === 'F' && (prefix === 'Brother' || prefix === 'Elder' || prefix === 'Bishop')) {
@@ -107,9 +103,9 @@ export function MemberPicker({
       }
     }
     if (showPrefix) {
-      onChange(typedName ? `${newPref} ${typedName}` : '');
+      onChange(cleanBase ? `${newPref} ${cleanBase}` : '');
     } else {
-      onChange(typedName);
+      onChange(cleanBase);
     }
   };
 

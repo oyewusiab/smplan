@@ -21,7 +21,7 @@ interface OtherAgendaModalProps {
   onClose: () => void;
   agenda?: OtherAgenda | null;
   members: Member[];
-  onSave: (payload: Partial<OtherAgenda>, actionType: 'DRAFT' | 'SUBMIT' | 'APPROVE') => Promise<void>;
+  onSave: (payload: Partial<OtherAgenda>, actionType: 'DRAFT' | 'SUBMIT' | 'APPROVE' | 'APPROVE_NO_EMAIL') => Promise<void>;
   saving: boolean;
 }
 
@@ -355,7 +355,7 @@ export function OtherAgendaModal({
     setAttendees(attendees.filter((_, i) => i !== idx));
   };
 
-  const handleSubmit = (actionType: 'DRAFT' | 'SUBMIT' | 'APPROVE') => {
+  const handleSubmit = (actionType: 'DRAFT' | 'SUBMIT' | 'APPROVE' | 'APPROVE_NO_EMAIL') => {
     if (!title.trim() || !date.trim()) {
       toast.error('Meeting Title and Date are required');
       return;
@@ -1006,16 +1006,28 @@ export function OtherAgendaModal({
             </Button>
           )}
 
-          {/* Approve Agenda & Dispatch Emails (for Bishop / Admin, or Counselor approving clerk/secretary agenda) */}
+          {/* Approve Agenda Actions (for Bishop / Admin, or Counselor approving clerk/secretary agenda) */}
           {isBishopricOrAdmin && !counselorCannotApprove && (
-            <Button
-              variant="primary"
-              icon={<CheckCircle2 className="h-4 w-4" />}
-              onClick={() => handleSubmit('APPROVE')}
-              disabled={saving}
-            >
-              {agenda?.state === 'APPROVED' ? 'Save & Re-Dispatch Emails' : 'Approve & Send Emails'}
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                icon={<CheckCircle2 className="h-4 w-4 text-emerald-600" />}
+                onClick={() => handleSubmit('APPROVE_NO_EMAIL')}
+                disabled={saving}
+                title="Approve this agenda without sending email notifications"
+              >
+                Approve
+              </Button>
+              <Button
+                variant="primary"
+                icon={<Send className="h-4 w-4" />}
+                onClick={() => handleSubmit('APPROVE')}
+                disabled={saving}
+                title="Approve this agenda and dispatch automated notification emails"
+              >
+                {agenda?.state === 'APPROVED' ? 'Save & Re-Dispatch Emails' : 'Approve & Send Email'}
+              </Button>
+            </>
           )}
         </div>
       </div>

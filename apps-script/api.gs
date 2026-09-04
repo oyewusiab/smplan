@@ -3902,22 +3902,30 @@ function handleApproveOtherAgenda(body) {
   const updateResult = dbUpdate('OTHER_AGENDAS', 'other_agenda_id', body.other_agenda_id, patch);
   const updatedAgenda = (updateResult && updateResult.updated) ? updateResult.updated : (updateResult || Object.assign({}, existing, patch));
 
-  // Send automated email notifications to all members with assignments / roles
-  const emailSummary = sendOtherAgendaNotifications(updatedAgenda);
-  if (emailSummary && emailSummary.sentCount > 0) {
-    dbUpdate('OTHER_AGENDAS', 'other_agenda_id', body.other_agenda_id, {
-      email_sent_count: (existing.email_sent_count || 0) + emailSummary.sentCount,
-      updated_date: new Date().toISOString(),
-    });
+  // Send automated email notifications to all members with assignments / roles unless skipEmails is requested
+  let emailSummary = { sentCount: 0, failedCount: 0, errors: [] };
+  const shouldSkipEmails = body.skipEmails === true || body.skipEmails === 'true';
+
+  if (!shouldSkipEmails) {
+    emailSummary = sendOtherAgendaNotifications(updatedAgenda, body.recipients);
+    if (emailSummary && emailSummary.sentCount > 0) {
+      dbUpdate('OTHER_AGENDAS', 'other_agenda_id', body.other_agenda_id, {
+        email_sent_count: (existing.email_sent_count || 0) + emailSummary.sentCount,
+        updated_date: new Date().toISOString(),
+      });
+    }
   }
 
   // Notify the creator if different from approver
   if (existing.created_by && existing.created_by !== session.user_id) {
+    const notifyMsg = shouldSkipEmails
+      ? `Your agenda for "${existing.title}" on ${existing.date} has been approved by ${session.name}.`
+      : `Your agenda for "${existing.title}" on ${existing.date} has been approved by ${session.name}. Automated notification emails have been dispatched.`;
     createNotification(
       existing.created_by,
       'AGENDA_APPROVED',
       'Meeting Agenda Approved',
-      `Your agenda for "${existing.title}" on ${existing.date} has been approved by ${session.name}. Automated notification emails have been dispatched.`,
+      notifyMsg,
       { other_agenda_id: body.other_agenda_id }
     );
   }
@@ -3982,11 +3990,12 @@ function sendOtherAgendaNotifications(agendaInput, customRecipients) {
 
   const stripAllHonorifics = (rawName) => {
     if (!rawName || !String(rawName).trim()) return { baseName: '', detectedTitle: '' };
-    let clean = String(rawName).trim();
+    let str = String(rawName).trim();
     let highestTitle = '';
-    const prefixRegex = /^(brother|sister|elder|bishop|president|patriarch|bro\.|bro|sis\.|sis|eld\.|eld|bp\.|bp|pres\.|pres)\s+/i;
+
+    const titleTokensRegex = /\b(brother|sister|elder|bishop|president|patriarch|bro\.|bro|sis\.|sis|eld\.|eld|bp\.|bp|pres\.|pres)\b/gi;
     let match;
-    while ((match = clean.match(prefixRegex))) {
+    while ((match = titleTokensRegex.exec(str)) !== null) {
       const p = match[1].toLowerCase();
       if (p.startsWith('bp') || p.startsWith('bishop')) highestTitle = 'Bishop';
       else if (p.startsWith('pres') && highestTitle !== 'Bishop') highestTitle = 'President';
@@ -3994,9 +4003,21 @@ function sendOtherAgendaNotifications(agendaInput, customRecipients) {
       else if (p.startsWith('eld') && !['Bishop', 'President', 'Patriarch'].includes(highestTitle)) highestTitle = 'Elder';
       else if (p.startsWith('sis') && !['Bishop', 'President', 'Patriarch'].includes(highestTitle)) highestTitle = 'Sister';
       else if (p.startsWith('bro') && !highestTitle) highestTitle = 'Brother';
-      clean = clean.substring(match[0].length).trim();
     }
-    return { baseName: clean, detectedTitle: highestTitle };
+
+    str = str.replace(/\b(brother|sister|elder|bishop|president|patriarch|bro\.|bro|sis\.|sis|eld\.|eld|bp\.|bp|pres\.|pres)\b/gi, ' ').trim();
+
+    if (str.indexOf(',') !== -1) {
+      const parts = str.split(',').map(function(p) { return p.trim(); }).filter(Boolean);
+      if (parts.length === 2) {
+        str = parts[1] + ' ' + parts[0];
+      } else {
+        str = str.replace(/,/g, ' ');
+      }
+    }
+
+    const cleanBase = str.replace(/,/g, '').replace(/\s{2,}/g, ' ').trim();
+    return { baseName: cleanBase, detectedTitle: highestTitle };
   };
 
   const tokenizeName = (name) => {

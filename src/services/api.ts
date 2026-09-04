@@ -320,8 +320,17 @@ export const otherAgendasApi = {
   update: (token: string, data: Record<string, unknown>) =>
     post(withTokenBody(token, { action: 'UPDATE_OTHER_AGENDA', ...data })),
 
-  approve: (token: string, other_agenda_id: string, recipients?: Array<Record<string, unknown>>) =>
-    post(withTokenBody(token, { action: 'APPROVE_OTHER_AGENDA', other_agenda_id, ...(recipients ? { recipients } : {}) })),
+  approve: (token: string, other_agenda_id: string, options?: { recipients?: Array<Record<string, unknown>>; skipEmails?: boolean } | Array<Record<string, unknown>>) => {
+    if (Array.isArray(options)) {
+      return post(withTokenBody(token, { action: 'APPROVE_OTHER_AGENDA', other_agenda_id, recipients: options }));
+    }
+    return post(withTokenBody(token, {
+      action: 'APPROVE_OTHER_AGENDA',
+      other_agenda_id,
+      ...(options?.recipients ? { recipients: options.recipients } : {}),
+      ...(options?.skipEmails !== undefined ? { skipEmails: options.skipEmails } : {}),
+    }));
+  },
 
   sendEmails: (token: string, other_agenda_id: string, recipients?: Array<Record<string, unknown>>) =>
     post(withTokenBody(token, { action: 'SEND_OTHER_AGENDA_EMAILS', other_agenda_id, ...(recipients ? { recipients } : {}) })),

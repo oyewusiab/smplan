@@ -493,9 +493,9 @@ export function generateOtherAgendaHtml(
 
         <div class="section-card" style="margin-top: 14px;">
           <div class="section-title">
-            <span>Leadership & Attendance Roll (${attendeesList.length} Leaders)</span>
+            <span>Proposed Attendees & Quorum Roll (${attendeesList.length} Leaders)</span>
             <span style="font-size: 9.5px; opacity: 0.9;">
-              ${requestSignature ? 'Signature Requested' : 'Attendance Record'}
+              ${requestSignature ? 'Signature Requested' : 'Proposed Roll'}
             </span>
           </div>
           <div style="padding: 0;">
@@ -506,7 +506,7 @@ export function generateOtherAgendaHtml(
                   <th style="width: 200px;">Leader Name</th>
                   <th style="width: 170px;">Calling / Role</th>
                   <th style="width: 110px;">Phone Number</th>
-                  ${requestSignature ? '<th style="width: 160px; text-align: center;">Signature</th>' : '<th style="width: 100px; text-align: center;">Attendance</th>'}
+                  ${requestSignature ? '<th style="width: 160px; text-align: center;">Signature</th>' : '<th style="width: 100px; text-align: center;">Roll / Check</th>'}
                 </tr>
               </thead>
               <tbody>
@@ -516,11 +516,11 @@ export function generateOtherAgendaHtml(
                     <td style="font-weight: 700; color: #0f172a;">${formatHonorificName(att.name, att.calling)}</td>
                     <td style="color: #334155; font-weight: 600;">${att.calling || 'Leader'}</td>
                     <td style="color: #475569;">${att.phone || '—'}</td>
-                    ${requestSignature ? '<td class="signature-cell"></td>' : `<td style="text-align: center; font-weight: 700; color: ${att.present !== false ? '#166534' : '#94a3b8'};">${att.present !== false ? 'Present' : 'Excused'}</td>`}
+                    ${requestSignature ? '<td class="signature-cell"></td>' : '<td style="text-align: center; color: #94a3b8; font-size: 12px; font-weight: bold;">[&nbsp;&nbsp;&nbsp;&nbsp;]</td>'}
                   </tr>
                 `).join('') : `
                   <tr>
-                    <td colspan="${requestSignature ? 5 : 5}" style="text-align: center; color: #94a3b8; padding: 16px;">
+                    <td colspan="5" style="text-align: center; color: #94a3b8; padding: 16px;">
                       No attendees listed for this meeting.
                     </td>
                   </tr>

@@ -29,19 +29,18 @@ export function normalizeNameOrder(name: string): string {
 
 /**
  * Strips all prefixes (Brother, Sister, Elder, Bishop, President, Patriarch, Bro, Sis, Pres, Bp, Eld)
- * even if accidentally stacked (e.g. "Brother Bishop Adebayo Oyewusi" -> baseName: "Adebayo Oyewusi", detectedTitle: "Bishop")
+ * from anywhere in the string and cleans duplicate/embedded titles (e.g. "Brother Olabode Johnson Brother Gbajobi" -> baseName: "Olabode Johnson Gbajobi", detectedTitle: "Brother")
  */
 export function stripAllHonorifics(rawName?: string | null): { baseName: string; detectedTitle?: string } {
   if (!rawName || !rawName.trim()) return { baseName: '' };
-  let clean = rawName.trim();
+  let str = rawName.trim();
+
+  // 1. Identify all honorific tokens anywhere in the string
+  const titleTokensRegex = /\b(brother|sister|elder|bishop|president|patriarch|bro\.|bro|sis\.|sis|eld\.|eld|bp\.|bp|pres\.|pres)\b/gi;
   let highestTitle: string | undefined = undefined;
 
-  // Normalize "Oyewusi, Adebayo Babatunde" to "Adebayo Babatunde Oyewusi"
-  clean = normalizeNameOrder(clean);
-
-  const prefixRegex = /^(brother|sister|elder|bishop|president|patriarch|bro\.|bro|sis\.|sis|eld\.|eld|bp\.|bp|pres\.|pres)\s+/i;
-  let match;
-  while ((match = clean.match(prefixRegex))) {
+  let match: RegExpExecArray | null;
+  while ((match = titleTokensRegex.exec(str)) !== null) {
     const rawP = match[1].toLowerCase();
     if (rawP.startsWith('bp') || rawP.startsWith('bishop')) {
       highestTitle = 'Bishop';
@@ -56,13 +55,25 @@ export function stripAllHonorifics(rawName?: string | null): { baseName: string;
     } else if (rawP.startsWith('bro') && !highestTitle) {
       highestTitle = 'Brother';
     }
-    clean = clean.substring(match[0].length).trim();
   }
 
-  // Also clean any trailing commas or double spaces
-  clean = clean.replace(/,/g, '').replace(/\s{2,}/g, ' ').trim();
+  // 2. Remove all honorific words from the string
+  str = str.replace(/\b(brother|sister|elder|bishop|president|patriarch|bro\.|bro|sis\.|sis|eld\.|eld|bp\.|bp|pres\.|pres)\b/gi, ' ').trim();
 
-  return { baseName: clean, detectedTitle: highestTitle };
+  // 3. Normalize "Last, First Middle" to "First Middle Last"
+  if (str.includes(',')) {
+    const parts = str.split(',').map((p) => p.trim()).filter(Boolean);
+    if (parts.length === 2) {
+      str = `${parts[1]} ${parts[0]}`;
+    } else {
+      str = str.replace(/,/g, ' ');
+    }
+  }
+
+  // 4. Clean extra spaces and punctuation
+  const cleanBase = str.replace(/,/g, '').replace(/\s{2,}/g, ' ').trim();
+
+  return { baseName: cleanBase, detectedTitle: highestTitle };
 }
 
 /**
