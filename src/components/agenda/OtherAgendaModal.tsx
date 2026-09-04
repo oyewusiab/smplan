@@ -12,6 +12,8 @@ import type {
 } from '../../types';
 import { formatHonorificName, getMemberDisplayWithTitle } from '../../utils/memberTitle';
 import { useAuthStore } from '../../store/authStore';
+import { AttendeeSelectPicker } from './AttendeeSelectPicker';
+import { loadLeadershipSettings } from '../../utils/leadershipAgendaSettings';
 import toast from 'react-hot-toast';
 
 interface OtherAgendaModalProps {
@@ -253,19 +255,48 @@ export function OtherAgendaModal({
   }, [agenda, isOpen]);
 
   const applyTemplate = (type: OtherAgendaMeetingType, loadDefaultRoll = true) => {
-    const template = DEFAULT_TEMPLATES[type];
+    const savedSettings = loadLeadershipSettings(members);
+    const meetingSettings = savedSettings[type] || savedSettings.OTHER_MEETING;
+    const template = DEFAULT_TEMPLATES[type] || DEFAULT_TEMPLATES.OTHER_MEETING;
+
     setMeetingType(type);
-    setTitle(template.title);
-    setVenue(template.venue);
-    setStartTime(template.startTime);
-    setEndTime(template.endTime);
+    setTitle(meetingSettings.title || template.title);
+    setVenue(meetingSettings.venue || template.venue);
+    setStartTime(meetingSettings.startTime || template.startTime);
+    setEndTime(meetingSettings.endTime || template.endTime);
+    setPresidingRole(meetingSettings.presidingRole || 'Bishop');
+    setPresiding(meetingSettings.presidingName || '');
+    setConductingRole(meetingSettings.conductingRole || '1st Counselor');
+    setConducting(meetingSettings.conductingName || '');
     setTopics(template.topics);
+
     if (loadDefaultRoll) {
-      setAttendees(generateDefaultAttendees(type, members));
+      if (meetingSettings.defaultAttendees && meetingSettings.defaultAttendees.length > 0) {
+        const mappedAttendees: OtherAgendaAttendee[] = meetingSettings.defaultAttendees.map((da) => ({
+          name: da.name || '',
+          calling: da.calling || '',
+          present: true,
+          email: da.email || '',
+          phone: da.phone || '',
+        }));
+        setAttendees(mappedAttendees);
+      } else {
+        setAttendees(generateDefaultAttendees(type, members));
+      }
     }
     setAssignments([
       { id: '1', task: '', assignee: '', assignee_email: '', assignee_phone: '', due_date: '', status: 'PENDING' }
     ]);
+  };
+
+  const handleAddAttendeeToRoll = (newAttendee: OtherAgendaAttendee) => {
+    const exists = attendees.some(
+      (a) => a.name.trim().toLowerCase() === newAttendee.name.trim().toLowerCase()
+    );
+    if (!exists) {
+      setAttendees((prev) => [...prev, newAttendee]);
+      toast.success(`Added ${newAttendee.name} to this meeting's attendance roll.`);
+    }
   };
 
   const handleMeetingTypeChange = (newType: OtherAgendaMeetingType) => {
@@ -502,7 +533,7 @@ export function OtherAgendaModal({
                   <select
                     value={presidingRole}
                     onChange={(e) => setPresidingRole(e.target.value)}
-                    className="block w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold focus:border-blue-500 focus:outline-none"
+                    className="block w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold focus:border-blue-500 focus:outline-none shadow-2xs"
                   >
                     <option value="Bishop">Bishop</option>
                     <option value="Stake President">Stake President</option>
@@ -511,20 +542,14 @@ export function OtherAgendaModal({
                   </select>
                 </div>
                 <div className="col-span-8">
-                  <input
-                    type="text"
-                    placeholder="Search or enter presiding leader..."
-                    list="members_presiding_list"
+                  <AttendeeSelectPicker
                     value={presiding}
-                    onChange={(e) => setPresiding(e.target.value)}
-                    className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium focus:border-blue-500 focus:outline-none"
+                    onChange={setPresiding}
+                    attendees={attendees}
+                    onAddAttendeeToRoll={handleAddAttendeeToRoll}
+                    members={members}
+                    placeholder="Select presiding leader from attendance..."
                   />
-                  <datalist id="members_presiding_list">
-                    {members.map(m => {
-                      const titleName = formatHonorificName(m.name, m, m.gender);
-                      return <option key={m.name} value={titleName}>{m.calling ? `${titleName} (${m.calling})` : titleName}</option>;
-                    })}
-                  </datalist>
                 </div>
               </div>
             </div>
@@ -536,7 +561,7 @@ export function OtherAgendaModal({
                   <select
                     value={conductingRole}
                     onChange={(e) => setConductingRole(e.target.value)}
-                    className="block w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold focus:border-blue-500 focus:outline-none"
+                    className="block w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold focus:border-blue-500 focus:outline-none shadow-2xs"
                   >
                     <option value="1st Counselor">1st Counselor</option>
                     <option value="2nd Counselor">2nd Counselor</option>
@@ -546,20 +571,14 @@ export function OtherAgendaModal({
                   </select>
                 </div>
                 <div className="col-span-8">
-                  <input
-                    type="text"
-                    placeholder="Search or enter conducting leader..."
-                    list="members_conducting_list"
+                  <AttendeeSelectPicker
                     value={conducting}
-                    onChange={(e) => setConducting(e.target.value)}
-                    className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium focus:border-blue-500 focus:outline-none"
+                    onChange={setConducting}
+                    attendees={attendees}
+                    onAddAttendeeToRoll={handleAddAttendeeToRoll}
+                    members={members}
+                    placeholder="Select conducting leader from attendance..."
                   />
-                  <datalist id="members_conducting_list">
-                    {members.map(m => {
-                      const titleName = formatHonorificName(m.name, m, m.gender);
-                      return <option key={m.name} value={titleName}>{m.calling ? `${titleName} (${m.calling})` : titleName}</option>;
-                    })}
-                  </datalist>
                 </div>
               </div>
             </div>
@@ -575,21 +594,15 @@ export function OtherAgendaModal({
 
           <div className="grid sm:grid-cols-12 gap-3">
             <div className="sm:col-span-6">
-              <label className="block text-xs font-bold text-slate-700 mb-1">Opening Prayer</label>
-              <input
-                type="text"
-                placeholder="Search member name for opening prayer..."
-                list="members_list_op"
+              <AttendeeSelectPicker
+                label="Opening Prayer"
                 value={openingPrayer}
-                onChange={(e) => setOpeningPrayer(e.target.value)}
-                className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
+                onChange={setOpeningPrayer}
+                attendees={attendees}
+                onAddAttendeeToRoll={handleAddAttendeeToRoll}
+                members={members}
+                placeholder="Select member from attendance for opening prayer..."
               />
-              <datalist id="members_list_op">
-                {members.map(m => {
-                  const titleName = formatHonorificName(m.name, m, m.gender);
-                  return <option key={m.name} value={titleName}>{m.calling ? `${titleName} (${m.calling})` : titleName}</option>;
-                })}
-              </datalist>
             </div>
 
             <div className="sm:col-span-6">
@@ -602,21 +615,15 @@ export function OtherAgendaModal({
             </div>
 
             <div className="sm:col-span-6">
-              <label className="block text-xs font-bold text-slate-700 mb-1">Spiritual Thought Assigned To</label>
-              <input
-                type="text"
-                placeholder="Search member name for spiritual thought..."
-                list="members_list_st"
+              <AttendeeSelectPicker
+                label="Spiritual Thought Assigned To"
                 value={spiritualThoughtBy}
-                onChange={(e) => setSpiritualThoughtBy(e.target.value)}
-                className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
+                onChange={setSpiritualThoughtBy}
+                attendees={attendees}
+                onAddAttendeeToRoll={handleAddAttendeeToRoll}
+                members={members}
+                placeholder="Select leader from attendance..."
               />
-              <datalist id="members_list_st">
-                {members.map(m => {
-                  const titleName = formatHonorificName(m.name, m, m.gender);
-                  return <option key={m.name} value={titleName}>{m.calling ? `${titleName} (${m.calling})` : titleName}</option>;
-                })}
-              </datalist>
             </div>
 
             <div className="sm:col-span-6">
@@ -638,22 +645,36 @@ export function OtherAgendaModal({
                 👥 3. Attendees & Leadership Roll ({attendees.length})
               </h4>
               <p className="text-2xs text-slate-500 mt-0.5">
-                All members listed in this roll will receive an email copy of the agenda upon approval.
+                All meeting assignments, prayers, presiding, conducting and topics must be selected from this attendance list.
               </p>
             </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => {
-                  const defaultList = generateDefaultAttendees(meetingType, members);
-                  setAttendees(defaultList);
-                  toast.success(`Loaded standard ${meetingType.replace(/_/g, ' ')} leadership roll (${defaultList.length} leaders)`);
+                  const savedSettings = loadLeadershipSettings(members);
+                  const meetingSettings = savedSettings[meetingType] || savedSettings.OTHER_MEETING;
+                  if (meetingSettings.defaultAttendees && meetingSettings.defaultAttendees.length > 0) {
+                    const mappedAttendees: OtherAgendaAttendee[] = meetingSettings.defaultAttendees.map((da) => ({
+                      name: da.name || '',
+                      calling: da.calling || '',
+                      present: true,
+                      email: da.email || '',
+                      phone: da.phone || '',
+                    }));
+                    setAttendees(mappedAttendees);
+                    toast.success(`Loaded saved default attendance roll (${mappedAttendees.length} leaders)`);
+                  } else {
+                    const defaultList = generateDefaultAttendees(meetingType, members);
+                    setAttendees(defaultList);
+                    toast.success(`Loaded standard ${meetingType.replace(/_/g, ' ')} leadership roll (${defaultList.length} leaders)`);
+                  }
                 }}
                 className="px-2.5 py-1 text-xs font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-lg transition flex items-center gap-1 shadow-2xs cursor-pointer"
-                title="Load standard leadership roll for this meeting type"
+                title="Load saved default attendance roll for this meeting type"
               >
                 <Sparkles className="h-3.5 w-3.5 text-blue-600" />
-                <span>Load Default Roll</span>
+                <span>Load Default Attendance</span>
               </button>
               <Button size="xs" variant="outline" icon={<Plus className="h-3 w-3" />} onClick={handleAddAttendee}>
                 Add Attendee
@@ -765,16 +786,18 @@ export function OtherAgendaModal({
                     />
                   </div>
                   <div className="sm:col-span-3">
-                    <input
-                      type="text"
-                      placeholder="Discussion lead..."
+                    <AttendeeSelectPicker
                       value={t.presenter}
-                      onChange={(e) => {
+                      onChange={(val) => {
                         const updated = [...topics];
-                        updated[idx].presenter = e.target.value;
+                        updated[idx].presenter = val;
                         setTopics(updated);
                       }}
-                      className="w-full rounded-md border border-slate-300 px-2.5 py-1 text-xs focus:border-blue-500 focus:outline-none"
+                      attendees={attendees}
+                      onAddAttendeeToRoll={handleAddAttendeeToRoll}
+                      members={members}
+                      placeholder="Discussion lead..."
+                      size="xs"
                     />
                   </div>
                   <div className="sm:col-span-2">
@@ -856,20 +879,15 @@ export function OtherAgendaModal({
                     />
                   </div>
                   <div className="sm:col-span-3">
-                    <input
-                      type="text"
-                      placeholder="Assigned to (auto-lookups email)..."
-                      list={`members_assignee_list_${idx}`}
+                    <AttendeeSelectPicker
                       value={a.assignee}
-                      onChange={(e) => handleAssigneeChange(idx, e.target.value)}
-                      className="w-full rounded-md border border-slate-300 px-2.5 py-1 text-xs focus:border-blue-500 focus:outline-none"
+                      onChange={(val) => handleAssigneeChange(idx, val)}
+                      attendees={attendees}
+                      onAddAttendeeToRoll={handleAddAttendeeToRoll}
+                      members={members}
+                      placeholder="Assigned to..."
+                      size="xs"
                     />
-                    <datalist id={`members_assignee_list_${idx}`}>
-                      {members.map(m => {
-                        const titleName = formatHonorificName(m.name, m, m.gender);
-                        return <option key={m.name} value={titleName}>{m.calling ? `${titleName} (${m.calling})` : titleName}</option>;
-                      })}
-                    </datalist>
                   </div>
                   <div className="sm:col-span-3">
                     <input
@@ -924,37 +942,27 @@ export function OtherAgendaModal({
 
           <div className="grid sm:grid-cols-12 gap-3">
             <div className="sm:col-span-6">
-              <label className="block text-xs font-bold text-slate-700 mb-1">Closing Remarks By</label>
-              <input
-                type="text"
-                placeholder="Presiding / Conducting Leader (e.g. Bishop, President)..."
-                list="members_list_cr"
+              <AttendeeSelectPicker
+                label="Closing Remarks By"
                 value={closingRemarksBy}
-                onChange={(e) => setClosingRemarksBy(e.target.value)}
-                className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
+                onChange={setClosingRemarksBy}
+                attendees={attendees}
+                onAddAttendeeToRoll={handleAddAttendeeToRoll}
+                members={members}
+                placeholder="Select presiding / conducting leader..."
               />
-              <datalist id="members_list_cr">
-                {members.map(m => (
-                  <option key={m.name} value={m.name}>{m.calling ? `${m.name} (${m.calling})` : m.name}</option>
-                ))}
-              </datalist>
             </div>
 
             <div className="sm:col-span-6">
-              <label className="block text-xs font-bold text-slate-700 mb-1">Closing Prayer</label>
-              <input
-                type="text"
-                placeholder="Search member name for closing prayer..."
-                list="members_list_cp"
+              <AttendeeSelectPicker
+                label="Closing Prayer"
                 value={closingPrayer}
-                onChange={(e) => setClosingPrayer(e.target.value)}
-                className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
+                onChange={setClosingPrayer}
+                attendees={attendees}
+                onAddAttendeeToRoll={handleAddAttendeeToRoll}
+                members={members}
+                placeholder="Select member from attendance for closing prayer..."
               />
-              <datalist id="members_list_cp">
-                {members.map(m => (
-                  <option key={m.name} value={m.name}>{m.calling ? `${m.name} (${m.calling})` : m.name}</option>
-                ))}
-              </datalist>
             </div>
 
             <div className="sm:col-span-12">

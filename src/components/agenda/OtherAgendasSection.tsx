@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
 import {
   Plus, Search, RefreshCw, Printer, Edit3, Trash2, CheckCircle2,
   Share2, Mail, Users, Calendar, Clock, MapPin, Sparkles, Filter,
-  Shield, Send, FileText, CheckSquare, AlertCircle, Eye
+  Shield, Send, FileText, CheckSquare, AlertCircle, Eye, Settings
 } from 'lucide-react';
 import { Card, CardBody } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -10,6 +9,7 @@ import { Input, Select } from '../ui/Input';
 import { OtherAgendaModal } from './OtherAgendaModal';
 import { OtherAgendaPrintModal } from './OtherAgendaPrintModal';
 import { OtherAgendaWhatsAppModal } from './OtherAgendaWhatsAppModal';
+import { LeadershipAgendaSettingsModal } from './LeadershipAgendaSettingsModal';
 import type { OtherAgenda, OtherAgendaMeetingType, OtherAgendaState, Member } from '../../types';
 import { otherAgendasApi } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
@@ -41,6 +41,7 @@ export function OtherAgendasSection({ members, unitName }: OtherAgendasSectionPr
   const [printingAgenda, setPrintingAgenda] = useState<OtherAgenda | null>(null);
   const [whatsAppModalOpen, setWhatsAppModalOpen] = useState(false);
   const [whatsAppAgenda, setWhatsAppAgenda] = useState<OtherAgenda | null>(null);
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
 
   const loadOtherAgendas = async () => {
     if (!session) return;
@@ -298,7 +299,7 @@ export function OtherAgendasSection({ members, unitName }: OtherAgendasSectionPr
           </p>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
           <Button
             variant="outline"
             size="sm"
@@ -307,6 +308,16 @@ export function OtherAgendasSection({ members, unitName }: OtherAgendasSectionPr
             onClick={loadOtherAgendas}
           >
             Refresh
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-purple-100 border-purple-400/40 hover:bg-purple-800/40 hover:text-white"
+            icon={<Settings className="h-4 w-4" />}
+            onClick={() => setSettingsModalOpen(true)}
+          >
+            Meeting Settings
           </Button>
 
           <Button
@@ -606,6 +617,15 @@ export function OtherAgendasSection({ members, unitName }: OtherAgendasSectionPr
             setWhatsAppAgenda(null);
           }}
           agenda={whatsAppAgenda}
+          members={members}
+        />
+      )}
+
+      {/* Leadership Agenda Default Settings Modal */}
+      {settingsModalOpen && (
+        <LeadershipAgendaSettingsModal
+          isOpen={settingsModalOpen}
+          onClose={() => setSettingsModalOpen(false)}
           members={members}
         />
       )}
