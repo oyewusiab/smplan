@@ -23,10 +23,21 @@ export function CustomSelectPicker({
   const [customMode, setCustomMode] = useState(false);
 
   // Check if current value exists in predefined list
-  const isOptionInList = useMemo(() => {
-    if (!value) return false;
-    return options.some((opt) => opt.toLowerCase() === value.toLowerCase());
+  const matchedOption = useMemo(() => {
+    if (!value || !value.trim()) return '';
+    const valClean = value.trim().toLowerCase();
+    const exact = options.find((opt) => opt === value.trim());
+    if (exact) return exact;
+    const caseMatch = options.find((opt) => opt.toLowerCase() === valClean);
+    if (caseMatch) return caseMatch;
+    return '';
   }, [options, value]);
+
+  const selectedValue = useMemo(() => {
+    if (!value || !value.trim()) return '';
+    if (matchedOption) return matchedOption;
+    return value.trim();
+  }, [value, matchedOption]);
 
   const py = size === 'xs' ? 'py-1 text-xs' : 'py-1.5 text-xs';
 
@@ -55,9 +66,9 @@ export function CustomSelectPicker({
       )}
 
       <div className="flex items-center gap-1 w-full">
-        {!customMode && (isOptionInList || !value) ? (
+        {!customMode ? (
           <select
-            value={value}
+            value={selectedValue}
             onChange={(e) => {
               if (e.target.value === '__CUSTOM__') {
                 setCustomMode(true);
@@ -68,6 +79,12 @@ export function CustomSelectPicker({
             className={`w-full rounded-lg border border-slate-300 bg-white px-2.5 ${py} font-medium text-slate-900 focus:border-blue-500 focus:outline-none shadow-2xs truncate`}
           >
             <option value="">{placeholder}</option>
+            {/* If value is not in options list, render it as selected option */}
+            {selectedValue && !options.includes(selectedValue) && (
+              <option value={selectedValue}>
+                {selectedValue} (Custom)
+              </option>
+            )}
             {options.map((opt) => (
               <option key={opt} value={opt}>
                 {opt}

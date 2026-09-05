@@ -51,11 +51,36 @@ export function MemberPicker({
 
   const { prefix, name } = parseNameWithPrefix(value, defaultPrefix);
 
-  // Check if current name matches any member in directory
-  const isMemberInList = useMemo(() => {
-    if (!name) return false;
-    return filteredMembers.some((m) => namesMatch(m.name, name) || m.name.toLowerCase() === name.toLowerCase());
-  }, [filteredMembers, name]);
+  // Robust matching to find corresponding member in filtered list
+  const matchedMember = useMemo(() => {
+    if (!name || !name.trim()) return undefined;
+    const nameTrimmed = name.trim();
+    const nameClean = nameTrimmed.toLowerCase();
+
+    // 1. Direct match on m.name
+    const exact = filteredMembers.find((m) => (m.name || '').trim().toLowerCase() === nameClean);
+    if (exact) return exact;
+
+    // 2. Base name match on m.name (stripping any honorifics that might be in m.name)
+    const baseMatch = filteredMembers.find((m) => {
+      const { baseName } = stripAllHonorifics(m.name);
+      return baseName.trim().toLowerCase() === nameClean;
+    });
+    if (baseMatch) return baseMatch;
+
+    // 3. Match using robust namesMatch
+    const robustMatch = filteredMembers.find((m) => namesMatch(m.name, nameTrimmed) || namesMatch(m.name, value));
+    if (robustMatch) return robustMatch;
+
+    return undefined;
+  }, [filteredMembers, name, value]);
+
+  // Selected value to bind to <select>
+  const selectedSelectValue = useMemo(() => {
+    if (!name || !name.trim()) return '';
+    if (matchedMember) return matchedMember.name;
+    return name.trim();
+  }, [name, matchedMember]);
 
   const handlePrefixChange = (newPrefix: string) => {
     if (!showPrefix) {
@@ -74,8 +99,8 @@ export function MemberPicker({
       onChange('');
       return;
     }
-    const cleanBase = stripAllHonorifics(selectedMemberName).baseName;
-    const memberObj = filteredMembers.find((m) => namesMatch(m.name, cleanBase) || m.name === selectedMemberName);
+    const cleanBase = stripAllHonorifics(selectedMemberName).baseName || selectedMemberName.trim();
+    const memberObj = filteredMembers.find((m) => m.name === selectedMemberName || namesMatch(m.name, cleanBase));
     let newPref = prefix;
     if (memberObj) {
       if (memberObj.gender === 'F' && (prefix === 'Brother' || prefix === 'Elder' || prefix === 'Bishop')) {
@@ -103,9 +128,9 @@ export function MemberPicker({
       }
     }
     if (showPrefix) {
-      onChange(cleanBase ? `${newPref} ${cleanBase}` : '');
+      onChange(cleanBase ? `${newPref} ${cleanBase}` : (typedName.trim() ? `${newPref} ${typedName.trim()}` : ''));
     } else {
-      onChange(cleanBase);
+      onChange(typedName);
     }
   };
 
@@ -154,13 +179,19 @@ export function MemberPicker({
 
         {/* Member Name: Dropdown Selection vs Manual Input */}
         <div className="flex-1 relative min-w-0 flex items-center gap-1">
-          {!customMode && (isMemberInList || !name || filteredMembers.length > 0) ? (
+          {!customMode ? (
             <select
-              value={name}
+              value={selectedSelectValue}
               onChange={(e) => handleSelectMember(e.target.value)}
               className={`w-full rounded-lg border border-slate-300 bg-white px-2.5 ${selectPy} font-medium text-slate-900 focus:border-blue-500 focus:outline-none shadow-2xs truncate`}
             >
               <option value="">{placeholder}</option>
+              {/* If selected name is custom and not in filteredMembers, render it as an active option so it never looks blank */}
+              {selectedSelectValue && !filteredMembers.some((m) => m.name === selectedSelectValue) && (
+                <option value={selectedSelectValue}>
+                  {selectedSelectValue} (Selected)
+                </option>
+              )}
               {filteredMembers.map((m) => (
                 <option key={m.member_id || m.name} value={m.name}>
                   {m.name} {m.calling ? `— (${m.calling})` : m.organisation ? `— (${m.organisation})` : ''}

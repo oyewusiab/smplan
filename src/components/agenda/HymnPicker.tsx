@@ -36,16 +36,31 @@ export function HymnPicker({
   }, [hymns]);
 
   // Find if current hymn is in the hymns directory
+  const matchedHymn = useMemo(() => {
+    if (!hymnTitle && !hymnNumber) return undefined;
+    const numClean = (hymnNumber || '').trim();
+    const titleClean = (hymnTitle || '').trim().toLowerCase();
+
+    if (numClean) {
+      const byNum = sortedHymns.find(
+        (h) => String(h.number).trim() === numClean || parseInt(String(h.number), 10) === parseInt(numClean, 10)
+      );
+      if (byNum) return byNum;
+    }
+
+    if (titleClean) {
+      const byTitle = sortedHymns.find((h) => (h.title || '').toLowerCase() === titleClean);
+      if (byTitle) return byTitle;
+    }
+
+    return undefined;
+  }, [sortedHymns, hymnNumber, hymnTitle]);
+
   const selectedValue = useMemo(() => {
     if (!hymnTitle && !hymnNumber) return '';
-    const match = sortedHymns.find(
-      (h) =>
-        (hymnNumber && String(h.number) === String(hymnNumber)) ||
-        (hymnTitle && h.title.toLowerCase() === hymnTitle.toLowerCase())
-    );
-    if (match) return `${match.number}`;
-    return '__CUSTOM__';
-  }, [sortedHymns, hymnNumber, hymnTitle]);
+    if (matchedHymn) return `${matchedHymn.number}`;
+    return '__CUSTOM_VAL__';
+  }, [matchedHymn, hymnNumber, hymnTitle]);
 
   const handleSelectHymn = (selectedNum: string) => {
     if (selectedNum === '__CUSTOM__') {
@@ -54,6 +69,9 @@ export function HymnPicker({
     }
     if (!selectedNum) {
       onHymnChange('', '');
+      return;
+    }
+    if (selectedNum === '__CUSTOM_VAL__') {
       return;
     }
     const match = sortedHymns.find((h) => String(h.number) === selectedNum);
@@ -92,11 +110,16 @@ export function HymnPicker({
       {!customMode ? (
         <div className="relative">
           <select
-            value={selectedValue === '__CUSTOM__' ? '' : selectedValue}
+            value={selectedValue}
             onChange={(e) => handleSelectHymn(e.target.value)}
             className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-900 focus:border-blue-500 focus:outline-none shadow-2xs truncate"
           >
             <option value="">{placeholder}</option>
+            {selectedValue === '__CUSTOM_VAL__' && (
+              <option value="__CUSTOM_VAL__">
+                {hymnNumber ? `#${hymnNumber} — ` : ''}{hymnTitle || 'Custom Musical Item'} (Custom)
+              </option>
+            )}
             {sortedHymns.map((h) => (
               <option key={h.number} value={`${h.number}`}>
                 #{h.number} — {h.title}
@@ -166,6 +189,42 @@ export function SingleMusicPicker({
     });
   }, [hymns]);
 
+  // Find if value matches any hymn
+  const matchedHymn = useMemo(() => {
+    if (!value || !value.trim()) return undefined;
+    const valClean = value.trim().toLowerCase();
+
+    // 1. Exact match with formatted hymn string "Hymn #143 — Let the Holy Spirit Guide"
+    const exactFormatted = sortedHymns.find(
+      (h) => `Hymn #${h.number} — ${h.title}`.toLowerCase() === valClean
+    );
+    if (exactFormatted) return exactFormatted;
+
+    // 2. Exact match with hymn title
+    const titleMatch = sortedHymns.find((h) => (h.title || '').toLowerCase() === valClean);
+    if (titleMatch) return titleMatch;
+
+    // 3. Match by hymn number (e.g. "143", "Hymn #143", "#143", "Hymn 143")
+    const numMatch = valClean.match(/^(?:hymn\s*#?|#)?\s*(\d+)\b/i);
+    if (numMatch) {
+      const num = parseInt(numMatch[1], 10);
+      const byNum = sortedHymns.find((h) => parseInt(String(h.number), 10) === num);
+      if (byNum) return byNum;
+    }
+
+    // 4. Substring in hymn title
+    const subMatch = sortedHymns.find((h) => (h.title || '').length > 3 && valClean.includes((h.title || '').toLowerCase()));
+    if (subMatch) return subMatch;
+
+    return undefined;
+  }, [sortedHymns, value]);
+
+  const selectedSelectValue = useMemo(() => {
+    if (!value || !value.trim()) return '';
+    if (matchedHymn) return `Hymn #${matchedHymn.number} — ${matchedHymn.title}`;
+    return value.trim();
+  }, [value, matchedHymn]);
+
   return (
     <div className={`space-y-1.5 ${className}`}>
       {label && (
@@ -194,7 +253,7 @@ export function SingleMusicPicker({
 
       {!customMode ? (
         <select
-          value={value}
+          value={selectedSelectValue}
           onChange={(e) => {
             if (e.target.value === '__CUSTOM__') {
               setCustomMode(true);
@@ -205,6 +264,12 @@ export function SingleMusicPicker({
           className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-900 focus:border-blue-500 focus:outline-none shadow-2xs truncate"
         >
           <option value="">{placeholder}</option>
+          {/* If selected value is a custom selection (e.g. "Organist Selection", "Choir Item") and not in hymns list */}
+          {selectedSelectValue && !sortedHymns.some((h) => `Hymn #${h.number} — ${h.title}` === selectedSelectValue) && (
+            <option value={selectedSelectValue}>
+              🎵 {selectedSelectValue}
+            </option>
+          )}
           {sortedHymns.map((h) => (
             <option key={h.number} value={`Hymn #${h.number} — ${h.title}`}>
               Hymn #{h.number} — {h.title}
