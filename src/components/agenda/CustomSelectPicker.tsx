@@ -15,28 +15,32 @@ export function CustomSelectPicker({
   label,
   value,
   onChange,
-  options,
+  options = [],
   placeholder = 'Select option...',
   size = 'xs',
   className = '',
 }: CustomSelectPickerProps) {
   const [customMode, setCustomMode] = useState(false);
 
+  const opts = useMemo(() => (Array.isArray(options) ? options : []), [options]);
+
   // Check if current value exists in predefined list
   const matchedOption = useMemo(() => {
-    if (!value || !value.trim()) return '';
-    const valClean = value.trim().toLowerCase();
-    const exact = options.find((opt) => opt === value.trim());
+    const valStr = String(value ?? '').trim();
+    if (!valStr) return '';
+    const valClean = valStr.toLowerCase();
+    const exact = opts.find((opt) => String(opt).trim() === valStr);
     if (exact) return exact;
-    const caseMatch = options.find((opt) => opt.toLowerCase() === valClean);
+    const caseMatch = opts.find((opt) => String(opt).trim().toLowerCase() === valClean);
     if (caseMatch) return caseMatch;
     return '';
-  }, [options, value]);
+  }, [opts, value]);
 
   const selectedValue = useMemo(() => {
-    if (!value || !value.trim()) return '';
+    const valStr = String(value ?? '').trim();
+    if (!valStr) return '';
     if (matchedOption) return matchedOption;
-    return value.trim();
+    return valStr;
   }, [value, matchedOption]);
 
   const py = size === 'xs' ? 'py-1 text-xs' : 'py-1.5 text-xs';

@@ -18,7 +18,7 @@ export function HymnPicker({
   hymnNumber = '',
   hymnTitle = '',
   onHymnChange,
-  hymns,
+  hymns = [],
   placeholder = 'Select hymn...',
   recentlyUsedWarning,
   className = '',
@@ -27,7 +27,8 @@ export function HymnPicker({
 
   // Sorted hymns list
   const sortedHymns = useMemo(() => {
-    return [...hymns].sort((a, b) => {
+    const list = Array.isArray(hymns) ? hymns : [];
+    return [...list].sort((a, b) => {
       const numA = parseInt(String(a.number), 10);
       const numB = parseInt(String(b.number), 10);
       if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
@@ -37,9 +38,9 @@ export function HymnPicker({
 
   // Find if current hymn is in the hymns directory
   const matchedHymn = useMemo(() => {
-    if (!hymnTitle && !hymnNumber) return undefined;
-    const numClean = (hymnNumber || '').trim();
-    const titleClean = (hymnTitle || '').trim().toLowerCase();
+    const numClean = String(hymnNumber ?? '').trim();
+    const titleClean = String(hymnTitle ?? '').trim().toLowerCase();
+    if (!numClean && !titleClean) return undefined;
 
     if (numClean) {
       const byNum = sortedHymns.find(
@@ -49,7 +50,7 @@ export function HymnPicker({
     }
 
     if (titleClean) {
-      const byTitle = sortedHymns.find((h) => (h.title || '').toLowerCase() === titleClean);
+      const byTitle = sortedHymns.find((h) => String(h.title || '').toLowerCase() === titleClean);
       if (byTitle) return byTitle;
     }
 
@@ -57,7 +58,9 @@ export function HymnPicker({
   }, [sortedHymns, hymnNumber, hymnTitle]);
 
   const selectedValue = useMemo(() => {
-    if (!hymnTitle && !hymnNumber) return '';
+    const numClean = String(hymnNumber ?? '').trim();
+    const titleClean = String(hymnTitle ?? '').trim();
+    if (!numClean && !titleClean) return '';
     if (matchedHymn) return `${matchedHymn.number}`;
     return '__CUSTOM_VAL__';
   }, [matchedHymn, hymnNumber, hymnTitle]);
@@ -117,7 +120,7 @@ export function HymnPicker({
             <option value="">{placeholder}</option>
             {selectedValue === '__CUSTOM_VAL__' && (
               <option value="__CUSTOM_VAL__">
-                {hymnNumber ? `#${hymnNumber} — ` : ''}{hymnTitle || 'Custom Musical Item'} (Custom)
+                {String(hymnNumber ?? '').trim() ? `#${hymnNumber} — ` : ''}{hymnTitle || 'Custom Musical Item'} (Custom)
               </option>
             )}
             {sortedHymns.map((h) => (
@@ -174,14 +177,15 @@ export function SingleMusicPicker({
   label,
   value,
   onChange,
-  hymns,
+  hymns = [],
   placeholder = 'Select music or type...',
   className = '',
 }: SingleMusicPickerProps) {
   const [customMode, setCustomMode] = useState(false);
 
   const sortedHymns = useMemo(() => {
-    return [...hymns].sort((a, b) => {
+    const list = Array.isArray(hymns) ? hymns : [];
+    return [...list].sort((a, b) => {
       const numA = parseInt(String(a.number), 10);
       const numB = parseInt(String(b.number), 10);
       if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
@@ -191,8 +195,9 @@ export function SingleMusicPicker({
 
   // Find if value matches any hymn
   const matchedHymn = useMemo(() => {
-    if (!value || !value.trim()) return undefined;
-    const valClean = value.trim().toLowerCase();
+    const valStr = String(value ?? '').trim();
+    if (!valStr) return undefined;
+    const valClean = valStr.toLowerCase();
 
     // 1. Exact match with formatted hymn string "Hymn #143 — Let the Holy Spirit Guide"
     const exactFormatted = sortedHymns.find(
@@ -201,7 +206,7 @@ export function SingleMusicPicker({
     if (exactFormatted) return exactFormatted;
 
     // 2. Exact match with hymn title
-    const titleMatch = sortedHymns.find((h) => (h.title || '').toLowerCase() === valClean);
+    const titleMatch = sortedHymns.find((h) => String(h.title || '').toLowerCase() === valClean);
     if (titleMatch) return titleMatch;
 
     // 3. Match by hymn number (e.g. "143", "Hymn #143", "#143", "Hymn 143")
@@ -213,16 +218,17 @@ export function SingleMusicPicker({
     }
 
     // 4. Substring in hymn title
-    const subMatch = sortedHymns.find((h) => (h.title || '').length > 3 && valClean.includes((h.title || '').toLowerCase()));
+    const subMatch = sortedHymns.find((h) => String(h.title || '').length > 3 && valClean.includes(String(h.title || '').toLowerCase()));
     if (subMatch) return subMatch;
 
     return undefined;
   }, [sortedHymns, value]);
 
   const selectedSelectValue = useMemo(() => {
-    if (!value || !value.trim()) return '';
+    const valStr = String(value ?? '').trim();
+    if (!valStr) return '';
     if (matchedHymn) return `Hymn #${matchedHymn.number} — ${matchedHymn.title}`;
-    return value.trim();
+    return valStr;
   }, [value, matchedHymn]);
 
   return (

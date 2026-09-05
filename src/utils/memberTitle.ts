@@ -31,9 +31,10 @@ export function normalizeNameOrder(name: string): string {
  * Strips all prefixes (Brother, Sister, Elder, Bishop, President, Patriarch, Bro, Sis, Pres, Bp, Eld)
  * from anywhere in the string and cleans duplicate/embedded titles (e.g. "Brother Olabode Johnson Brother Gbajobi" -> baseName: "Olabode Johnson Gbajobi", detectedTitle: "Brother")
  */
-export function stripAllHonorifics(rawName?: string | null): { baseName: string; detectedTitle?: string } {
-  if (!rawName || !rawName.trim()) return { baseName: '' };
-  let str = rawName.trim();
+export function stripAllHonorifics(rawName?: unknown): { baseName: string; detectedTitle?: string } {
+  const strRaw = String(rawName ?? '').trim();
+  if (!strRaw) return { baseName: '' };
+  let str = strRaw;
 
   // 1. Identify all honorific tokens anywhere in the string
   const titleTokensRegex = /\b(brother|sister|elder|bishop|president|patriarch|bro\.|bro|sis\.|sis|eld\.|eld|bp\.|bp|pres\.|pres)\b/gi;
@@ -87,7 +88,7 @@ export function stripAllHonorifics(rawName?: string | null): { baseName: string;
  * 4. Resolves against 6-digit member_id and members directory registry when available.
  */
 export function formatHonorificName(
-  name?: string | null,
+  name?: unknown,
   memberOrCallingOrOptions?: Member | User | string | {
     calling?: string;
     gender?: string;
@@ -98,10 +99,10 @@ export function formatHonorificName(
   } | null,
   genderFallback?: string | null
 ): string {
-  if (!name || !name.trim()) return '';
+  const strRaw = String(name ?? '').trim();
+  if (!strRaw) return '';
 
-  const rawInput = name.trim();
-  const { baseName, detectedTitle } = stripAllHonorifics(rawInput);
+  const { baseName, detectedTitle } = stripAllHonorifics(strRaw);
   if (!baseName) return '';
 
   let calling = '';
@@ -219,9 +220,10 @@ export function getMemberDisplayWithTitle(member: Member): string {
 /**
  * Tokenizes a name by stripping titles, punctuation, commas, and converting to lowercase tokens.
  */
-export function tokenizeName(name?: string | null): string[] {
-  if (!name || !name.trim()) return [];
-  return name
+export function tokenizeName(name?: unknown): string[] {
+  const str = String(name ?? '').trim();
+  if (!str) return [];
+  return str
     .toLowerCase()
     .replace(/^(brother|sister|elder|bishop|president|patriarch|bro\.|bro|sis\.|sis|eld\.|eld|bp\.|bp|pres\.|pres)\s+/i, '')
     .replace(/[^a-z0-9]/g, ' ')
@@ -232,10 +234,11 @@ export function tokenizeName(name?: string | null): string[] {
 /**
  * Robust name matcher that matches across "Last, First", "First Last", titles, and initials.
  */
-export function namesMatch(nameA?: string | null, nameB?: string | null): boolean {
-  if (!nameA || !nameB) return false;
-  const rawA = nameA.trim().toLowerCase();
-  const rawB = nameB.trim().toLowerCase();
+export function namesMatch(nameA?: unknown, nameB?: unknown): boolean {
+  if (nameA === null || nameA === undefined || nameB === null || nameB === undefined) return false;
+  const rawA = String(nameA).trim().toLowerCase();
+  const rawB = String(nameB).trim().toLowerCase();
+  if (!rawA || !rawB) return false;
   if (rawA === rawB) return true;
 
   const tokensA = tokenizeName(nameA);

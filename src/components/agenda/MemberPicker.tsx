@@ -17,9 +17,10 @@ interface MemberPickerProps {
   className?: string;
 }
 
-export function parseNameWithPrefix(raw: string | undefined, defaultPrefix = 'Brother') {
-  if (!raw) return { prefix: defaultPrefix, name: '' };
-  const { baseName, detectedTitle } = stripAllHonorifics(raw);
+export function parseNameWithPrefix(raw: unknown, defaultPrefix = 'Brother') {
+  const rawStr = String(raw ?? '').trim();
+  if (!rawStr) return { prefix: defaultPrefix, name: '' };
+  const { baseName, detectedTitle } = stripAllHonorifics(rawStr);
   return { prefix: detectedTitle || defaultPrefix, name: baseName };
 }
 
@@ -27,7 +28,7 @@ export function MemberPicker({
   label,
   value,
   onChange,
-  members,
+  members = [],
   filterGender,
   prefixOptions = ['Brother', 'Sister', 'Elder', 'Bishop', 'President'],
   defaultPrefix = 'Brother',
@@ -40,36 +41,37 @@ export function MemberPicker({
 
   // Filtered members by gender if requested
   const filteredMembers = useMemo(() => {
-    let list = members;
+    let list = Array.isArray(members) ? members : [];
     if (filterGender === 'M') {
-      list = members.filter((m) => (m.gender || '').toUpperCase() === 'M' || !m.gender);
+      list = list.filter((m) => String(m?.gender || '').toUpperCase() === 'M' || !m?.gender);
     } else if (filterGender === 'F') {
-      list = members.filter((m) => (m.gender || '').toUpperCase() === 'F');
+      list = list.filter((m) => String(m?.gender || '').toUpperCase() === 'F');
     }
-    return [...list].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    return [...list].sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || '')));
   }, [members, filterGender]);
 
   const { prefix, name } = parseNameWithPrefix(value, defaultPrefix);
 
   // Robust matching to find corresponding member in filtered list
   const matchedMember = useMemo(() => {
-    if (!name || !name.trim()) return undefined;
-    const nameTrimmed = name.trim();
+    const nameTrimmed = String(name ?? '').trim();
+    if (!nameTrimmed) return undefined;
     const nameClean = nameTrimmed.toLowerCase();
+    const valStr = String(value ?? '');
 
     // 1. Direct match on m.name
-    const exact = filteredMembers.find((m) => (m.name || '').trim().toLowerCase() === nameClean);
+    const exact = filteredMembers.find((m) => String(m?.name || '').trim().toLowerCase() === nameClean);
     if (exact) return exact;
 
     // 2. Base name match on m.name (stripping any honorifics that might be in m.name)
     const baseMatch = filteredMembers.find((m) => {
-      const { baseName } = stripAllHonorifics(m.name);
+      const { baseName } = stripAllHonorifics(m?.name);
       return baseName.trim().toLowerCase() === nameClean;
     });
     if (baseMatch) return baseMatch;
 
     // 3. Match using robust namesMatch
-    const robustMatch = filteredMembers.find((m) => namesMatch(m.name, nameTrimmed) || namesMatch(m.name, value));
+    const robustMatch = filteredMembers.find((m) => namesMatch(m?.name, nameTrimmed) || namesMatch(m?.name, valStr));
     if (robustMatch) return robustMatch;
 
     return undefined;
@@ -77,9 +79,10 @@ export function MemberPicker({
 
   // Selected value to bind to <select>
   const selectedSelectValue = useMemo(() => {
-    if (!name || !name.trim()) return '';
+    const nameTrimmed = String(name ?? '').trim();
+    if (!nameTrimmed) return '';
     if (matchedMember) return matchedMember.name;
-    return name.trim();
+    return nameTrimmed;
   }, [name, matchedMember]);
 
   const handlePrefixChange = (newPrefix: string) => {
@@ -99,7 +102,7 @@ export function MemberPicker({
       onChange('');
       return;
     }
-    const cleanBase = stripAllHonorifics(selectedMemberName).baseName || selectedMemberName.trim();
+    const cleanBase = stripAllHonorifics(selectedMemberName).baseName || String(selectedMemberName ?? '').trim();
     const memberObj = filteredMembers.find((m) => m.name === selectedMemberName || namesMatch(m.name, cleanBase));
     let newPref = prefix;
     if (memberObj) {
@@ -118,7 +121,7 @@ export function MemberPicker({
 
   const handleCustomInputChange = (typedName: string) => {
     const cleanBase = stripAllHonorifics(typedName).baseName;
-    const found = filteredMembers.find((m) => namesMatch(m.name, cleanBase) || m.name.toLowerCase() === typedName.toLowerCase());
+    const found = filteredMembers.find((m) => namesMatch(m.name, cleanBase) || String(m.name || '').toLowerCase() === String(typedName || '').toLowerCase());
     let newPref = prefix;
     if (found) {
       if (found.gender === 'F' && (prefix === 'Brother' || prefix === 'Elder' || prefix === 'Bishop')) {
@@ -128,7 +131,7 @@ export function MemberPicker({
       }
     }
     if (showPrefix) {
-      onChange(cleanBase ? `${newPref} ${cleanBase}` : (typedName.trim() ? `${newPref} ${typedName.trim()}` : ''));
+      onChange(cleanBase ? `${newPref} ${cleanBase}` : (String(typedName || '').trim() ? `${newPref} ${String(typedName).trim()}` : ''));
     } else {
       onChange(typedName);
     }
