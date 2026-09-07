@@ -59,9 +59,9 @@ export function getOrdinalSuffix(day: number): string {
 }
 
 export function formatBirthdayLabel(month: number, day: number): string {
-  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
+  const monthNames = ['Jan.', 'Feb.', 'Mar.', 'Apr.', 'May', 'June', 'July', 'Aug.', 'Sept.', 'Oct.', 'Nov.', 'Dec.'];
   const mName = monthNames[month - 1] || '';
-  return `${mName} ${getOrdinalSuffix(day)}`;
+  return `${mName} ${day}`;
 }
 
 export function getBirthdaysForWeek(

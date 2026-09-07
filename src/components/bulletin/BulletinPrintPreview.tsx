@@ -233,12 +233,12 @@ export function BulletinPrintPreview({ bulletin: b }: BulletinPrintPreviewProps)
             <div className="grid grid-cols-2 gap-3 text-xs">
               {/* Left Column: Sacrament Outline, CFM Study Guide & Bishopric Message */}
               <div className="space-y-2.5">
-                {/* 1. Streamlined Sacrament Meeting Outline */}
+                {/* 1. Sacrament and Classes Programes */}
                 {isSectionVisible(b.show_sacrament) && (
                   <div className="p-2.5 rounded-lg border border-slate-200 space-y-1.5">
                     <div className="flex items-center justify-between pb-1 border-b" style={{ borderColor: theme.primaryColor }}>
                       <h3 className="font-bold uppercase tracking-wider text-[10px]" style={{ color: theme.primaryColor }}>
-                        Sacrament Meeting Outline
+                        Sacrament and Classes Programes
                       </h3>
                       <span className="text-[9px] font-bold px-1.5 py-0.2 rounded" style={{ background: theme.badgeBg, color: theme.badgeText }}>
                         {b.meeting_type === 'FAST_SUNDAY' ? 'Fast & Testimony' : 'Sacrament Service'}
@@ -276,7 +276,7 @@ export function BulletinPrintPreview({ bulletin: b }: BulletinPrintPreviewProps)
                           {speakers.map((sp, idx) => (
                             <div key={idx} className="flex justify-between text-[10px]">
                               <span className="text-slate-600">{idx === 0 ? 'Youth Speaker:' : `Speaker ${idx + 1}:`}</span>
-                              <span className="font-semibold text-slate-900">{sp.name}{sp.topic ? ` — "${sp.topic}"` : ''}</span>
+                              <span className="font-semibold text-slate-900">{sp.name}</span>
                             </div>
                           ))}
                         </div>
@@ -288,6 +288,30 @@ export function BulletinPrintPreview({ bulletin: b }: BulletinPrintPreviewProps)
                           </p>
                         </div>
                       ) : null}
+
+                      {/* Sunday Class Lessons Preparation */}
+                      {b.include_class_lessons && b.class_lessons && b.class_lessons.length > 0 && (
+                        <div className="pt-1.5 border-t border-slate-100 space-y-1">
+                          <span className="text-[9px] font-bold uppercase tracking-wider block" style={{ color: theme.primaryColor }}>
+                            Class Lessons Preparation
+                          </span>
+                          <div className="space-y-1">
+                            {b.class_lessons.map((cl, idx) => (
+                              <div key={idx} className="p-1 rounded bg-slate-50 border border-slate-200 text-[9px]">
+                                <div className="flex justify-between items-center">
+                                  <span className="font-bold text-slate-900">{cl.className}: {cl.topic || 'Lesson'}</span>
+                                  {cl.link && (
+                                    <span className="text-[8px] font-bold text-blue-700 underline">Read lesson</span>
+                                  )}
+                                </div>
+                                {cl.reference && (
+                                  <div className="text-[8px] text-slate-500 italic">Ref: {cl.reference}</div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                       {b.closing_hymn && (
                         <div className="flex justify-between">

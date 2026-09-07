@@ -277,10 +277,10 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
     <!-- Left Column: Sacrament Outline, CFM Study Guide, Bishopric Message & Initiatives -->
     <div class="column">
       ${isSectionVisible(d.show_sacrament) ? `
-      <!-- 1. Streamlined Sacrament Meeting Outline -->
+      <!-- 1. Sacrament and Classes Programes -->
       <div class="card">
         <div class="card-title">
-          <span>Sacrament Meeting Outline</span>
+          <span>Sacrament and Classes Programes</span>
           <span class="badge">
             ${d.meeting_type === 'FAST_SUNDAY' ? 'Fast & Testimony' : 'Sacrament Service'}
           </span>
@@ -300,7 +300,7 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
           ${speakers.map((sp, idx) => `
             <div class="row">
               <span class="label">${idx === 0 ? 'Youth Speaker:' : `Speaker ${idx + 1}:`}</span>
-              <span class="value">${sp.name}${sp.topic ? ` — "${sp.topic}"` : ''}</span>
+              <span class="value">${sp.name}</span>
             </div>
           `).join('')}
         </div>
@@ -308,6 +308,21 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
         <div class="row">
           <span class="label">Talks:</span>
           <span class="value" style="white-space: pre-line;">${d.speakers}</span>
+        </div>
+        ` : ''}
+
+        ${d.include_class_lessons && d.class_lessons && d.class_lessons.length > 0 ? `
+        <div style="margin-top: 3pt; border-top: 1px solid #e2e8f0; padding-top: 3pt;">
+          <div style="font-weight: 700; font-size: 7.5pt; color: ${theme.primaryColor}; margin-bottom: 2pt; text-transform: uppercase;">Sunday Class Lessons Preparation:</div>
+          ${d.class_lessons.map((cl) => `
+            <div style="margin-bottom: 2pt; background: ${theme.bgLight}; padding: 2pt 4pt; border-radius: 2pt; border: 1px solid ${theme.borderLight}; font-size: 7pt;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: 700; color: ${theme.primaryColor};">${cl.className}: <strong>${cl.topic || 'Lesson'}</strong></span>
+                ${cl.link ? `<a href="${cl.link}" style="color: ${theme.secondaryColor}; font-weight: 700; text-decoration: underline; font-size: 6.5pt;">Read lesson</a>` : ''}
+              </div>
+              ${cl.reference ? `<div style="font-size: 6.5pt; color: #64748b; font-style: italic;">Ref: ${cl.reference}</div>` : ''}
+            </div>
+          `).join('')}
         </div>
         ` : ''}
 
@@ -327,6 +342,7 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
         ${d.cfm_introduction ? `<div style="font-size: 7pt; color: #334155; font-style: italic; margin-bottom: 2.5pt; line-height: 1.3;">${d.cfm_introduction}</div>` : ''}
         ${d.cfm_ideas_for_learning ? `<div style="font-size: 7pt; color: #334155; margin-bottom: 2.5pt; white-space: pre-line; line-height: 1.3;"><strong>Ideas for Learning:</strong><br/>${d.cfm_ideas_for_learning}</div>` : ''}
         ${d.cfm_reflection || d.cfm_discussion_question ? `<div style="font-size: 7.5pt; color: #92400e; margin-bottom: 2pt; background: #fef9c3; padding: 2.5pt 4pt; border-radius: 3pt; border-left: 2px solid #ca8a04;"><strong>Reflection:</strong> ${d.cfm_reflection || d.cfm_discussion_question}</div>` : ''}
+        ${d.scripture_of_the_week ? `<div style="font-size: 7pt; color: #334155; margin-top: 2pt; font-style: italic; background: #ffffff; padding: 2pt 4pt; border-radius: 2pt; border: 1px solid #e2e8f0;"><strong>Scripture of the Week:</strong> ${d.scripture_of_the_week}</div>` : ''}
         ${d.cfm_url ? `<div style="font-size: 6.5pt; color: ${theme.secondaryColor}; margin-top: 1.5pt;"><strong>Lesson Link:</strong> <a href="${d.cfm_url}" style="color: ${theme.primaryColor}; text-decoration: underline;">${d.cfm_url}</a></div>` : ''}
       </div>
       ` : ''}
@@ -450,19 +466,28 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
       <div class="card" style="padding: 4pt 6pt;">
         <div class="qr-dual-container">
           <div class="qr-box">
-            <img class="qr-code" src="https://quickchart.io/qr?text=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin + '/visitbulletin' : 'https://smplan.app/visitbulletin')}&size=120&margin=1" alt="Web Bulletin" />
+            <img class="qr-code" src="https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin + '/visitbulletin' : 'https://smplan.app/visitbulletin')}&size=150x150&margin=2" alt="Web Bulletin" />
             <div class="qr-text">
               <strong>Online Bulletin:</strong><br/>
               Scan or visit <strong>/visitbulletin</strong> for live hymns & links.
             </div>
           </div>
           <div class="qr-box">
-            <img class="qr-code" src="https://quickchart.io/qr?text=${encodeURIComponent(d.qr_gospel_library || 'https://www.churchofjesuschrist.org/study/gospel-library')}&size=120&margin=1" alt="GL" />
+            <img class="qr-code" src="https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(d.qr_gospel_library || 'https://www.churchofjesuschrist.org/study/gospel-library')}&size=150x150&margin=2" alt="GL" />
             <div class="qr-text">
               <strong>Gospel Library:</strong><br/>
               Scan for manuals & scripture study.
             </div>
           </div>
+          ${d.custom_links && d.custom_links.length > 0 && d.custom_links[0].url ? `
+          <div class="qr-box">
+            <img class="qr-code" src="https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(d.custom_links[0].url)}&size=150x150&margin=2" alt="${d.custom_links[0].label || 'Custom'}" />
+            <div class="qr-text">
+              <strong>${d.custom_links[0].label || 'Resource'}:</strong><br/>
+              Scan to access digital link.
+            </div>
+          </div>
+          ` : ''}
         </div>
       </div>
       ` : ''}
@@ -610,7 +635,7 @@ export function generateStandard2PageHtml(d: Bulletin): string {
       ${isSectionVisible(d.show_sacrament) ? `
       <div class="card">
         <div class="card-title">
-          <span>Sacrament Meeting Outline</span>
+          <span>Sacrament and Classes Programes</span>
           <span style="font-size: 8pt; background: ${theme.badgeBg}; color: ${theme.badgeText}; padding: 2pt 6pt; border-radius: 4pt; font-weight: 700;">
             ${d.meeting_type === 'FAST_SUNDAY' ? 'Fast & Testimony' : 'Sacrament Service'}
           </span>
@@ -630,7 +655,7 @@ export function generateStandard2PageHtml(d: Bulletin): string {
           ${speakers.map((sp, idx) => `
             <div class="row">
               <span class="label">${idx === 0 ? 'Youth Speaker:' : `Speaker ${idx + 1}:`}</span>
-              <span class="value">${sp.name}${sp.topic ? ` — "${sp.topic}"` : ''}</span>
+              <span class="value">${sp.name}</span>
             </div>
           `).join('')}
         </div>
@@ -638,6 +663,23 @@ export function generateStandard2PageHtml(d: Bulletin): string {
         <div class="row">
           <span class="label">Talks:</span>
           <span class="value" style="white-space: pre-line;">${d.speakers}</span>
+        </div>
+        ` : ''}
+
+        ${d.include_class_lessons && d.class_lessons && d.class_lessons.length > 0 ? `
+        <div style="margin: 6pt 0; border-top: 1px solid #e2e8f0; padding-top: 6pt;">
+          <div style="font-weight: 700; color: ${theme.primaryColor}; margin-bottom: 4pt; font-size: 8.5pt; text-transform: uppercase;">Sunday Class Lessons Preparation:</div>
+          <div style="display: grid; gap: 3pt;">
+            ${d.class_lessons.map((cl) => `
+              <div style="background: ${theme.bgLight}; padding: 4pt 8pt; border-radius: 4pt; border: 1px solid ${theme.borderLight}; font-size: 8pt; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                  <span style="font-weight: 700; color: ${theme.primaryColor};">${cl.className}:</span> <strong>${cl.topic || 'Lesson'}</strong>
+                  ${cl.reference ? `<span style="color: #64748b; font-style: italic; margin-left: 4pt;">(Ref: ${cl.reference})</span>` : ''}
+                </div>
+                ${cl.link ? `<a href="${cl.link}" style="color: ${theme.secondaryColor}; font-weight: 700; text-decoration: underline; font-size: 7.5pt;">Read lesson</a>` : ''}
+              </div>
+            `).join('')}
+          </div>
         </div>
         ` : ''}
 
@@ -917,7 +959,7 @@ export function generateBiFoldBookletHtml(d: Bulletin): string {
       <div>
         ${isSectionVisible(d.show_sacrament) ? `
         <div class="card-title">
-          <span>Order of Worship</span>
+          <span>Sacrament and Classes Programes</span>
           <span style="font-size: 7pt; background: ${theme.badgeBg}; color: ${theme.badgeText}; padding: 1pt 4pt; border-radius: 2pt; font-weight: 700;">
             ${d.meeting_type === 'FAST_SUNDAY' ? 'Fast & Testimony' : 'Sacrament Service'}
           </span>
@@ -937,7 +979,7 @@ export function generateBiFoldBookletHtml(d: Bulletin): string {
           ${speakers.map((sp, idx) => `
             <div class="row">
               <span class="label">${idx === 0 ? 'Youth Speaker:' : `Speaker ${idx + 1}:`}</span>
-              <span class="value">${sp.name}${sp.topic ? ` — "${sp.topic}"` : ''}</span>
+              <span class="value">${sp.name}</span>
             </div>
           `).join('')}
         </div>
@@ -948,11 +990,26 @@ export function generateBiFoldBookletHtml(d: Bulletin): string {
         </div>
         ` : ''}
 
+        ${d.include_class_lessons && d.class_lessons && d.class_lessons.length > 0 ? `
+        <div style="margin-top: 4pt; border-top: 1px solid #e2e8f0; padding-top: 3pt;">
+          <div style="font-weight: 700; font-size: 7.5pt; color: ${theme.primaryColor}; margin-bottom: 2pt; text-transform: uppercase;">Class Lessons:</div>
+          ${d.class_lessons.map((cl) => `
+            <div style="margin-bottom: 2pt; background: ${theme.bgLight}; padding: 2pt 3pt; border-radius: 2pt; font-size: 6.5pt;">
+              <div style="display: flex; justify-content: space-between;">
+                <span style="font-weight: 700; color: ${theme.primaryColor};">${cl.className}: ${cl.topic || 'Lesson'}</span>
+                ${cl.link ? `<a href="${cl.link}" style="color: ${theme.secondaryColor}; font-weight: 700; text-decoration: underline;">Read lesson</a>` : ''}
+              </div>
+              ${cl.reference ? `<div style="color: #64748b; font-style: italic;">Ref: ${cl.reference}</div>` : ''}
+            </div>
+          `).join('')}
+        </div>
+        ` : ''}
+
         ${d.closing_hymn ? `<div class="row"><span class="label">Closing Hymn:</span><span class="value">${d.closing_hymn}</span></div>` : ''}
         ${d.closing_prayer ? `<div class="row"><span class="label">Benediction:</span><span class="value">${d.closing_prayer}</span></div>` : ''}
         ` : ''}
       </div>
-      <div class="page-number">Page 2 • Sacrament Program</div>
+      <div class="page-number">Page 2 • Sacrament & Classes</div>
     </div>
 
     <!-- PAGE 3: Come Follow Me & Bishopric Message -->

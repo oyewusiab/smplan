@@ -2569,18 +2569,22 @@ function handleGetBulletin(params) {
 
 /**
  * Public Endpoint: Returns the currently active published ward bulletin for congregation members.
- * Accessible without authentication token.
+ * Accessible without authentication token. Automatically filters out expired bulletins (past Sunday 11:59 PM).
  */
 function handleGetLiveBulletin(params) {
   let bulletins = dbReadAll('BULLETINS');
   let published = bulletins.filter(b => b.status === 'PUBLISHED' || b.status === 'published');
   
+  // Filter out expired bulletins: Expires on Sunday at 11:59:59 PM
+  const nowTime = new Date();
+  published = published.filter(b => {
+    if (!b.date) return false;
+    const sundayDate = new Date(b.date + 'T23:59:59');
+    return nowTime <= sundayDate;
+  });
+
   if (published.length === 0) {
-    if (bulletins.length > 0) {
-      bulletins.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-      return { ok: true, data: bulletins[0] };
-    }
-    return { ok: false, error: 'No bulletin is currently published.' };
+    return { ok: false, error: 'No weekly bulletin is currently active for this week.' };
   }
 
   // Sort by target Sunday date descending, then updated_date descending
@@ -2604,15 +2608,24 @@ function handleSaveBulletin(body) {
   bulletinData.updated_date = now();
   bulletinData.date = sanitizeDate(bulletinData.date);
   
-  // Boolean sanitization for 12 section switches
+  // Boolean sanitization for section switches
   const boolFields = [
-    'show_sacrament', 'show_activities', 'show_birthdays', 'show_missionary',
+    'include_class_lessons', 'show_sacrament', 'show_activities', 'show_birthdays', 'show_missionary',
     'show_temple', 'show_self_reliance', 'show_focus', 'show_welfare',
     'show_bishopric', 'show_upcoming', 'show_qr', 'show_cleaning'
   ];
   boolFields.forEach(bf => {
     if (bulletinData[bf] !== undefined) {
       bulletinData[bf] = sanitizeBoolean(bulletinData[bf]);
+    }
+  });
+
+  // Serialize array/object fields to JSON strings for Google Sheets persistence
+  ['class_lessons', 'custom_links', 'activities_list', 'next_activities_list', 'birthday_celebrants_list'].forEach(kf => {
+    if (bulletinData[kf] !== undefined && typeof bulletinData[kf] !== 'string') {
+      try {
+        bulletinData[kf] = JSON.stringify(bulletinData[kf]);
+      } catch (e) {}
     }
   });
 
@@ -2689,7 +2702,6 @@ function handleGetBulletinDraftData(params) {
   }
   let agenda = allAgendas.find(a => cleanDateStr(a.date) === targetDate) || dbFindOne('AGENDAS', 'date', targetDate);
   if (!agenda && allAgendas.length > 0) {
-    // If target date not exact match, find closest Sunday or first agenda
     agenda = allAgendas.find(a => cleanDateStr(a.date) === targetDate) || allAgendas[0];
   }
   if (agenda && !planner && agenda.planner_id) {
@@ -2711,23 +2723,25 @@ function handleGetBulletinDraftData(params) {
   meetingType = sourceObj.type_of_meeting || sourceObj.meeting_type || 'SACRAMENT';
   meetingTheme = sourceObj.other_meeting_specify || sourceObj.theme || '';
   
-  if (sourceObj.opening_hymn) {
-    const num = sourceObj.opening_hymn_number ? '#' + sourceObj.opening_hymn_number + ' — ' : '';
-    openingHymn = String(sourceObj.opening_hymn).startsWith('#') ? sourceObj.opening_hymn : num + sourceObj.opening_hymn;
+  // Format hymns with both number and title together
+  function formatHymn(numVal, titleVal) {
+    let num = String(numVal || '').replace(/^#/, '').trim();
+    let title = String(titleVal || '').trim();
+    if (title.startsWith('#') || /^\d+\s*[-–—.]/.test(title)) return title;
+    if (num && title) return num + ' — ' + title;
+    if (num) return '#' + num;
+    return title;
   }
-  if (sourceObj.sacrament_hymn) {
-    const num = sourceObj.sacrament_hymn_number ? '#' + sourceObj.sacrament_hymn_number + ' — ' : '';
-    sacramentHymn = String(sourceObj.sacrament_hymn).startsWith('#') ? sourceObj.sacrament_hymn : num + sourceObj.sacrament_hymn;
-  }
-  if (sourceObj.closing_hymn) {
-    const num = sourceObj.closing_hymn_number ? '#' + sourceObj.closing_hymn_number + ' — ' : '';
-    closingHymn = String(sourceObj.closing_hymn).startsWith('#') ? sourceObj.closing_hymn : num + sourceObj.closing_hymn;
-  }
+
+  openingHymn = formatHymn(sourceObj.opening_hymn_number, sourceObj.opening_hymn);
+  sacramentHymn = formatHymn(sourceObj.sacrament_hymn_number, sourceObj.sacrament_hymn);
+  closingHymn = formatHymn(sourceObj.closing_hymn_number, sourceObj.closing_hymn);
 
   openingPrayer = sourceObj.opening_prayer || '';
   closingPrayer = sourceObj.closing_prayer || '';
   specialMusic = sourceObj.special_music || sourceObj.special_musical_number || '';
   
+  // Speakers: Only populate names (no topics)
   if (meetingType === 'FAST_SUNDAY') {
     speakersData = 'Bearing of Testimonies by the Congregation';
   } else {
@@ -2737,9 +2751,7 @@ function handleGetBulletinDraftData(params) {
         var parsedSp = JSON.parse(rawSp);
         if (Array.isArray(parsedSp)) {
           speakersData = parsedSp.map(function(s) {
-            var n = s.name || s.speaker_name || '';
-            var t = s.topic || s.subject || '';
-            return n ? (t ? n + ' — ' + t : n) : '';
+            return s.name || s.speaker_name || '';
           }).filter(function(x) { return !!x; }).join('\n');
         } else {
           speakersData = rawSp;
@@ -2749,17 +2761,14 @@ function handleGetBulletinDraftData(params) {
       }
     } else if (Array.isArray(rawSp)) {
       speakersData = rawSp.map(function(s) {
-        var n = s.name || s.speaker_name || '';
-        var t = s.topic || s.subject || '';
-        return n ? (t ? n + ' — ' + t : n) : '';
+        return s.name || s.speaker_name || '';
       }).filter(function(x) { return !!x; }).join('\n');
     }
   }
 
   // 4. Calculate Monday-to-Sunday Date Window
-  // If targetDate is Sunday, Monday is 6 days prior (e.g. Sunday Aug 9 -> Monday Aug 3)
   const sunday = new Date(targetDate);
-  const dayOfWeek = sunday.getDay(); // 0 is Sunday
+  const dayOfWeek = sunday.getDay();
   const monday = new Date(sunday);
   monday.setDate(sunday.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
   const weekDates = [];
@@ -2776,6 +2785,11 @@ function handleGetBulletinDraftData(params) {
   }
 
   const weekDateStrings = weekDates.map(w => w.dateStr);
+
+  function formatBirthdayLabelLocal(month, day) {
+    const monthNames = ['Jan.', 'Feb.', 'Mar.', 'Apr.', 'May', 'June', 'July', 'Aug.', 'Sept.', 'Oct.', 'Nov.', 'Dec.'];
+    return (monthNames[month - 1] || '') + ' ' + day;
+  }
 
   // 5. Smart Birthday Harvester (Monday to Sunday window)
   const allMembers = dbReadAll('MEMBERS_LIST');
@@ -2795,12 +2809,13 @@ function handleGetBulletinDraftData(params) {
         weekDates.forEach(w => {
           const wObj = new Date(w.dateStr);
           if (wObj.getMonth() + 1 === bDayParsed.month && wObj.getDate() === bDayParsed.day) {
+            const dayFormatted = formatBirthdayLabelLocal(bDayParsed.month, bDayParsed.day);
             birthdaysThisWeek.push({
               name: m.name,
               day: bDayParsed.day,
               dateStr: w.dateStr,
               phone: m.phone || '',
-              formatted: `🎂 ${m.name} (${bDayParsed.day})`
+              formatted: `🎂 ${m.name} (${dayFormatted})`
             });
           }
         });
@@ -2811,7 +2826,7 @@ function handleGetBulletinDraftData(params) {
   birthdaysThisWeek.sort((a, b) => a.day - b.day);
   const celebrantsText = birthdaysThisWeek.map(b => b.formatted).join('   ');
 
-  // 6. Weekly Calendar Activities Harvester (Structured Table)
+  // 6. Weekly Calendar Activities Harvester (Structured Table with Recurring Support)
   const rawActivities = dbReadAll('ACTIVITIES');
   const allActivities = rawActivities.map(normalizeActivityRecord).filter(function(a) { return !!a; });
   const weeklyActivities = allActivities.filter(act => act.date && weekDateStrings.includes(act.date));
@@ -2824,23 +2839,24 @@ function handleGetBulletinDraftData(params) {
       id: act.activity_id || 'act_' + idx,
       day: matched ? matched.dayName : 'Activity',
       activity: act.activity || 'Church Activity',
-      time: act.time || '6:00 PM',
+      time: act.time || '4:30 PM',
       scope: scope,
-      reoccurring: false,
+      reoccurring: act.reoccurring !== undefined ? act.reoccurring : false,
+      is_recurring: act.reoccurring !== undefined ? act.reoccurring : false,
     });
   });
 
   if (activitiesList.length === 0) {
     activitiesList = [
-      { id: 'act_1', day: 'Monday', activity: 'YSA Family Home Evening', time: '4:30 PM', scope: 'Ward', reoccurring: true },
-      { id: 'act_2', day: 'Tuesday', activity: 'Institute / Seminary', time: '6:00 PM', scope: 'Ward', reoccurring: false },
-      { id: 'act_3', day: 'Wednesday', activity: 'Self-Reliance Class - Personal Finances', time: '3:30 PM', scope: 'Ward', reoccurring: true },
-      { id: 'act_4', day: 'Wednesday', activity: 'Self-Reliance Class - Starting & Growing My Business', time: '4:00 PM', scope: 'Ward', reoccurring: true },
-      { id: 'act_5', day: 'Wednesday', activity: 'Gospel Fundamental Class', time: '5:00 PM', scope: 'Ward', reoccurring: true },
-      { id: 'act_6', day: 'Thursday', activity: 'Choir Practice', time: '7:00 PM', scope: 'Ward', reoccurring: false },
-      { id: 'act_7', day: 'Friday', activity: 'Youth Activity', time: '6:00 PM', scope: 'Ward', reoccurring: false },
-      { id: 'act_8', day: 'Saturday', activity: 'Self-Reliance Class - Find a Better Job', time: '3:30 PM', scope: 'Ward', reoccurring: true },
-      { id: 'act_9', day: 'Sunday', activity: 'Sacrament Meeting', time: '9:00 AM', scope: 'Ward', reoccurring: true },
+      { id: 'act_1', day: 'Monday', activity: 'YSA Family Home Evening', time: '4:30 PM', scope: 'Ward', reoccurring: true, is_recurring: true },
+      { id: 'act_2', day: 'Tuesday', activity: 'Institute / Seminary', time: '6:00 PM', scope: 'Ward', reoccurring: false, is_recurring: false },
+      { id: 'act_3', day: 'Wednesday', activity: 'Self-Reliance Class - Personal Finances', time: '3:30 PM', scope: 'Ward', reoccurring: true, is_recurring: true },
+      { id: 'act_4', day: 'Wednesday', activity: 'Self-Reliance Class - Starting & Growing My Business', time: '4:00 PM', scope: 'Ward', reoccurring: true, is_recurring: true },
+      { id: 'act_5', day: 'Wednesday', activity: 'Gospel Fundamental Class', time: '5:00 PM', scope: 'Ward', reoccurring: true, is_recurring: true },
+      { id: 'act_6', day: 'Thursday', activity: 'Choir Practice', time: '7:00 PM', scope: 'Ward', reoccurring: false, is_recurring: false },
+      { id: 'act_7', day: 'Friday', activity: 'Youth Activity', time: '6:00 PM', scope: 'Ward', reoccurring: false, is_recurring: false },
+      { id: 'act_8', day: 'Saturday', activity: 'Self-Reliance Class - Find a Better Job', time: '3:30 PM', scope: 'Ward', reoccurring: true, is_recurring: true },
+      { id: 'act_9', day: 'Sunday', activity: 'Sacrament Meeting', time: '9:00 AM', scope: 'Ward', reoccurring: true, is_recurring: true },
     ];
   }
 
@@ -2861,7 +2877,7 @@ function handleGetBulletinDraftData(params) {
       if (parts.length === 3) {
         const dObj = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
         const shortDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const shortMonths = ['Jan.', 'Feb.', 'Mar.', 'Apr.', 'May', 'June', 'July', 'Aug.', 'Sept.', 'Oct.', 'Nov.', 'Dec.'];
         dayName = shortDays[dObj.getDay()];
         formattedDate = shortMonths[dObj.getMonth()] + ' ' + dObj.getDate();
       }
@@ -2906,10 +2922,17 @@ function handleGetBulletinDraftData(params) {
         activities: activitiesText,
         activities_list: activitiesList,
         next_activities_list: next5List,
+        include_class_lessons: false,
+        class_lessons: [
+          { className: 'Elders Quorum', topic: 'Following the Living Prophet', reference: 'General Conference', link: 'https://www.churchofjesuschrist.org/study/general-conference' },
+          { className: 'Relief Society', topic: 'Covenants and Discipleship', reference: 'General Conference', link: 'https://www.churchofjesuschrist.org/study/general-conference' },
+          { className: 'Youth', topic: 'Come, Follow Me: Youth Study', reference: 'For the Strength of Youth', link: 'https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church' },
+          { className: 'Primary', topic: 'Jesus Loves Me and Gives Me Hope', reference: 'Primary Manual', link: 'https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church' },
+        ],
         bishopric_message: 'Welcome to our Sacrament Service. May the Spirit of the Lord fill your heart as we partake of the Sacrament and worship our Savior Jesus Christ.',
         cleaning_group: 'Elders Quorum & Relief Society Group 1',
-        cleaning_date: weekDates[5].dateStr, // Saturday of that week
-        cleaning_time: '08:00',
+        cleaning_date: weekDates[5].dateStr,
+        cleaning_time: '16:00', // Default: 4:00 PM per specification
         cleaning_instructions: 'Please arrive promptly with your family. All cleaning supplies provided at the custodial closet.',
         missionaries: 'Elder Johnson & Elder Smith (Ghana Accra Mission)\nSister Davis & Sister Okafor (Nigeria Lagos Mission)',
         scripture_of_the_week: '"Learn of me, and listen to my words; walk in the meekness of my Spirit, and you shall have peace in me." — D&C 19:23',
@@ -2921,6 +2944,7 @@ function handleGetBulletinDraftData(params) {
         qr_familysearch: 'https://www.familysearch.org',
         qr_gospel_library: 'https://www.churchofjesuschrist.org/study/gospel-library',
         qr_website: 'https://www.churchofjesuschrist.org',
+        custom_links: [],
       }
     }
   };

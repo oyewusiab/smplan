@@ -1,0 +1,12 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 50" fill="none">
+  <rect width="40" height="40" y="5" rx="10" fill="url(#logo-grad)"/>
+  <path d="M20 12V38M13 21H27M16 30H24" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="50" y="27" font-family="system-ui, -apple-system, sans-serif" font-size="17" font-weight="800" fill="#0f172a" letter-spacing="-0.5">SM PLANNER</text>
+  <text x="50" y="40" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" fill="#0284c7" letter-spacing="1.5">OBANTOKO WARD</text>
+  <defs>
+    <linearGradient id="logo-grad" x1="0" y1="5" x2="40" y2="45" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0284c7"/>
+      <stop offset="1" stop-color="#0f172a"/>
+    </linearGradient>
+  </defs>
+</svg>

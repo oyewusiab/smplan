@@ -361,6 +361,20 @@ export interface BulletinFeedback {
   created_date: string;
 }
 
+export interface BulletinClassLesson {
+  id?: string;
+  className: string; // 'Elders Quorum' | 'Relief Society' | 'Youth' | 'Aaronic Priesthood' | 'Young Women' | 'Primary' | 'Gospel Foundation' | string;
+  topic: string;
+  reference: string;
+  link: string;
+}
+
+export interface BulletinCustomLink {
+  id?: string;
+  label: string;
+  url: string;
+}
+
 export interface Bulletin {
   bulletin_id: string;
   planner_id: string;
@@ -385,6 +399,8 @@ export interface Bulletin {
   closing_hymn_number?: string;
   closing_prayer?: string;
   announcements?: string;
+  include_class_lessons?: boolean;
+  class_lessons?: BulletinClassLesson[];
   come_follow_me: string;
   cfm_url?: string;
   cfm_reading: string;
@@ -423,6 +439,7 @@ export interface Bulletin {
   qr_gospel_library: string;
   qr_website: string;
   qr_planner_link: string;
+  custom_links?: BulletinCustomLink[];
   show_sacrament: boolean;
   show_activities: boolean;
   show_birthdays: boolean;

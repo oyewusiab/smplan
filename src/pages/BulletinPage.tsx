@@ -92,7 +92,7 @@ export function BulletinPage() {
     cfm_url: 'https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/35?lang=eng',
     cleaning_group: 'Elders Quorum & Relief Society Group 1',
     cleaning_date: initialDate,
-    cleaning_time: '08:00',
+    cleaning_time: '16:00',
     cleaning_instructions: 'Please arrive promptly. Supplies provided at the meetinghouse custodial closet.',
     show_cleaning: true,
     activities: '',
@@ -114,6 +114,9 @@ export function BulletinPage() {
     qr_website: 'https://www.churchofjesuschrist.org',
     qr_familysearch: 'https://www.familysearch.org',
     qr_planner_link: '',
+    include_class_lessons: false,
+    class_lessons: [],
+    custom_links: [],
     show_sacrament: true,
     show_activities: true,
     show_birthdays: true,
@@ -330,14 +333,24 @@ export function BulletinPage() {
       return;
     }
 
-    // Extract speakers roster
+    // Extract speakers roster (names only per requirement)
     let incomingSpeakersText = '';
     if (targetAgenda.speakers) {
       if (typeof targetAgenda.speakers === 'string') {
-        incomingSpeakersText = targetAgenda.speakers;
+        try {
+          const parsed = JSON.parse(targetAgenda.speakers);
+          if (Array.isArray(parsed)) {
+            incomingSpeakersText = parsed.map((s: any) => s.name || '').filter(Boolean).join('\n');
+          } else {
+            incomingSpeakersText = targetAgenda.speakers.split('\n').map((l: string) => l.split(/[—–-]/)[0]?.trim()).filter(Boolean).join('\n');
+          }
+        } catch {
+          incomingSpeakersText = targetAgenda.speakers.split('\n').map((l: string) => l.split(/[—–-]/)[0]?.trim()).filter(Boolean).join('\n');
+        }
       } else if (Array.isArray(targetAgenda.speakers)) {
         incomingSpeakersText = targetAgenda.speakers
-          .map((s: any) => `${s.name || ''}${s.topic ? ' — ' + s.topic : ''}`)
+          .map((s: any) => s.name || '')
+          .filter(Boolean)
           .join('\n');
       }
     }
@@ -630,7 +643,7 @@ export function BulletinPage() {
       cfm_url: 'https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/35?lang=eng',
       cleaning_group: 'Elders Quorum & Relief Society Group 1',
       cleaning_date: newDate,
-      cleaning_time: '08:00',
+      cleaning_time: '16:00',
       cleaning_instructions: 'Please arrive promptly. Supplies provided at the custodial closet.',
       show_cleaning: true,
       activities: '',
@@ -643,6 +656,9 @@ export function BulletinPage() {
       qr_gospel_library: 'https://www.churchofjesuschrist.org/study/gospel-library',
       qr_website: 'https://www.churchofjesuschrist.org',
       qr_familysearch: 'https://www.familysearch.org',
+      include_class_lessons: false,
+      class_lessons: [],
+      custom_links: [],
       show_sacrament: true,
       show_activities: true,
       show_birthdays: true,

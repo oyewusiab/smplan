@@ -164,14 +164,61 @@ export function BulletinFormEditor({
     setForm((prev) => ({ ...prev, next_activities_list: updated }));
   };
 
-  const handleAddNextActivity = () => {
-    const newItem: NextActivityItem = {
-      id: `next_${Date.now()}`,
-      date: f.date || 'Upcoming',
-      activity: '',
-      scope: 'Ward',
+  // Class Lessons Handlers
+  const classLessonsList = f.class_lessons || [];
+  const handleAddClassLesson = () => {
+    const newItem: BulletinClassLesson = {
+      id: `cl_${Date.now()}`,
+      className: 'Elders Quorum',
+      topic: '',
+      reference: '',
+      link: 'https://www.churchofjesuschrist.org/study/general-conference',
     };
-    setForm((prev) => ({ ...prev, next_activities_list: [...(prev.next_activities_list || []), newItem] }));
+    setForm((prev) => ({
+      ...prev,
+      include_class_lessons: true,
+      class_lessons: [...(prev.class_lessons || []), newItem],
+    }));
+  };
+
+  const handleUpdateClassLesson = (index: number, field: keyof BulletinClassLesson, value: string) => {
+    const updated = [...classLessonsList];
+    if (updated[index]) {
+      updated[index] = { ...updated[index], [field]: value };
+    }
+    setForm((prev) => ({ ...prev, class_lessons: updated }));
+  };
+
+  const handleDeleteClassLesson = (index: number) => {
+    const updated = classLessonsList.filter((_, i) => i !== index);
+    setForm((prev) => ({ ...prev, class_lessons: updated }));
+  };
+
+  // Custom Links / QR Codes Handlers
+  const customLinksList = f.custom_links || [];
+  const handleAddCustomLink = () => {
+    const newItem: BulletinCustomLink = {
+      id: `lnk_${Date.now()}`,
+      label: '',
+      url: 'https://',
+    };
+    setForm((prev) => ({
+      ...prev,
+      custom_links: [...(prev.custom_links || []), newItem],
+    }));
+  };
+
+  const handleUpdateCustomLink = (index: number, field: keyof BulletinCustomLink, value: string) => {
+    const updated = [...customLinksList];
+    if (updated[index]) {
+      updated[index] = { ...updated[index], [field]: value };
+    }
+    setForm((prev) => ({ ...prev, custom_links: updated }));
+  };
+
+  const handleDeleteCustomLink = (index: number) => {
+    const updated = customLinksList.filter((_, i) => i !== index);
+    setForm((prev) => ({ ...prev, custom_links: updated }));
   };
 
   return (
@@ -259,7 +306,7 @@ export function BulletinFormEditor({
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200">
         {[
           { id: 'core', label: '1. Basic Info & Theme', icon: <Bookmark className="w-3.5 h-3.5" /> },
-          { id: 'sacrament', label: '2. Sacrament Program', icon: <Music className="w-3.5 h-3.5" /> },
+          { id: 'sacrament', label: '2. Sacrament and Classes Programes', icon: <Music className="w-3.5 h-3.5" /> },
           { id: 'cfm', label: '3. Come Follow Me (AI)', icon: <Sparkles className="w-3.5 h-3.5 text-amber-500" /> },
           { id: 'community', label: '4. Birthdays & Schedule', icon: <Users className="w-3.5 h-3.5" /> },
           { id: 'initiatives', label: '5. Ward Initiatives & Notices', icon: <Heart className="w-3.5 h-3.5 text-rose-500" /> },
@@ -383,16 +430,16 @@ export function BulletinFormEditor({
         </div>
       )}
 
-      {/* ─── SECTION 2: Sacrament Meeting Program (Streamlined) ─────────────────── */}
+      {/* ─── SECTION 2: Sacrament and Classes Programes (Streamlined) ─────────────── */}
       {activeSubSection === 'sacrament' && (
-        <div className="space-y-4">
+        <div className="space-y-5">
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Sacrament Meeting Outline</h3>
+                  <h3 className="text-sm font-bold text-slate-900">2. Sacrament and Classes Programes</h3>
                   <p className="text-xs text-slate-500">
-                    Streamlined order of service: Opening Hymn, Invocation, Sacrament Hymn, Talks / Testimonies, Closing Hymn, Benediction.
+                    Sacrament order of service & Sunday classes preparation.
                   </p>
                 </div>
                 <Button
@@ -408,29 +455,6 @@ export function BulletinFormEditor({
             </CardHeader>
             <CardBody className="space-y-4">
               <div className="grid sm:grid-cols-2 gap-4">
-                <div className="sm:col-span-2">
-                  <Select
-                    label="Meeting Type / Sunday Designation"
-                    value={f.meeting_type || 'SACRAMENT'}
-                    onChange={(e) => {
-                      const mType = e.target.value;
-                      setForm((prev) => ({
-                        ...prev,
-                        meeting_type: mType,
-                        speakers: mType === 'FAST_SUNDAY' ? 'Bearing of Testimonies by the Congregation' : prev.speakers,
-                      }));
-                    }}
-                    options={[
-                      { value: 'SACRAMENT', label: 'Normal Sacrament Meeting' },
-                      { value: 'FAST_SUNDAY', label: 'Fast & Testimony Sunday' },
-                      { value: 'STAKE_CONFERENCE', label: 'Stake Conference' },
-                      { value: 'COMBINED', label: 'Ward Conference / Combined Meeting' },
-                      { value: 'SPECIAL', label: 'Primary Program / Special Presentation' },
-                      { value: 'OTHER', label: 'Other Special Service' },
-                    ]}
-                  />
-                </div>
-
                 {f.meeting_type === 'FAST_SUNDAY' && (
                   <div className="sm:col-span-2 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 flex items-center gap-2">
                     <span className="font-semibold">Fast & Testimony Meeting:</span> Talks replaced with open congregation testimonies following the Sacrament hymn and administration.
@@ -439,7 +463,7 @@ export function BulletinFormEditor({
 
                 <Input
                   label="Opening Hymn"
-                  placeholder="e.g. #2 The Spirit of God"
+                  placeholder="e.g. 2 — The Spirit of God"
                   value={f.opening_hymn || ''}
                   onChange={(e) => setForm((prev) => ({ ...prev, opening_hymn: e.target.value }))}
                 />
@@ -451,20 +475,20 @@ export function BulletinFormEditor({
                 />
                 <Input
                   label="Sacrament Hymn"
-                  placeholder="e.g. #169 As Now We Take the Sacrament"
+                  placeholder="e.g. 169 — As Now We Take the Sacrament"
                   value={f.sacrament_hymn || ''}
                   onChange={(e) => setForm((prev) => ({ ...prev, sacrament_hymn: e.target.value }))}
                 />
                 <div className="sm:col-span-2">
                   <Textarea
-                    label={f.meeting_type === 'FAST_SUNDAY' ? 'Testimonies Note' : 'Talks / Speakers Roster'}
+                    label={f.meeting_type === 'FAST_SUNDAY' ? 'Testimonies Note' : 'Talks / Speakers Roster (Names Only)'}
                     rows={3}
-                    placeholder={`Brother Emmanuel Olajide — Faith in the Lord\nSister Grace Adams — The Book of Mormon`}
+                    placeholder={`Brother Emmanuel Olajide\nSister Grace Adams`}
                     value={
                       typeof f.speakers === 'string'
                         ? f.speakers
                         : Array.isArray(f.speakers)
-                        ? (f.speakers as any[]).map((s) => `${s.name || ''}${s.topic ? ' — ' + s.topic : ''}`).join('\n')
+                        ? (f.speakers as any[]).map((s) => s.name || s.speaker_name || '').filter(Boolean).join('\n')
                         : ''
                     }
                     onChange={(e) => setForm((prev) => ({ ...prev, speakers: e.target.value }))}
@@ -472,7 +496,7 @@ export function BulletinFormEditor({
                 </div>
                 <Input
                   label="Closing Hymn"
-                  placeholder="e.g. #152 God Be with You Till We Meet Again"
+                  placeholder="e.g. 152 — God Be with You Till We Meet Again"
                   value={f.closing_hymn || ''}
                   onChange={(e) => setForm((prev) => ({ ...prev, closing_hymn: e.target.value }))}
                 />
@@ -482,6 +506,124 @@ export function BulletinFormEditor({
                   value={f.closing_prayer || ''}
                   onChange={(e) => setForm((prev) => ({ ...prev, closing_prayer: e.target.value }))}
                 />
+              </div>
+
+              {/* ─── Sunday Class Lessons Section ───────────────────────────── */}
+              <div className="pt-4 border-t border-slate-200/80 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={!!f.include_class_lessons}
+                        onChange={(e) => setForm((prev) => ({ ...prev, include_class_lessons: e.target.checked }))}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                    <div>
+                      <span className="text-xs font-bold text-slate-800">Include Class Lessons</span>
+                      <p className="text-[11px] text-slate-500">Provide topics, references, and hyperlinks for Sunday classes preparation</p>
+                    </div>
+                  </div>
+
+                  {f.include_class_lessons && (
+                    <Button
+                      size="sm"
+                      onClick={handleAddClassLesson}
+                      icon={<Plus className="w-3.5 h-3.5" />}
+                      className="text-xs bg-blue-600 hover:bg-blue-500 text-white font-bold"
+                    >
+                      Add Class
+                    </Button>
+                  )}
+                </div>
+
+                {f.include_class_lessons && (
+                  <div className="space-y-2.5 pt-2">
+                    {classLessonsList.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-slate-400 border border-dashed rounded-xl bg-slate-50">
+                        No Sunday class lessons added. Click "Add Class" to specify lessons for Elders Quorum, Relief Society, Youth, Primary, etc.
+                      </div>
+                    ) : (
+                      classLessonsList.map((item, idx) => (
+                        <div
+                          key={item.id || idx}
+                          className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs shadow-2xs"
+                        >
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            <div>
+                              <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">Select Class</label>
+                              <select
+                                value={item.className}
+                                onChange={(e) => handleUpdateClassLesson(idx, 'className', e.target.value)}
+                                className="w-full text-xs font-bold rounded-lg border border-slate-300 p-2 bg-white"
+                              >
+                                {['Elders Quorum', 'Relief Society', 'Youth', 'Aaronic Priesthood', 'Young Women', 'Primary', 'Gospel Foundation'].map((c) => (
+                                  <option key={c} value={c}>{c}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="sm:col-span-2">
+                              <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">Lesson Topic</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. Following the Living Prophet"
+                                value={item.topic}
+                                onChange={(e) => handleUpdateClassLesson(idx, 'topic', e.target.value)}
+                                className="w-full text-xs rounded-lg border border-slate-300 p-2 bg-white font-medium"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">Reference / Scripture / Manual</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. General Conference Oct 2025 / For the Strength of Youth"
+                                value={item.reference}
+                                onChange={(e) => handleUpdateClassLesson(idx, 'reference', e.target.value)}
+                                className="w-full text-xs rounded-lg border border-slate-300 p-2 bg-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">Lesson Hyperlink (URL)</label>
+                              <div className="flex items-center gap-1.5">
+                                <input
+                                  type="url"
+                                  placeholder="https://www.churchofjesuschrist.org/study/..."
+                                  value={item.link}
+                                  onChange={(e) => handleUpdateClassLesson(idx, 'link', e.target.value)}
+                                  className="flex-grow text-xs rounded-lg border border-slate-300 p-2 bg-white"
+                                />
+                                {item.link && (
+                                  <a
+                                    href={item.link}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="p-2 text-blue-600 hover:text-blue-800 bg-white border border-slate-200 rounded-lg shadow-2xs"
+                                    title="Test Lesson Link"
+                                  >
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                  </a>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteClassLesson(idx)}
+                                  className="p-2 text-slate-400 hover:text-red-600 bg-white border border-slate-200 rounded-lg shadow-2xs"
+                                  title="Delete Class"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
             </CardBody>
           </Card>
@@ -816,6 +958,18 @@ export function BulletinFormEditor({
                         <option value="Ward">Ward</option>
                         <option value="Stake">Stake</option>
                       </select>
+                      <label className="flex items-center gap-1.5 flex-shrink-0 cursor-pointer text-[11px] font-semibold text-slate-700 select-none bg-slate-50 px-2 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-100">
+                        <input
+                          type="checkbox"
+                          checked={!!(item.reoccurring || item.is_recurring)}
+                          onChange={(e) => {
+                            handleUpdateActivity(idx, 'reoccurring', e.target.checked);
+                            handleUpdateActivity(idx, 'is_recurring', e.target.checked);
+                          }}
+                          className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                        />
+                        <span>Recurring</span>
+                      </label>
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <button
                           type="button"
@@ -930,9 +1084,9 @@ export function BulletinFormEditor({
                     onChange={(e) => setForm((prev) => ({ ...prev, cleaning_date: e.target.value }))}
                   />
                   <Input
-                    label="Time"
+                    label="Time (Default: 4:00 PM)"
                     type="time"
-                    value={f.cleaning_time || ''}
+                    value={f.cleaning_time || '16:00'}
                     onChange={(e) => setForm((prev) => ({ ...prev, cleaning_time: e.target.value }))}
                   />
                 </div>
@@ -1052,10 +1206,9 @@ export function BulletinFormEditor({
                       href={resolveHymnLink(f.opening_hymn)}
                       target="_blank"
                       rel="noreferrer"
-                      className="px-2.5 py-1 rounded-lg bg-white border border-blue-200 hover:border-blue-400 hover:shadow-2xs text-blue-900 font-medium inline-flex items-center gap-1.5 transition-all"
-                      title="Open on Church website"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-blue-200 text-blue-900 font-bold hover:bg-blue-100 shadow-2xs"
                     >
-                      <span>🎵 Opening: {f.opening_hymn}</span>
+                      <span>Opening: {f.opening_hymn}</span>
                       <ExternalLink className="w-3 h-3 text-blue-500" />
                     </a>
                   )}
@@ -1064,10 +1217,9 @@ export function BulletinFormEditor({
                       href={resolveHymnLink(f.sacrament_hymn)}
                       target="_blank"
                       rel="noreferrer"
-                      className="px-2.5 py-1 rounded-lg bg-white border border-blue-200 hover:border-blue-400 hover:shadow-2xs text-blue-900 font-medium inline-flex items-center gap-1.5 transition-all"
-                      title="Open sacrament hymn on Church website"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-blue-200 text-blue-900 font-bold hover:bg-blue-100 shadow-2xs"
                     >
-                      <span>🍞 Sacrament: {f.sacrament_hymn}</span>
+                      <span>Sacrament: {f.sacrament_hymn}</span>
                       <ExternalLink className="w-3 h-3 text-blue-500" />
                     </a>
                   )}
@@ -1076,15 +1228,88 @@ export function BulletinFormEditor({
                       href={resolveHymnLink(f.closing_hymn)}
                       target="_blank"
                       rel="noreferrer"
-                      className="px-2.5 py-1 rounded-lg bg-white border border-blue-200 hover:border-blue-400 hover:shadow-2xs text-blue-900 font-medium inline-flex items-center gap-1.5 transition-all"
-                      title="Open closing hymn on Church website"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-blue-200 text-blue-900 font-bold hover:bg-blue-100 shadow-2xs"
                     >
-                      <span>🙏 Closing: {f.closing_hymn}</span>
+                      <span>Closing: {f.closing_hymn}</span>
                       <ExternalLink className="w-3 h-3 text-blue-500" />
                     </a>
                   )}
                 </div>
               </div>
+            </CardBody>
+          </Card>
+
+          {/* Dedicated Custom Digital Links & QR Codes Card */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Custom Digital Links & QR Codes</h3>
+                  <p className="text-xs text-slate-500">
+                    Add custom resource links (e.g. Ward Directory, Youth Camp, Choir, Activities). QR codes are generated automatically.
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={handleAddCustomLink}
+                  icon={<Plus className="w-3.5 h-3.5" />}
+                  className="text-xs bg-blue-600 hover:bg-blue-500 text-white font-bold"
+                >
+                  Add Link & QR
+                </Button>
+              </div>
+            </CardHeader>
+            <CardBody className="space-y-3">
+              {customLinksList.length === 0 ? (
+                <div className="p-4 text-center text-xs text-slate-400 border border-dashed rounded-xl bg-slate-50">
+                  No custom links added yet. Click "Add Link & QR" to add extra resources.
+                </div>
+              ) : (
+                <div className="grid sm:grid-cols-2 gap-3">
+                  {customLinksList.map((lnk, idx) => {
+                    const qrUrl = lnk.url && lnk.url.startsWith('http')
+                      ? `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(lnk.url)}&size=120x120&margin=1`
+                      : '';
+                    return (
+                      <div key={lnk.id || idx} className="p-3 bg-white rounded-xl border border-slate-200 flex gap-3 text-xs shadow-2xs">
+                        {qrUrl ? (
+                          <img src={qrUrl} alt="QR" className="w-16 h-16 rounded border border-slate-200 bg-white flex-shrink-0" />
+                        ) : (
+                          <div className="w-16 h-16 rounded border border-dashed border-slate-300 flex items-center justify-center text-[9px] text-slate-400 flex-shrink-0">
+                            QR Code
+                          </div>
+                        )}
+                        <div className="flex-grow space-y-2">
+                          <input
+                            type="text"
+                            placeholder="Resource Label (e.g. Ward Directory)"
+                            value={lnk.label}
+                            onChange={(e) => handleUpdateCustomLink(idx, 'label', e.target.value)}
+                            className="w-full text-xs font-bold rounded-lg border border-slate-300 p-1.5"
+                          />
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="url"
+                              placeholder="https://..."
+                              value={lnk.url}
+                              onChange={(e) => handleUpdateCustomLink(idx, 'url', e.target.value)}
+                              className="w-full text-xs rounded-lg border border-slate-300 p-1.5"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteCustomLink(idx)}
+                              className="p-1.5 text-slate-400 hover:text-red-600 rounded"
+                              title="Delete Link"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </CardBody>
           </Card>
         </div>

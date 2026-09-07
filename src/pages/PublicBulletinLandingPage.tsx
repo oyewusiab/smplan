@@ -138,7 +138,9 @@ export function PublicBulletinLandingPage() {
     );
   }
 
-  if (!bulletin) {
+  const isExpired = bulletin && bulletin.date ? (new Date() > new Date(bulletin.date + 'T23:59:59')) : false;
+
+  if (!bulletin || isExpired) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-slate-200 shadow-xl text-center space-y-4">
@@ -147,7 +149,9 @@ export function PublicBulletinLandingPage() {
           </div>
           <h2 className="text-xl font-bold text-slate-900">Ward Bulletin</h2>
           <p className="text-sm text-slate-600">
-            No weekly bulletin is published at this moment. Please check back shortly or reach out to your ward leadership.
+            {isExpired
+              ? 'The previous weekly bulletin expired on Sunday at 11:59 PM. Please check back when next week’s bulletin is published.'
+              : 'No weekly bulletin is published at this moment. Please check back shortly or reach out to your ward leadership.'}
           </p>
           <button
             onClick={loadLiveBulletin}
@@ -215,12 +219,12 @@ export function PublicBulletinLandingPage() {
             </div>
           </header>
 
-          {/* 1. Sacrament Meeting Outline */}
+          {/* 1. Sacrament and Classes Programes */}
           {isSectionVisible(bulletin.show_sacrament) && (
             <section className="rounded-2xl border p-4 sm:p-5 bg-white shadow-2xs space-y-3" style={{ borderColor: theme.borderLight }}>
               <div className="flex items-center justify-between pb-2 border-b" style={{ borderColor: theme.borderLight }}>
                 <h2 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider" style={{ color: theme.primaryColor }}>
-                  Sacrament Meeting Program
+                  Sacrament and Classes Programes
                 </h2>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-md border" style={{ background: theme.badgeBg, color: theme.badgeText, borderColor: theme.borderLight }}>
                   {bulletin.meeting_type === 'FAST_SUNDAY' ? 'Fast & Testimony' : 'Sacrament Service'}
@@ -280,7 +284,7 @@ export function PublicBulletinLandingPage() {
                     {speakers.map((sp, idx) => (
                       <div key={idx} className="flex justify-between text-xs sm:text-sm pl-2">
                         <span className="text-slate-600 font-medium">{idx === 0 ? 'Youth Speaker:' : `Speaker ${idx + 1}:`}</span>
-                        <span className="font-semibold text-slate-900 text-right">{sp.name}{sp.topic ? ` — "${sp.topic}"` : ''}</span>
+                        <span className="font-semibold text-slate-900 text-right">{sp.name || ''}</span>
                       </div>
                     ))}
                   </div>
@@ -292,6 +296,54 @@ export function PublicBulletinLandingPage() {
                     </p>
                   </div>
                 ) : null}
+
+                {/* Sunday Class Lessons Preparation */}
+                {bulletin.include_class_lessons && bulletin.class_lessons && bulletin.class_lessons.length > 0 && (
+                  <div className="pt-3 border-t border-slate-100 space-y-2">
+                    <span className="text-xs font-bold uppercase tracking-wider block" style={{ color: theme.primaryColor }}>
+                      Sunday Class Lessons Preparation
+                    </span>
+                    <div className="grid gap-2">
+                      {bulletin.class_lessons.map((cl, idx) => (
+                        <div
+                          key={idx}
+                          className="p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
+                          style={{ background: theme.bgLight, borderColor: theme.borderLight }}
+                        >
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className="font-extrabold px-2 py-0.5 rounded text-[10px] border shadow-2xs"
+                                style={{ background: theme.badgeBg, color: theme.badgeText, borderColor: theme.borderLight }}
+                              >
+                                {cl.className}
+                              </span>
+                              <strong className="text-slate-900 font-bold">{cl.topic || 'Class Lesson'}</strong>
+                            </div>
+                            {cl.reference && (
+                              <p className="text-[11px] text-slate-600 italic pl-1">
+                                Ref: {cl.reference}
+                              </p>
+                            )}
+                          </div>
+
+                          {cl.link && (
+                            <a
+                              href={cl.link}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs shadow-2xs hover:opacity-90 self-start sm:self-auto text-white"
+                              style={{ background: theme.primaryColor }}
+                            >
+                              <span>Read lesson</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {bulletin.closing_hymn && (
                   <div className="flex justify-between items-center py-1.5 border-b border-slate-50">
@@ -556,7 +608,7 @@ export function PublicBulletinLandingPage() {
 
           {/* 10. Quick Digital Resource Links */}
           <section className="rounded-2xl border p-4 space-y-3 shadow-2xs" style={{ background: theme.bgLight, borderColor: theme.borderLight }}>
-            <h3 className="font-bold text-xs uppercase tracking-wider" style={{ color: theme.primaryColor }}>Church Digital Resources</h3>
+            <h3 className="font-bold text-xs uppercase tracking-wider" style={{ color: theme.primaryColor }}>Church Digital Resources & Links</h3>
             <div className="grid grid-cols-2 gap-2">
               <a
                 href={bulletin.qr_gospel_library || 'https://www.churchofjesuschrist.org/study/gospel-library'}
@@ -578,6 +630,23 @@ export function PublicBulletinLandingPage() {
                 <Globe className="w-4 h-4 flex-shrink-0" style={{ color: theme.secondaryColor }} />
                 <span>FamilySearch</span>
               </a>
+              {bulletin.custom_links && Array.isArray(bulletin.custom_links) && bulletin.custom_links.map((link, idx) => (
+                link.url ? (
+                  <a
+                    key={idx}
+                    href={link.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center justify-between p-2.5 rounded-xl bg-white border hover:shadow-xs text-xs font-bold transition-all col-span-2 sm:col-span-1"
+                    style={{ borderColor: theme.borderLight, color: theme.primaryColor }}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <ExternalLink className="w-4 h-4 flex-shrink-0" style={{ color: theme.secondaryColor }} />
+                      <span className="truncate">{link.label || 'Resource Link'}</span>
+                    </div>
+                  </a>
+                ) : null
+              ))}
             </div>
           </section>
 
