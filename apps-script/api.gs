@@ -2846,10 +2846,11 @@ function handleGetBulletinDraftData(params) {
     
     if (bDateStr) {
       const bDayParsed = parseMemberBirthMonthDay(bDateStr);
-      if (bDayParsed) {
         weekDates.forEach(w => {
-          const wObj = new Date(w.dateStr);
-          if (wObj.getMonth() + 1 === bDayParsed.month && wObj.getDate() === bDayParsed.day) {
+          const parts = w.dateStr.split('-');
+          const wMonth = parseInt(parts[1], 10);
+          const wDay = parseInt(parts[2], 10);
+          if (wMonth === bDayParsed.month && wDay === bDayParsed.day) {
             const dayFormatted = formatBirthdayLabelLocal(bDayParsed.month, bDayParsed.day);
             birthdaysThisWeek.push({
               name: m.name,

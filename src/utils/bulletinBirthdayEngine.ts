@@ -64,6 +64,31 @@ export function formatBirthdayLabel(month: number, day: number): string {
   return `${mName} ${day}`;
 }
 
+export function normalizeBirthdaysString(birthdaysStr?: string, targetDateStr?: string): string {
+  if (!birthdaysStr) return '';
+  let str = String(birthdaysStr).trim();
+  if (!str) return '';
+
+  let month = 9;
+  if (targetDateStr) {
+    try {
+      const parts = targetDateStr.split('-');
+      if (parts.length >= 2) {
+        const m = parseInt(parts[1], 10);
+        if (!isNaN(m) && m >= 1 && m <= 12) month = m;
+      }
+    } catch {}
+  }
+
+  const monthNames = ['Jan.', 'Feb.', 'Mar.', 'Apr.', 'May', 'June', 'July', 'Aug.', 'Sept.', 'Oct.', 'Nov.', 'Dec.'];
+  const mName = monthNames[month - 1] || 'Sept.';
+
+  // Convert (8) or (11) to (Sept. 8) or (Sept. 11)
+  str = str.replace(/\((\d{1,2})\)/g, `(${mName} $1)`);
+
+  return str;
+}
+
 export function getBirthdaysForWeek(
   members: Member[],
   sundayDateStr: string
@@ -108,15 +133,14 @@ export function getBirthdaysForWeek(
       if (parsed) {
         const matchDay = weekDays.find((w) => w.month === parsed.month && w.day === parsed.day);
         if (matchDay) {
-          const title = m.gender === 'M' ? (m.name.startsWith('Bro') ? '' : 'Brother ') : m.gender === 'F' ? (m.name.startsWith('Sis') ? '' : 'Sister ') : '';
-          const fullName = `${title}${m.name}`.trim();
+          const rawName = m.name.trim();
           const dayLabel = formatBirthdayLabel(parsed.month, parsed.day);
           celebrants.push({
-            name: fullName,
+            name: rawName,
             day: parsed.day,
             dateStr: matchDay.dateStr,
             phone: m.phone || '',
-            formatted: `🎂 ${fullName} (${dayLabel})`,
+            formatted: `🎂 ${rawName} (${dayLabel})`,
           });
         }
       }
@@ -132,9 +156,11 @@ export function getBirthdaysForWeek(
 /**
  * Generate Direct WhatsApp Birthday Greeting link
  */
-export function buildWhatsAppBirthdayGreetingUrl(phone: string, celebrantName: string, unitName?: string): string {
+export function buildWhatsAppBirthdayGreetingUrl(phone: string, celebrantName: string, unitName?: string, customMessage?: string): string {
   const cleanPhone = (phone || '').replace(/[^0-9]/g, '');
-  const greeting = `Happy Birthday ${celebrantName}! 🎂🎉 The Bishopric and members of ${unitName || 'our Ward'} wish you the Lord's richest blessings, joy, and peace in this new year of your life!`;
+  const greeting = customMessage
+    ? `${customMessage} Happy Birthday ${celebrantName}! 🎂🎉`
+    : `Happy Birthday ${celebrantName}! 🎂🎉 The Bishopric and members of ${unitName || 'our Ward'} wish you the Lord's richest blessings, joy, and peace in this new year of your life!`;
   
   if (cleanPhone) {
     return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(greeting)}`;

@@ -9,6 +9,9 @@ import {
   getWeekDateRange,
   isSectionVisible,
 } from '../../utils/bulletinPrintEngine';
+import { formatHonorificName } from '../../utils/memberTitle';
+import { formatHymnDisplay } from '../../data/bundledHymns';
+import { normalizeBirthdaysString } from '../../utils/bulletinBirthdayEngine';
 import type { Bulletin, BulletinLayoutMode, NextActivityItem, SpeakerItem } from '../../types';
 import toast from 'react-hot-toast';
 
@@ -18,11 +21,23 @@ interface BulletinPrintPreviewProps {
 
 function parseSpeakersArray(speakersRaw?: any): SpeakerItem[] {
   if (!speakersRaw) return [];
-  if (Array.isArray(speakersRaw)) return speakersRaw;
+  if (Array.isArray(speakersRaw)) {
+    return speakersRaw.map(s => ({
+      ...s,
+      name: formatHonorificName(s.name || s.speaker_name || ''),
+      topic: s.topic || s.talk_topic || '',
+    }));
+  }
   if (typeof speakersRaw === 'string') {
     try {
       const parsed = JSON.parse(speakersRaw);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        return parsed.map(s => ({
+          ...s,
+          name: formatHonorificName(s.name || s.speaker_name || ''),
+          topic: s.topic || s.talk_topic || '',
+        }));
+      }
     } catch {}
     return speakersRaw
       .split('\n')
@@ -30,7 +45,7 @@ function parseSpeakersArray(speakersRaw?: any): SpeakerItem[] {
       .map((line) => {
         const parts = line.split(/[—–-]/);
         return {
-          name: parts[0]?.trim() || '',
+          name: formatHonorificName(parts[0]?.trim() || ''),
           topic: parts[1]?.trim() || '',
         };
       });
@@ -249,19 +264,19 @@ export function BulletinPrintPreview({ bulletin: b }: BulletinPrintPreviewProps)
                       {b.opening_hymn && (
                         <div className="flex justify-between">
                           <span className="text-slate-500 font-medium">Opening Hymn:</span>
-                          <span className="font-semibold text-slate-900">{b.opening_hymn}</span>
+                          <span className="font-semibold text-slate-900">{formatHymnDisplay(b.opening_hymn)}</span>
                         </div>
                       )}
                       {b.opening_prayer && (
                         <div className="flex justify-between">
                           <span className="text-slate-500 font-medium">Invocation:</span>
-                          <span className="font-semibold text-slate-900">{b.opening_prayer}</span>
+                          <span className="font-semibold text-slate-900">{formatHonorificName(b.opening_prayer)}</span>
                         </div>
                       )}
                       {b.sacrament_hymn && (
                         <div className="flex justify-between">
                           <span className="text-slate-500 font-medium">Sacrament Hymn:</span>
-                          <span className="font-semibold text-slate-900">{b.sacrament_hymn}</span>
+                          <span className="font-semibold text-slate-900">{formatHymnDisplay(b.sacrament_hymn)}</span>
                         </div>
                       )}
 
@@ -276,7 +291,7 @@ export function BulletinPrintPreview({ bulletin: b }: BulletinPrintPreviewProps)
                           {speakers.map((sp, idx) => (
                             <div key={idx} className="flex justify-between text-[10px]">
                               <span className="text-slate-600">{idx === 0 ? 'Youth Speaker:' : `Speaker ${idx + 1}:`}</span>
-                              <span className="font-semibold text-slate-900">{sp.name}</span>
+                              <span className="font-semibold text-slate-900">{formatHonorificName(sp.name)}</span>
                             </div>
                           ))}
                         </div>
@@ -284,7 +299,7 @@ export function BulletinPrintPreview({ bulletin: b }: BulletinPrintPreviewProps)
                         <div className="pt-1 border-t border-slate-100">
                           <span className="text-[9.5px] font-bold text-slate-500 block mb-0.5">Talks:</span>
                           <p className="text-slate-800 font-medium whitespace-pre-line text-[10px]">
-                            {b.speakers}
+                            {b.speakers.split('\n').map(l => formatHonorificName(l)).join('\n')}
                           </p>
                         </div>
                       ) : null}
@@ -316,13 +331,13 @@ export function BulletinPrintPreview({ bulletin: b }: BulletinPrintPreviewProps)
                       {b.closing_hymn && (
                         <div className="flex justify-between">
                           <span className="text-slate-500 font-medium">Closing Hymn:</span>
-                          <span className="font-semibold text-slate-900">{b.closing_hymn}</span>
+                          <span className="font-semibold text-slate-900">{formatHymnDisplay(b.closing_hymn)}</span>
                         </div>
                       )}
                       {b.closing_prayer && (
                         <div className="flex justify-between">
                           <span className="text-slate-500 font-medium">Benediction:</span>
-                          <span className="font-semibold text-slate-900">{b.closing_prayer}</span>
+                          <span className="font-semibold text-slate-900">{formatHonorificName(b.closing_prayer)}</span>
                         </div>
                       )}
                     </div>
@@ -425,7 +440,7 @@ export function BulletinPrintPreview({ bulletin: b }: BulletinPrintPreviewProps)
                         CELEBRATION
                       </span>
                     </div>
-                    <p className="text-amber-900 font-bold text-[10px] leading-tight">{b.birthdays}</p>
+                    <p className="text-amber-900 font-bold text-[10px] leading-tight">{normalizeBirthdaysString(b.birthdays, b.date)}</p>
                     {b.birthday_message && (
                       <p className="text-[9px] text-amber-800 italic bg-white/70 p-1 rounded">
                         {b.birthday_message}

@@ -10,6 +10,9 @@
 
 import { format, parseISO } from 'date-fns';
 import { getBulletinTheme } from './bulletinThemes';
+import { formatHonorificName } from './memberTitle';
+import { formatHymnDisplay } from '../data/bundledHymns';
+import { normalizeBirthdaysString } from './bulletinBirthdayEngine';
 import type { Bulletin, SpeakerItem, WeeklyActivityItem, NextActivityItem } from '../types';
 
 export function isSectionVisible(val: any): boolean {
@@ -81,11 +84,23 @@ function safeDateFormat(dateStr?: string, fmt = 'EEEE, MMMM d, yyyy'): string {
 
 function parseSpeakersArray(speakersRaw?: any): SpeakerItem[] {
   if (!speakersRaw) return [];
-  if (Array.isArray(speakersRaw)) return speakersRaw;
+  if (Array.isArray(speakersRaw)) {
+    return speakersRaw.map(s => ({
+      ...s,
+      name: formatHonorificName(s.name || s.speaker_name || ''),
+      topic: s.topic || s.talk_topic || '',
+    }));
+  }
   if (typeof speakersRaw === 'string') {
     try {
       const parsed = JSON.parse(speakersRaw);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        return parsed.map(s => ({
+          ...s,
+          name: formatHonorificName(s.name || s.speaker_name || ''),
+          topic: s.topic || s.talk_topic || '',
+        }));
+      }
     } catch {}
     return speakersRaw
       .split('\n')
@@ -93,7 +108,7 @@ function parseSpeakersArray(speakersRaw?: any): SpeakerItem[] {
       .map((line) => {
         const parts = line.split(/[—–-]/);
         return {
-          name: parts[0]?.trim() || '',
+          name: formatHonorificName(parts[0]?.trim() || ''),
           topic: parts[1]?.trim() || '',
         };
       });
@@ -285,9 +300,9 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
             ${d.meeting_type === 'FAST_SUNDAY' ? 'Fast & Testimony' : 'Sacrament Service'}
           </span>
         </div>
-        ${d.opening_hymn ? `<div class="row"><span class="label">Opening Hymn:</span><span class="value">${d.opening_hymn}</span></div>` : ''}
-        ${d.opening_prayer ? `<div class="row"><span class="label">Invocation:</span><span class="value">${d.opening_prayer}</span></div>` : ''}
-        ${d.sacrament_hymn ? `<div class="row"><span class="label">Sacrament Hymn:</span><span class="value">${d.sacrament_hymn}</span></div>` : ''}
+        ${d.opening_hymn ? `<div class="row"><span class="label">Opening Hymn:</span><span class="value">${formatHymnDisplay(d.opening_hymn)}</span></div>` : ''}
+        ${d.opening_prayer ? `<div class="row"><span class="label">Invocation:</span><span class="value">${formatHonorificName(d.opening_prayer)}</span></div>` : ''}
+        ${d.sacrament_hymn ? `<div class="row"><span class="label">Sacrament Hymn:</span><span class="value">${formatHymnDisplay(d.sacrament_hymn)}</span></div>` : ''}
         
         ${d.meeting_type === 'FAST_SUNDAY' ? `
         <div class="row" style="background: #f0fdf4; padding: 2.5pt 4pt; border-radius: 3pt; border-left: 2.5px solid #16a34a; margin: 2.5pt 0;">
@@ -300,14 +315,14 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
           ${speakers.map((sp, idx) => `
             <div class="row">
               <span class="label">${idx === 0 ? 'Youth Speaker:' : `Speaker ${idx + 1}:`}</span>
-              <span class="value">${sp.name}</span>
+              <span class="value">${formatHonorificName(sp.name)}</span>
             </div>
           `).join('')}
         </div>
         ` : d.speakers ? `
         <div class="row">
           <span class="label">Talks:</span>
-          <span class="value" style="white-space: pre-line;">${d.speakers}</span>
+          <span class="value" style="white-space: pre-line;">${d.speakers.split('\n').map(l => formatHonorificName(l)).join('\n')}</span>
         </div>
         ` : ''}
 
@@ -326,8 +341,8 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
         </div>
         ` : ''}
 
-        ${d.closing_hymn ? `<div class="row"><span class="label">Closing Hymn:</span><span class="value">${d.closing_hymn}</span></div>` : ''}
-        ${d.closing_prayer ? `<div class="row"><span class="label">Benediction:</span><span class="value">${d.closing_prayer}</span></div>` : ''}
+        ${d.closing_hymn ? `<div class="row"><span class="label">Closing Hymn:</span><span class="value">${formatHymnDisplay(d.closing_hymn)}</span></div>` : ''}
+        ${d.closing_prayer ? `<div class="row"><span class="label">Benediction:</span><span class="value">${formatHonorificName(d.closing_prayer)}</span></div>` : ''}
       </div>
       ` : ''}
 
@@ -392,7 +407,7 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
           <span style="font-size: 6.5pt; background: #fbbf24; color: #78350f; padding: 1pt 3pt; border-radius: 2pt; font-weight: 700;">CELEBRATION</span>
         </div>
         <div style="margin-bottom: 3pt; display: flex; flex-wrap: wrap; gap: 2pt;">
-          ${(d.birthdays || '').split(/[\n,]|   /).filter(Boolean).map(b => `<span class="celebrant-pill">${b.trim()}</span>`).join('')}
+          ${(normalizeBirthdaysString(d.birthdays, d.date) || '').split(/[\n,]|   |🎂/).map(b => b.trim()).filter(Boolean).map(b => `<span class="celebrant-pill">🎂 ${b.replace(/^🎂\s*/, '')}</span>`).join('')}
         </div>
         ${d.birthday_message ? `<div style="font-size: 7pt; color: #92400e; font-style: italic; background: rgba(255,255,255,0.75); padding: 2pt 4pt; border-radius: 2pt;">${d.birthday_message}</div>` : ''}
       </div>
@@ -640,9 +655,9 @@ export function generateStandard2PageHtml(d: Bulletin): string {
             ${d.meeting_type === 'FAST_SUNDAY' ? 'Fast & Testimony' : 'Sacrament Service'}
           </span>
         </div>
-        ${d.opening_hymn ? `<div class="row"><span class="label">Opening Hymn:</span><span class="value">${d.opening_hymn}</span></div>` : ''}
-        ${d.opening_prayer ? `<div class="row"><span class="label">Invocation:</span><span class="value">${d.opening_prayer}</span></div>` : ''}
-        ${d.sacrament_hymn ? `<div class="row"><span class="label">Sacrament Hymn:</span><span class="value">${d.sacrament_hymn}</span></div>` : ''}
+        ${d.opening_hymn ? `<div class="row"><span class="label">Opening Hymn:</span><span class="value">${formatHymnDisplay(d.opening_hymn)}</span></div>` : ''}
+        ${d.opening_prayer ? `<div class="row"><span class="label">Invocation:</span><span class="value">${formatHonorificName(d.opening_prayer)}</span></div>` : ''}
+        ${d.sacrament_hymn ? `<div class="row"><span class="label">Sacrament Hymn:</span><span class="value">${formatHymnDisplay(d.sacrament_hymn)}</span></div>` : ''}
         
         ${d.meeting_type === 'FAST_SUNDAY' ? `
         <div class="row" style="background: #f0fdf4; padding: 6pt 10pt; border-radius: 4pt; border-left: 3px solid #16a34a; margin: 6pt 0;">
@@ -655,14 +670,14 @@ export function generateStandard2PageHtml(d: Bulletin): string {
           ${speakers.map((sp, idx) => `
             <div class="row">
               <span class="label">${idx === 0 ? 'Youth Speaker:' : `Speaker ${idx + 1}:`}</span>
-              <span class="value">${sp.name}</span>
+              <span class="value">${formatHonorificName(sp.name)}</span>
             </div>
           `).join('')}
         </div>
         ` : d.speakers ? `
         <div class="row">
           <span class="label">Talks:</span>
-          <span class="value" style="white-space: pre-line;">${d.speakers}</span>
+          <span class="value" style="white-space: pre-line;">${d.speakers.split('\n').map(l => formatHonorificName(l)).join('\n')}</span>
         </div>
         ` : ''}
 
@@ -683,8 +698,8 @@ export function generateStandard2PageHtml(d: Bulletin): string {
         </div>
         ` : ''}
 
-        ${d.closing_hymn ? `<div class="row"><span class="label">Closing Hymn:</span><span class="value">${d.closing_hymn}</span></div>` : ''}
-        ${d.closing_prayer ? `<div class="row"><span class="label">Benediction:</span><span class="value">${d.closing_prayer}</span></div>` : ''}
+        ${d.closing_hymn ? `<div class="row"><span class="label">Closing Hymn:</span><span class="value">${formatHymnDisplay(d.closing_hymn)}</span></div>` : ''}
+        ${d.closing_prayer ? `<div class="row"><span class="label">Benediction:</span><span class="value">${formatHonorificName(d.closing_prayer)}</span></div>` : ''}
       </div>
       ` : ''}
 
@@ -720,7 +735,7 @@ export function generateStandard2PageHtml(d: Bulletin): string {
           <span style="font-size: 7.5pt; background: #fbbf24; color: #78350f; padding: 2pt 5pt; border-radius: 3pt; font-weight: 700;">CELEBRATION</span>
         </div>
         <div style="margin-bottom: 5pt; display: flex; flex-wrap: wrap; gap: 3pt;">
-          ${(d.birthdays || '').split(/[\n,]|   /).filter(Boolean).map(b => `<span class="celebrant-badge">${b.trim()}</span>`).join('')}
+          ${(normalizeBirthdaysString(d.birthdays, d.date) || '').split(/[\n,]|   |🎂/).map(b => b.trim()).filter(Boolean).map(b => `<span class="celebrant-badge">🎂 ${b.replace(/^🎂\s*/, '')}</span>`).join('')}
         </div>
         ${d.birthday_message ? `<div style="font-style: italic; color: #92400e; background: rgba(255,255,255,0.8); padding: 3pt 6pt; border-radius: 3pt; font-size: 8.5pt;">${d.birthday_message}</div>` : ''}
       </div>
@@ -964,9 +979,9 @@ export function generateBiFoldBookletHtml(d: Bulletin): string {
             ${d.meeting_type === 'FAST_SUNDAY' ? 'Fast & Testimony' : 'Sacrament Service'}
           </span>
         </div>
-        ${d.opening_hymn ? `<div class="row"><span class="label">Opening Hymn:</span><span class="value">${d.opening_hymn}</span></div>` : ''}
-        ${d.opening_prayer ? `<div class="row"><span class="label">Invocation:</span><span class="value">${d.opening_prayer}</span></div>` : ''}
-        ${d.sacrament_hymn ? `<div class="row"><span class="label">Sacrament Hymn:</span><span class="value">${d.sacrament_hymn}</span></div>` : ''}
+        ${d.opening_hymn ? `<div class="row"><span class="label">Opening Hymn:</span><span class="value">${formatHymnDisplay(d.opening_hymn)}</span></div>` : ''}
+        ${d.opening_prayer ? `<div class="row"><span class="label">Invocation:</span><span class="value">${formatHonorificName(d.opening_prayer)}</span></div>` : ''}
+        ${d.sacrament_hymn ? `<div class="row"><span class="label">Sacrament Hymn:</span><span class="value">${formatHymnDisplay(d.sacrament_hymn)}</span></div>` : ''}
         
         ${d.meeting_type === 'FAST_SUNDAY' ? `
         <div class="row" style="background: #f0fdf4; padding: 3pt 5pt; border-radius: 3pt; border-left: 2.5px solid #16a34a; margin: 3pt 0;">
@@ -979,14 +994,14 @@ export function generateBiFoldBookletHtml(d: Bulletin): string {
           ${speakers.map((sp, idx) => `
             <div class="row">
               <span class="label">${idx === 0 ? 'Youth Speaker:' : `Speaker ${idx + 1}:`}</span>
-              <span class="value">${sp.name}</span>
+              <span class="value">${formatHonorificName(sp.name)}</span>
             </div>
           `).join('')}
         </div>
         ` : d.speakers ? `
         <div class="row">
           <span class="label">Talks:</span>
-          <span class="value" style="white-space: pre-line;">${d.speakers}</span>
+          <span class="value" style="white-space: pre-line;">${d.speakers.split('\n').map(l => formatHonorificName(l)).join('\n')}</span>
         </div>
         ` : ''}
 
@@ -1005,8 +1020,8 @@ export function generateBiFoldBookletHtml(d: Bulletin): string {
         </div>
         ` : ''}
 
-        ${d.closing_hymn ? `<div class="row"><span class="label">Closing Hymn:</span><span class="value">${d.closing_hymn}</span></div>` : ''}
-        ${d.closing_prayer ? `<div class="row"><span class="label">Benediction:</span><span class="value">${d.closing_prayer}</span></div>` : ''}
+        ${d.closing_hymn ? `<div class="row"><span class="label">Closing Hymn:</span><span class="value">${formatHymnDisplay(d.closing_hymn)}</span></div>` : ''}
+        ${d.closing_prayer ? `<div class="row"><span class="label">Benediction:</span><span class="value">${formatHonorificName(d.closing_prayer)}</span></div>` : ''}
         ` : ''}
       </div>
       <div class="page-number">Page 2 • Sacrament & Classes</div>

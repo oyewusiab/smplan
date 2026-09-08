@@ -7,18 +7,31 @@ import {
 import { bulletinsApi } from '../services/api';
 import { getBulletinTheme } from '../utils/bulletinThemes';
 import { getWeekDateRange, isSectionVisible } from '../utils/bulletinPrintEngine';
-import { resolveHymnLink } from '../data/bundledHymns';
-import { formatBirthdayLabel, getOrdinalSuffix } from '../utils/bulletinBirthdayEngine';
+import { resolveHymnLink, formatHymnDisplay } from '../data/bundledHymns';
+import { formatBirthdayLabel, getOrdinalSuffix, normalizeBirthdaysString } from '../utils/bulletinBirthdayEngine';
+import { formatHonorificName } from '../utils/memberTitle';
 import type { Bulletin, SpeakerItem, WeeklyActivityItem, NextActivityItem } from '../types';
 import toast from 'react-hot-toast';
 
 function parseSpeakersArray(speakersRaw?: any): SpeakerItem[] {
   if (!speakersRaw) return [];
-  if (Array.isArray(speakersRaw)) return speakersRaw;
+  if (Array.isArray(speakersRaw)) {
+    return speakersRaw.map(s => ({
+      ...s,
+      name: formatHonorificName(s.name || s.speaker_name || ''),
+      topic: s.topic || s.talk_topic || '',
+    }));
+  }
   if (typeof speakersRaw === 'string') {
     try {
       const parsed = JSON.parse(speakersRaw);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        return parsed.map(s => ({
+          ...s,
+          name: formatHonorificName(s.name || s.speaker_name || ''),
+          topic: s.topic || s.talk_topic || '',
+        }));
+      }
     } catch {}
     return speakersRaw
       .split('\n')
@@ -26,7 +39,7 @@ function parseSpeakersArray(speakersRaw?: any): SpeakerItem[] {
       .map((line) => {
         const parts = line.split(/[—–-]/);
         return {
-          name: parts[0]?.trim() || '',
+          name: formatHonorificName(parts[0]?.trim() || ''),
           topic: parts[1]?.trim() || '',
         };
       });
@@ -244,7 +257,7 @@ export function PublicBulletinLandingPage() {
                       title="Listen and view hymn in Sacred Music / Gospel Library"
                     >
                       <Music className="w-3.5 h-3.5 flex-shrink-0" />
-                      <span>{bulletin.opening_hymn}</span>
+                      <span>{formatHymnDisplay(bulletin.opening_hymn)}</span>
                       <ExternalLink className="w-3 h-3 text-slate-400" />
                     </a>
                   </div>
@@ -252,7 +265,7 @@ export function PublicBulletinLandingPage() {
                 {bulletin.opening_prayer && (
                   <div className="flex justify-between items-center py-1 border-b border-slate-50">
                     <span className="text-slate-500 font-medium">Invocation:</span>
-                    <span className="font-semibold text-slate-900 text-right">{bulletin.opening_prayer}</span>
+                    <span className="font-semibold text-slate-900 text-right">{formatHonorificName(bulletin.opening_prayer)}</span>
                   </div>
                 )}
                 {bulletin.sacrament_hymn && (
@@ -267,7 +280,7 @@ export function PublicBulletinLandingPage() {
                       title="Listen and view hymn in Sacred Music / Gospel Library"
                     >
                       <Music className="w-3.5 h-3.5 flex-shrink-0" />
-                      <span>{bulletin.sacrament_hymn}</span>
+                      <span>{formatHymnDisplay(bulletin.sacrament_hymn)}</span>
                       <ExternalLink className="w-3 h-3 text-slate-400" />
                     </a>
                   </div>
@@ -284,7 +297,7 @@ export function PublicBulletinLandingPage() {
                     {speakers.map((sp, idx) => (
                       <div key={idx} className="flex justify-between text-xs sm:text-sm pl-2">
                         <span className="text-slate-600 font-medium">{idx === 0 ? 'Youth Speaker:' : `Speaker ${idx + 1}:`}</span>
-                        <span className="font-semibold text-slate-900 text-right">{sp.name || ''}</span>
+                        <span className="font-semibold text-slate-900 text-right">{formatHonorificName(sp.name)}</span>
                       </div>
                     ))}
                   </div>
@@ -292,7 +305,7 @@ export function PublicBulletinLandingPage() {
                   <div className="pt-2 border-t border-slate-100">
                     <span className="text-xs font-bold text-slate-500 block mb-1">Talks:</span>
                     <p className="text-slate-800 whitespace-pre-line text-xs pl-2 font-medium">
-                      {bulletin.speakers}
+                      {bulletin.speakers.split('\n').map(l => formatHonorificName(l)).join('\n')}
                     </p>
                   </div>
                 ) : null}
@@ -357,7 +370,7 @@ export function PublicBulletinLandingPage() {
                       title="Listen and view hymn in Sacred Music / Gospel Library"
                     >
                       <Music className="w-3.5 h-3.5 flex-shrink-0" />
-                      <span>{bulletin.closing_hymn}</span>
+                      <span>{formatHymnDisplay(bulletin.closing_hymn)}</span>
                       <ExternalLink className="w-3 h-3 text-slate-400" />
                     </a>
                   </div>
@@ -365,7 +378,7 @@ export function PublicBulletinLandingPage() {
                 {bulletin.closing_prayer && (
                   <div className="flex justify-between items-center py-1">
                     <span className="text-slate-500 font-medium">Benediction:</span>
-                    <span className="font-semibold text-slate-900 text-right">{bulletin.closing_prayer}</span>
+                    <span className="font-semibold text-slate-900 text-right">{formatHonorificName(bulletin.closing_prayer)}</span>
                   </div>
                 )}
               </div>
@@ -460,7 +473,7 @@ export function PublicBulletinLandingPage() {
                 </span>
               </div>
               <p className="font-bold text-xs sm:text-sm leading-relaxed" style={{ color: theme.primaryColor }}>
-                {bulletin.birthdays}
+                {normalizeBirthdaysString(bulletin.birthdays, bulletin.date)}
               </p>
               {bulletin.birthday_message && (
                 <p className="text-xs italic bg-white/90 p-2.5 rounded-xl border" style={{ borderColor: theme.borderLight, color: theme.primaryColor }}>

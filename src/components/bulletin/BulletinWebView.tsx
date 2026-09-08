@@ -7,9 +7,10 @@ import { format, parseISO } from 'date-fns';
 import { Button } from '../ui/Button';
 import { Input, Textarea, Select } from '../ui/Input';
 import { getBulletinTheme } from '../../utils/bulletinThemes';
-import { buildWhatsAppBirthdayGreetingUrl } from '../../utils/bulletinBirthdayEngine';
+import { buildWhatsAppBirthdayGreetingUrl, normalizeBirthdaysString } from '../../utils/bulletinBirthdayEngine';
 import { getWeekDateRange, isSectionVisible } from '../../utils/bulletinPrintEngine';
-import { resolveHymnLink } from '../../data/bundledHymns';
+import { resolveHymnLink, formatHymnDisplay } from '../../data/bundledHymns';
+import { formatHonorificName } from '../../utils/memberTitle';
 import { bulletinsApi } from '../../services/api';
 import type { Bulletin } from '../../types';
 import toast from 'react-hot-toast';
@@ -42,17 +43,29 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp, onOpenFeedbackMo
   // Parse speakers
   const speakers = (() => {
     if (!b.speakers) return [];
-    if (Array.isArray(b.speakers)) return b.speakers;
+    if (Array.isArray(b.speakers)) {
+      return b.speakers.map((s: any) => ({
+        ...s,
+        name: formatHonorificName(s.name || s.speaker_name || ''),
+        topic: s.topic || s.talk_topic || '',
+      }));
+    }
     try {
       const parsed = JSON.parse(b.speakers);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        return parsed.map((s: any) => ({
+          ...s,
+          name: formatHonorificName(s.name || s.speaker_name || ''),
+          topic: s.topic || s.talk_topic || '',
+        }));
+      }
     } catch {}
     return b.speakers
       .split('\n')
       .filter((l) => l.trim().length > 0)
       .map((l) => {
         const parts = l.split(/[—–-]/);
-        return { name: parts[0]?.trim() || '', topic: parts[1]?.trim() || '' };
+        return { name: formatHonorificName(parts[0]?.trim() || ''), topic: parts[1]?.trim() || '' };
       });
   })();
 
@@ -155,7 +168,7 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp, onOpenFeedbackMo
                       className="font-semibold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1 truncate"
                       title="Open hymn on churchofjesuschrist.org"
                     >
-                      <span>{b.opening_hymn}</span>
+                      <span>{formatHymnDisplay(b.opening_hymn)}</span>
                       <ExternalLink className="w-3 h-3 shrink-0 text-blue-500" />
                     </a>
                   </div>
@@ -175,7 +188,7 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp, onOpenFeedbackMo
               {b.opening_prayer && (
                 <div className="flex justify-between py-1 border-b border-slate-50">
                   <span className="text-slate-500 font-medium">Invocation (Opening Prayer)</span>
-                  <span className="font-semibold text-slate-900">{b.opening_prayer}</span>
+                  <span className="font-semibold text-slate-900">{formatHonorificName(b.opening_prayer)}</span>
                 </div>
               )}
 
@@ -196,7 +209,7 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp, onOpenFeedbackMo
                       className="font-semibold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1 truncate"
                       title="Open sacrament hymn on churchofjesuschrist.org"
                     >
-                      <span>{b.sacrament_hymn}</span>
+                      <span>{formatHymnDisplay(b.sacrament_hymn)}</span>
                       <ExternalLink className="w-3 h-3 shrink-0 text-blue-500" />
                     </a>
                   </div>
@@ -232,7 +245,7 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp, onOpenFeedbackMo
                   <div className="space-y-1.5 pl-2 border-l-2 border-blue-300">
                     {speakers.map((sp, idx) => (
                       <div key={idx} className="flex justify-between items-start text-xs">
-                        <span className="font-semibold text-slate-900">{sp.name}</span>
+                        <span className="font-semibold text-slate-900">{formatHonorificName(sp.name)}</span>
                       </div>
                     ))}
                   </div>
@@ -290,7 +303,7 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp, onOpenFeedbackMo
                     rel="noreferrer"
                     className="font-semibold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1 text-right"
                   >
-                    <span>{b.special_music}</span>
+                    <span>{formatHymnDisplay(b.special_music)}</span>
                     <ExternalLink className="w-3 h-3 shrink-0 text-blue-500" />
                   </a>
                 </div>
@@ -308,7 +321,7 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp, onOpenFeedbackMo
                       className="font-semibold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1 truncate"
                       title="Open closing hymn on churchofjesuschrist.org"
                     >
-                      <span>{b.closing_hymn}</span>
+                      <span>{formatHymnDisplay(b.closing_hymn)}</span>
                       <ExternalLink className="w-3 h-3 shrink-0 text-blue-500" />
                     </a>
                   </div>
@@ -328,7 +341,7 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp, onOpenFeedbackMo
               {b.closing_prayer && (
                 <div className="flex justify-between py-1">
                   <span className="text-slate-500 font-medium">Benediction</span>
-                  <span className="font-semibold text-slate-900">{b.closing_prayer}</span>
+                  <span className="font-semibold text-slate-900">{formatHonorificName(b.closing_prayer)}</span>
                 </div>
               )}
             </div>
@@ -473,7 +486,7 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp, onOpenFeedbackMo
               </span>
             </div>
 
-            <p className="text-xs font-semibold text-yellow-900 leading-relaxed">{b.birthdays}</p>
+            <p className="text-xs font-semibold text-yellow-900 leading-relaxed">{normalizeBirthdaysString(b.birthdays, b.date)}</p>
 
             {b.birthday_message && (
               <p className="text-[11px] text-yellow-800 italic">{b.birthday_message}</p>

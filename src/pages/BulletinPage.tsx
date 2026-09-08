@@ -15,7 +15,7 @@ import { BulletinWebView } from '../components/bulletin/BulletinWebView';
 import { BulletinWhatsAppCard } from '../components/bulletin/BulletinWhatsAppCard';
 import { BulletinPrintPreview } from '../components/bulletin/BulletinPrintPreview';
 import { BulletinSyncConfirmModal, SyncFieldDifference } from '../components/bulletin/BulletinSyncConfirmModal';
-import { getBirthdaysForWeek } from '../utils/bulletinBirthdayEngine';
+import { getBirthdaysForWeek, normalizeBirthdaysString } from '../utils/bulletinBirthdayEngine';
 import { harvestWeeklyActivities, getNext5Activities } from '../utils/bulletinActivityHarvester';
 import { fetchAndParseCfmUrl, generateCfmFromUrlOffline } from '../utils/bulletinCfmParser';
 import { getWeekDateRange } from '../utils/bulletinPrintEngine';
@@ -504,6 +504,16 @@ export function BulletinPage() {
 
           setForm({
             ...loaded,
+            opening_hymn: formatHymnDisplay(loaded.opening_hymn),
+            opening_prayer: formatHonorificName(loaded.opening_prayer),
+            sacrament_hymn: formatHymnDisplay(loaded.sacrament_hymn),
+            closing_hymn: formatHymnDisplay(loaded.closing_hymn),
+            closing_prayer: formatHonorificName(loaded.closing_prayer),
+            speakers: loaded.speakers ? loaded.speakers.split('\n').map(l => {
+              const namePart = l.split(/[—–-]/)[0]?.trim();
+              return namePart ? formatHonorificName(namePart) : '';
+            }).filter(Boolean).join('\n') : '',
+            birthdays: normalizeBirthdaysString(loaded.birthdays, loaded.date || targetDate),
             next_activities_list: validNext5,
           });
           toast.success('Loaded saved bulletin for ' + targetDate, { id: 'drafting' });
@@ -516,6 +526,16 @@ export function BulletinPage() {
           setForm((prev) => ({
             ...prev,
             ...sug,
+            opening_hymn: formatHymnDisplay(sug.opening_hymn || prev.opening_hymn),
+            opening_prayer: formatHonorificName(sug.opening_prayer || prev.opening_prayer),
+            sacrament_hymn: formatHymnDisplay(sug.sacrament_hymn || prev.sacrament_hymn),
+            closing_hymn: formatHymnDisplay(sug.closing_hymn || prev.closing_hymn),
+            closing_prayer: formatHonorificName(sug.closing_prayer || prev.closing_prayer),
+            speakers: (sug.speakers || prev.speakers) ? String(sug.speakers || prev.speakers).split('\n').map(l => {
+              const namePart = l.split(/[—–-]/)[0]?.trim();
+              return namePart ? formatHonorificName(namePart) : '';
+            }).filter(Boolean).join('\n') : '',
+            birthdays: normalizeBirthdaysString(sug.birthdays || prev.birthdays, targetDate),
             next_activities_list: validNext5,
             unit_name: overrideUnitName || sug.unit_name || prev.unit_name,
           }));
@@ -623,7 +643,19 @@ export function BulletinPage() {
   // Select a bulletin from the left sidebar
   const handleSelectBulletin = (b: Bulletin) => {
     setSelectedBulletinId(b.bulletin_id || null);
-    setForm(b);
+    setForm({
+      ...b,
+      opening_hymn: formatHymnDisplay(b.opening_hymn),
+      opening_prayer: formatHonorificName(b.opening_prayer),
+      sacrament_hymn: formatHymnDisplay(b.sacrament_hymn),
+      closing_hymn: formatHymnDisplay(b.closing_hymn),
+      closing_prayer: formatHonorificName(b.closing_prayer),
+      speakers: b.speakers ? b.speakers.split('\n').map(l => {
+        const namePart = l.split(/[—–-]/)[0]?.trim();
+        return namePart ? formatHonorificName(namePart) : '';
+      }).filter(Boolean).join('\n') : '',
+      birthdays: normalizeBirthdaysString(b.birthdays, b.date),
+    });
     setActiveTab('edit');
     setHasUnsavedChanges(false);
     toast.success(`Loaded ${b.status === 'PUBLISHED' ? 'bulletin' : 'draft'} for ${b.date}`);
