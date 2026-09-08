@@ -2828,6 +2828,46 @@ function handleGetBulletinDraftData(params) {
 
   const weekDateStrings = weekDates.map(w => w.dateStr);
 
+  function parseMemberBirthMonthDay(str) {
+    if (!str) return null;
+    const s = String(str).trim();
+    if (!s) return null;
+
+    const parts = s.split(/[\/\-\.\s]+/);
+    if (parts.length >= 2) {
+      if (parts[0].length === 4) {
+        // YYYY-MM-DD
+        const m = Number(parts[1]);
+        const d = Number(parts[2]);
+        if (!isNaN(m) && !isNaN(d) && m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+          return { month: m, day: d };
+        }
+      }
+
+      const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+      const p0Month = monthNames.findIndex(function(m) { return parts[0].toLowerCase().indexOf(m) === 0; });
+      const p1Month = monthNames.findIndex(function(m) { return parts[1].toLowerCase().indexOf(m) === 0; });
+      
+      if (p0Month !== -1) {
+        const d = Number(parts[1]);
+        if (!isNaN(d) && d >= 1 && d <= 31) return { month: p0Month + 1, day: d };
+      }
+      if (p1Month !== -1) {
+        const d = Number(parts[0]);
+        if (!isNaN(d) && d >= 1 && d <= 31) return { month: p1Month + 1, day: d };
+      }
+
+      const n1 = Number(parts[0]);
+      const n2 = Number(parts[1]);
+      if (!isNaN(n1) && !isNaN(n2)) {
+        if (n1 > 12 && n2 <= 12) return { month: n2, day: n1 };
+        if (n2 > 12 && n1 <= 12) return { month: n1, day: n2 };
+        return { month: n2, day: n1 };
+      }
+    }
+    return null;
+  }
+
   function formatBirthdayLabelLocal(month, day) {
     const monthNames = ['Jan.', 'Feb.', 'Mar.', 'Apr.', 'May', 'June', 'July', 'Aug.', 'Sept.', 'Oct.', 'Nov.', 'Dec.'];
     return (monthNames[month - 1] || '') + ' ' + day;
@@ -2846,6 +2886,7 @@ function handleGetBulletinDraftData(params) {
     
     if (bDateStr) {
       const bDayParsed = parseMemberBirthMonthDay(bDateStr);
+      if (bDayParsed) {
         weekDates.forEach(w => {
           const parts = w.dateStr.split('-');
           const wMonth = parseInt(parts[1], 10);
