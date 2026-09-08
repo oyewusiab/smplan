@@ -11,8 +11,9 @@ import { BULLETIN_THEMES } from '../../utils/bulletinThemes';
 import { buildWhatsAppBirthdayGreetingUrl } from '../../utils/bulletinBirthdayEngine';
 import { formatActivitiesToText } from '../../utils/bulletinActivityHarvester';
 import { isSectionVisible } from '../../utils/bulletinPrintEngine';
-import { resolveHymnLink } from '../../data/bundledHymns';
-import type { Bulletin, Planner, Hymn, WeeklyActivityItem, NextActivityItem } from '../../types';
+import { resolveHymnLink, formatHymnDisplay } from '../../data/bundledHymns';
+import { formatHonorificName } from '../../utils/memberTitle';
+import type { Bulletin, Planner, Hymn, WeeklyActivityItem, NextActivityItem, BulletinClassLesson, BulletinCustomLink } from '../../types';
 import toast from 'react-hot-toast';
 
 export interface BulletinWeekOption {
@@ -153,6 +154,19 @@ export function BulletinFormEditor({
   };
 
   // Next 5 Activities handlers
+  const handleAddNextActivity = () => {
+    const newItem: NextActivityItem = {
+      id: `next_${Date.now()}`,
+      date: '',
+      dayName: '',
+      activity: '',
+      time: '',
+      scope: 'Ward',
+    };
+    const updated = [...next5List, newItem];
+    setForm((prev) => ({ ...prev, next_activities_list: updated }));
+  };
+
   const handleUpdateNextActivity = (index: number, field: keyof NextActivityItem, value: any) => {
     const updated = [...next5List];
     updated[index] = { ...updated[index], [field]: value };
@@ -466,22 +480,25 @@ export function BulletinFormEditor({
                   placeholder="e.g. 2 — The Spirit of God"
                   value={f.opening_hymn || ''}
                   onChange={(e) => setForm((prev) => ({ ...prev, opening_hymn: e.target.value }))}
+                  onBlur={(e) => setForm((prev) => ({ ...prev, opening_hymn: formatHymnDisplay(e.target.value) }))}
                 />
                 <Input
                   label="Invocation (Opening Prayer)"
                   placeholder="e.g. Sister Jane Smith"
                   value={f.opening_prayer || ''}
                   onChange={(e) => setForm((prev) => ({ ...prev, opening_prayer: e.target.value }))}
+                  onBlur={(e) => setForm((prev) => ({ ...prev, opening_prayer: formatHonorificName(e.target.value) }))}
                 />
                 <Input
                   label="Sacrament Hymn"
                   placeholder="e.g. 169 — As Now We Take the Sacrament"
                   value={f.sacrament_hymn || ''}
                   onChange={(e) => setForm((prev) => ({ ...prev, sacrament_hymn: e.target.value }))}
+                  onBlur={(e) => setForm((prev) => ({ ...prev, sacrament_hymn: formatHymnDisplay(e.target.value) }))}
                 />
                 <div className="sm:col-span-2">
                   <Textarea
-                    label={f.meeting_type === 'FAST_SUNDAY' ? 'Testimonies Note' : 'Talks / Speakers Roster (Names Only)'}
+                    label={f.meeting_type === 'FAST_SUNDAY' ? 'Testimonies Note' : 'Talks / Speakers Roster (Names with Titles, e.g. Brother / Sister)'}
                     rows={3}
                     placeholder={`Brother Emmanuel Olajide\nSister Grace Adams`}
                     value={
@@ -492,6 +509,20 @@ export function BulletinFormEditor({
                         : ''
                     }
                     onChange={(e) => setForm((prev) => ({ ...prev, speakers: e.target.value }))}
+                    onBlur={(e) => {
+                      if (f.meeting_type === 'FAST_SUNDAY') return;
+                      const formatted = e.target.value
+                        .split('\n')
+                        .map((line) => {
+                          const namePart = line.split(/[—–-]/)[0]?.trim();
+                          return namePart ? formatHonorificName(namePart) : '';
+                        })
+                        .filter(Boolean)
+                        .join('\n');
+                      if (formatted) {
+                        setForm((prev) => ({ ...prev, speakers: formatted }));
+                      }
+                    }}
                   />
                 </div>
                 <Input
@@ -499,12 +530,14 @@ export function BulletinFormEditor({
                   placeholder="e.g. 152 — God Be with You Till We Meet Again"
                   value={f.closing_hymn || ''}
                   onChange={(e) => setForm((prev) => ({ ...prev, closing_hymn: e.target.value }))}
+                  onBlur={(e) => setForm((prev) => ({ ...prev, closing_hymn: formatHymnDisplay(e.target.value) }))}
                 />
                 <Input
                   label="Benediction (Closing Prayer)"
                   placeholder="e.g. Brother Michael Adebayo"
                   value={f.closing_prayer || ''}
                   onChange={(e) => setForm((prev) => ({ ...prev, closing_prayer: e.target.value }))}
+                  onBlur={(e) => setForm((prev) => ({ ...prev, closing_prayer: formatHonorificName(e.target.value) }))}
                 />
               </div>
 

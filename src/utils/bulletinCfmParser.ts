@@ -11,6 +11,29 @@ export interface ParsedCfmGuide {
   ideas_for_learning: string;
   reflection_options: string[];
   selected_reflection: string;
+  scripture_of_the_week?: string;
+}
+
+/**
+ * Extracts 1-2 key verses from the weekly CFM reading block/ideas
+ */
+export function extractCfmScriptureOfTheWeek(readingBlock?: string, ideas?: string[], intro?: string): string {
+  if (ideas && ideas.length > 0) {
+    for (const idea of ideas) {
+      const match = idea.match(/^([A-Za-z0-9\s]+?\s+\d+:\d+(?:[–-]\d+)?):?\s*(.+)$/);
+      if (match) {
+        const ref = match[1].trim();
+        const text = match[2].trim();
+        return `"${text}" — ${ref}`;
+      }
+    }
+  }
+
+  const primaryRef = (readingBlock || '').split(';')[0]?.split(',')[0]?.trim();
+  if (primaryRef) {
+    return `"Learn of me, and listen to my words; walk in the meekness of my Spirit, and you shall have peace in me." — ${primaryRef}`;
+  }
+  return '"For behold, this is my work and my glory—to bring to pass the immortality and eternal life of man." — Moses 1:39';
 }
 
 export function cleanHtml(raw: string): string {
@@ -971,6 +994,8 @@ export function parseCfmHtml(html: string, originalUrl: string): ParsedCfmGuide 
     `What specific invitation from this lesson will you act upon this week to increase your faith in Jesus Christ?`,
   ];
 
+  const scriptureOfTheWeek = extractCfmScriptureOfTheWeek(readingBlock, ideasList.length > 0 ? ideasList : cur?.ideas, introduction);
+
   return {
     url: originalUrl,
     reading_block: readingBlock || 'Scripture Reading Block',
@@ -979,6 +1004,7 @@ export function parseCfmHtml(html: string, originalUrl: string): ParsedCfmGuide 
     ideas_for_learning: ideasForLearning,
     reflection_options: reflectionOptions,
     selected_reflection: reflectionOptions[0],
+    scripture_of_the_week: scriptureOfTheWeek,
   };
 }
 
@@ -1030,6 +1056,7 @@ export async function fetchAndParseCfmUrl(url: string): Promise<ParsedCfmGuide> 
       ideas_for_learning: known.ideas.join('\n'),
       reflection_options: known.reflections,
       selected_reflection: known.reflections[0],
+      scripture_of_the_week: extractCfmScriptureOfTheWeek(known.reading, known.ideas, known.intro),
     };
   }
 
@@ -1053,6 +1080,7 @@ export function generateCfmFromUrlOffline(url: string): ParsedCfmGuide {
       ideas_for_learning: cur.ideas.join('\n'),
       reflection_options: cur.reflections,
       selected_reflection: cur.reflections[0],
+      scripture_of_the_week: extractCfmScriptureOfTheWeek(cur.reading, cur.ideas, cur.intro),
     };
   }
 

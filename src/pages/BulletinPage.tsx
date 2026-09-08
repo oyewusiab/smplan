@@ -19,6 +19,8 @@ import { getBirthdaysForWeek } from '../utils/bulletinBirthdayEngine';
 import { harvestWeeklyActivities, getNext5Activities } from '../utils/bulletinActivityHarvester';
 import { fetchAndParseCfmUrl, generateCfmFromUrlOffline } from '../utils/bulletinCfmParser';
 import { getWeekDateRange } from '../utils/bulletinPrintEngine';
+import { formatHymnDisplay } from '../data/bundledHymns';
+import { formatHonorificName, setMembersDirectoryRegistry } from '../utils/memberTitle';
 import type { Bulletin, Planner, Member, Activity, Hymn, BulletinFeedback, UnitSetting } from '../types';
 import { format, parseISO, addWeeks, subWeeks, startOfMonth, endOfMonth, eachWeekOfInterval, isSunday } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -165,7 +167,10 @@ export function BulletinPage() {
       setBulletins(loadedBulletins);
 
       if (pRes.status === 'fulfilled' && pRes.value.ok) setPlanners(pRes.value.data || []);
-      if (mRes.status === 'fulfilled' && mRes.value.ok) setMembers(mRes.value.data || []);
+      if (mRes.status === 'fulfilled' && mRes.value.ok) {
+        setMembers(mRes.value.data || []);
+        setMembersDirectoryRegistry(mRes.value.data || []);
+      }
       if (aRes.status === 'fulfilled' && aRes.value.ok) setActivities(aRes.value.data || []);
       if (hRes.status === 'fulfilled' && hRes.value.ok) setHymns(hRes.value.data || []);
 
@@ -333,23 +338,29 @@ export function BulletinPage() {
       return;
     }
 
-    // Extract speakers roster (names only per requirement)
+    // Extract speakers roster (names with proper titles/prefixes only per requirement)
     let incomingSpeakersText = '';
     if (targetAgenda.speakers) {
       if (typeof targetAgenda.speakers === 'string') {
         try {
           const parsed = JSON.parse(targetAgenda.speakers);
           if (Array.isArray(parsed)) {
-            incomingSpeakersText = parsed.map((s: any) => s.name || '').filter(Boolean).join('\n');
+            incomingSpeakersText = parsed.map((s: any) => formatHonorificName(s.name || s.speaker_name || '')).filter(Boolean).join('\n');
           } else {
-            incomingSpeakersText = targetAgenda.speakers.split('\n').map((l: string) => l.split(/[—–-]/)[0]?.trim()).filter(Boolean).join('\n');
+            incomingSpeakersText = targetAgenda.speakers.split('\n').map((l: string) => {
+              const namePart = l.split(/[—–-]/)[0]?.trim();
+              return namePart ? formatHonorificName(namePart) : '';
+            }).filter(Boolean).join('\n');
           }
         } catch {
-          incomingSpeakersText = targetAgenda.speakers.split('\n').map((l: string) => l.split(/[—–-]/)[0]?.trim()).filter(Boolean).join('\n');
+          incomingSpeakersText = targetAgenda.speakers.split('\n').map((l: string) => {
+            const namePart = l.split(/[—–-]/)[0]?.trim();
+            return namePart ? formatHonorificName(namePart) : '';
+          }).filter(Boolean).join('\n');
         }
       } else if (Array.isArray(targetAgenda.speakers)) {
         incomingSpeakersText = targetAgenda.speakers
-          .map((s: any) => s.name || '')
+          .map((s: any) => formatHonorificName(s.name || s.speaker_name || ''))
           .filter(Boolean)
           .join('\n');
       }
@@ -360,13 +371,13 @@ export function BulletinPage() {
     }
 
     const incoming: Partial<Bulletin> = {
-      opening_hymn: targetAgenda.opening_hymn || targetAgenda.opening_hymn_number || '',
-      opening_prayer: targetAgenda.opening_prayer || '',
-      sacrament_hymn: targetAgenda.sacrament_hymn || targetAgenda.sacrament_hymn_number || '',
+      opening_hymn: formatHymnDisplay(targetAgenda.opening_hymn, targetAgenda.opening_hymn_number),
+      opening_prayer: targetAgenda.opening_prayer ? formatHonorificName(targetAgenda.opening_prayer) : '',
+      sacrament_hymn: formatHymnDisplay(targetAgenda.sacrament_hymn, targetAgenda.sacrament_hymn_number),
       speakers: incomingSpeakersText,
-      special_music: targetAgenda.special_music || '',
-      closing_hymn: targetAgenda.closing_hymn || targetAgenda.closing_hymn_number || '',
-      closing_prayer: targetAgenda.closing_prayer || '',
+      special_music: targetAgenda.special_music ? formatHymnDisplay(targetAgenda.special_music) : '',
+      closing_hymn: formatHymnDisplay(targetAgenda.closing_hymn, targetAgenda.closing_hymn_number),
+      closing_prayer: targetAgenda.closing_prayer ? formatHonorificName(targetAgenda.closing_prayer) : '',
       theme: targetAgenda.theme || targetAgenda.topic || form.theme || '',
       meeting_type: targetAgenda.type_of_meeting || form.meeting_type || 'SACRAMENT',
     };
@@ -376,6 +387,8 @@ export function BulletinPage() {
       { key: 'meeting_type', label: 'Meeting Type / Designation' },
       { key: 'theme', label: 'Sacrament Theme / Topic' },
       { key: 'opening_hymn', label: 'Opening Hymn' },
+      { key: 'opening_prayer', label: 'Invocation (Opening Prayer)' },
+      { key: 'sacrament_hymn', label: 'Sacrament Hymn' },
       { key: 'opening_prayer', label: 'Invocation (Opening Prayer)' },
       { key: 'sacrament_hymn', label: 'Sacrament Hymn' },
       { key: 'speakers', label: 'Speakers / Testimonies' },
@@ -551,6 +564,7 @@ export function BulletinPage() {
             cfm_ideas_for_learning: d.ideas_for_learning,
             cfm_reflection: d.selected_reflection || (d.reflection_options && d.reflection_options[0]) || '',
             cfm_discussion_question: d.selected_reflection || (d.reflection_options && d.reflection_options[0]) || '',
+            scripture_of_the_week: d.scripture_of_the_week || prev.scripture_of_the_week,
             cfm_url: d.url || cfmUrl,
           }));
           toast.success('Come, Follow Me study guide extracted!', { id: 'cfmai' });
@@ -568,6 +582,7 @@ export function BulletinPage() {
         cfm_ideas_for_learning: parsedData.ideas_for_learning,
         cfm_reflection: parsedData.selected_reflection,
         cfm_discussion_question: parsedData.selected_reflection,
+        scripture_of_the_week: parsedData.scripture_of_the_week || prev.scripture_of_the_week,
         cfm_url: parsedData.url,
       }));
       toast.success('Come, Follow Me study guide extracted!', { id: 'cfmai' });
@@ -581,6 +596,7 @@ export function BulletinPage() {
         cfm_ideas_for_learning: offlineData.ideas_for_learning,
         cfm_reflection: offlineData.selected_reflection,
         cfm_discussion_question: offlineData.selected_reflection,
+        scripture_of_the_week: offlineData.scripture_of_the_week || prev.scripture_of_the_week,
         cfm_url: offlineData.url,
       }));
       toast.success('Come, Follow Me offline study guide generated!', { id: 'cfmai' });

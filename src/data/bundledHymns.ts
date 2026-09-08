@@ -1369,6 +1369,57 @@ export function resolveHymnLink(hymnTextOrNumber?: string | number): string {
 }
 
 /**
+ * Formats any hymn title or number into standard "[Number] — [Title]" representation.
+ * E.g. "2" -> "2 — The Spirit of God"
+ * "The Spirit of God" -> "2 — The Spirit of God"
+ * "2 - The Spirit of God" -> "2 — The Spirit of God"
+ */
+export function formatHymnDisplay(hymnTextOrNumber?: string | number, fallbackNumber?: string | number): string {
+  if (!hymnTextOrNumber && !fallbackNumber) return '';
+  const raw = String(hymnTextOrNumber || '').trim();
+  const numFallback = fallbackNumber !== undefined && fallbackNumber !== null ? String(fallbackNumber).trim() : '';
+
+  if (!raw && numFallback) {
+    const found = findBundledHymn(numFallback);
+    if (found) return `${found.number} — ${found.title}`;
+    return numFallback;
+  }
+
+  // If already formatted like "2 — The Spirit of God" or "2 - The Spirit of God"
+  const dashMatch = raw.match(/^#?(\d+)\s*[-–—.:]+\s*(.+)$/);
+  if (dashMatch) {
+    const num = parseInt(dashMatch[1], 10);
+    const title = dashMatch[2].trim();
+    return `${num} — ${title}`;
+  }
+
+  // If raw is just a number
+  const numOnlyMatch = raw.match(/^#?(\d+)$/);
+  if (numOnlyMatch) {
+    const num = parseInt(numOnlyMatch[1], 10);
+    const found = findBundledHymn(num);
+    if (found) return `${found.number} — ${found.title}`;
+    return String(num);
+  }
+
+  // If raw is a title without number
+  const found = findBundledHymn(raw);
+  if (found) {
+    return `${found.number} — ${found.title}`;
+  }
+
+  if (numFallback) {
+    const numOnlyFallback = parseInt(numFallback, 10);
+    if (!isNaN(numOnlyFallback)) {
+      return `${numOnlyFallback} — ${raw}`;
+    }
+  }
+
+  return raw;
+}
+
+
+/**
  * Master List of Gospel Themes for matching
  */
 export const ALL_GOSPEL_THEMES = [

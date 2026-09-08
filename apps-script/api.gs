@@ -2733,15 +2733,49 @@ function handleGetBulletinDraftData(params) {
     return title;
   }
 
+  // 4. Member directory and title helpers
+  const allMembers = dbReadAll('MEMBERS_LIST');
+
+  function formatHonorific(rawName) {
+    if (!rawName) return '';
+    var str = String(rawName).split(/[—–-]/)[0].trim();
+    if (!str) return '';
+    if (/^(Brother|Sister|Elder|Bishop|President|Patriarch)\b/i.test(str)) {
+      return str;
+    }
+    // Clean short prefixes
+    var cleanBase = str.replace(/^(bro\.|bro|sis\.|sis|bp\.|bp|eld\.|eld|pres\.|pres)\s+/i, '').trim();
+    if (!cleanBase) return str;
+
+    if (Array.isArray(allMembers)) {
+      var match = allMembers.find(function(m) {
+        if (!m || !m.name) return false;
+        var cleanM = String(m.name).replace(/^(Brother|Sister|Elder|Bishop|President|Patriarch|bro\.|bro|sis\.|sis|bp\.|bp|eld\.|eld|pres\.|pres)\s+/i, '').trim();
+        return cleanM.toLowerCase() === cleanBase.toLowerCase();
+      });
+      if (match) {
+        var calling = (match.calling || match.callings || '').toLowerCase();
+        var gender = (match.gender || match.sex || '').toUpperCase();
+        if (calling.indexOf('bishop') !== -1) return 'Bishop ' + cleanBase;
+        if (calling.indexOf('president') !== -1) return 'President ' + cleanBase;
+        if (gender === 'F' || gender === 'FEMALE' || calling.indexOf('relief society') !== -1 || calling.indexOf('young women') !== -1 || calling.indexOf('primary') !== -1) {
+          return 'Sister ' + cleanBase;
+        }
+        return 'Brother ' + cleanBase;
+      }
+    }
+    return 'Brother ' + cleanBase;
+  }
+
   openingHymn = formatHymn(sourceObj.opening_hymn_number, sourceObj.opening_hymn);
   sacramentHymn = formatHymn(sourceObj.sacrament_hymn_number, sourceObj.sacrament_hymn);
   closingHymn = formatHymn(sourceObj.closing_hymn_number, sourceObj.closing_hymn);
 
-  openingPrayer = sourceObj.opening_prayer || '';
-  closingPrayer = sourceObj.closing_prayer || '';
+  openingPrayer = sourceObj.opening_prayer ? formatHonorific(sourceObj.opening_prayer) : '';
+  closingPrayer = sourceObj.closing_prayer ? formatHonorific(sourceObj.closing_prayer) : '';
   specialMusic = sourceObj.special_music || sourceObj.special_musical_number || '';
   
-  // Speakers: Only populate names (no topics)
+  // Speakers: Only populate names with prefixes (no topics)
   if (meetingType === 'FAST_SUNDAY') {
     speakersData = 'Bearing of Testimonies by the Congregation';
   } else {
@@ -2751,17 +2785,25 @@ function handleGetBulletinDraftData(params) {
         var parsedSp = JSON.parse(rawSp);
         if (Array.isArray(parsedSp)) {
           speakersData = parsedSp.map(function(s) {
-            return s.name || s.speaker_name || '';
+            var n = s.name || s.speaker_name || '';
+            return n ? formatHonorific(n) : '';
           }).filter(function(x) { return !!x; }).join('\n');
         } else {
-          speakersData = rawSp;
+          speakersData = rawSp.split('\n').map(function(l) {
+            var n = l.split(/[—–-]/)[0].trim();
+            return n ? formatHonorific(n) : '';
+          }).filter(function(x) { return !!x; }).join('\n');
         }
       } catch(e) {
-        speakersData = rawSp;
+        speakersData = rawSp.split('\n').map(function(l) {
+          var n = l.split(/[—–-]/)[0].trim();
+          return n ? formatHonorific(n) : '';
+        }).filter(function(x) { return !!x; }).join('\n');
       }
     } else if (Array.isArray(rawSp)) {
       speakersData = rawSp.map(function(s) {
-        return s.name || s.speaker_name || '';
+        var n = s.name || s.speaker_name || '';
+        return n ? formatHonorific(n) : '';
       }).filter(function(x) { return !!x; }).join('\n');
     }
   }
@@ -2792,7 +2834,6 @@ function handleGetBulletinDraftData(params) {
   }
 
   // 5. Smart Birthday Harvester (Monday to Sunday window)
-  const allMembers = dbReadAll('MEMBERS_LIST');
   const birthdaysThisWeek = [];
 
   allMembers.forEach(m => {
