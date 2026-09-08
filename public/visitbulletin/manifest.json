@@ -1,25 +1,37 @@
-﻿{
-  " name\: \Ward Bulletin\,
- \short_name\: \Bulletin\,
- \description\: \Weekly Ward Bulletin and announcements\,
- \start_url\: \/visitbulletin\,
- \scope\: \/visitbulletin\,
- \display\: \standalone\,
- \orientation\: \portrait\,
- \background_color\: \#ffffff\,
- \theme_color\: \#1e3a8a\,
- \icons\: [
- {
- \src\: \/visitbulletin/icons/icon-192.png\,
- \sizes\: \192x192\,
- \type\: \image/png\,
- \purpose\: \any maskable\
- },
- {
- \src\: \/visitbulletin/icons/icon-512.png\,
- \sizes\: \512x512\,
- \type\: \image/png\,
- \purpose\: \any maskable\
- }
- ]
+{
+  "name": "Ward Bulletin",
+  "short_name": "Bulletin",
+  "description": "Weekly Ward Bulletin and announcements",
+  "start_url": "/visitbulletin",
+  "scope": "/visitbulletin",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#1e3a8a",
+  "icons": [
+    {
+      "src": "/visitbulletin/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/visitbulletin/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/visitbulletin/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/visitbulletin/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
 }

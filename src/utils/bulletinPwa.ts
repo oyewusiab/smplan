@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Ward Bulletin PWA Utility
  * Manages route-scoped PWA lifecycle exclusively for /visitbulletin
  */
@@ -20,6 +20,21 @@ type PwaStateListener = (state: {
 
 let deferredPrompt: BeforeInstallPromptEvent | null = null;
 const listeners = new Set<PwaStateListener>();
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeinstallprompt', (e: Event) => {
+    if (window.location.pathname.startsWith('/visitbulletin')) {
+      e.preventDefault();
+      deferredPrompt = e as BeforeInstallPromptEvent;
+      notifyListeners();
+    }
+  });
+
+  window.addEventListener('appinstalled', () => {
+    deferredPrompt = null;
+    notifyListeners();
+  });
+}
 
 export function isBulletinInstalled(): boolean {
   if (typeof window === 'undefined') return false;
@@ -124,6 +139,8 @@ export function initializeBulletinPwa() {
 
   window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   window.addEventListener('appinstalled', handleAppInstalled);
+
+  notifyListeners();
 
   return () => {
     window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
