@@ -314,7 +314,7 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
           <div style="font-weight: 700; font-size: 7.5pt; color: #475569; margin-bottom: 1.5pt;">Talks:</div>
           ${speakers.map((sp, idx) => `
             <div class="row">
-              <span class="label">${idx === 0 ? 'Youth Speaker:' : `Speaker ${idx + 1}:`}</span>
+              <span class="label">Speaker ${idx + 1}:</span>
               <span class="value">${formatHonorificName(sp.name)}</span>
             </div>
           `).join('')}
@@ -325,6 +325,9 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
           <span class="value" style="white-space: pre-line;">${d.speakers.split('\n').map(l => formatHonorificName(l)).join('\n')}</span>
         </div>
         ` : ''}
+
+        ${d.closing_hymn ? `<div class="row"><span class="label">Closing Hymn:</span><span class="value">${formatHymnDisplay(d.closing_hymn)}</span></div>` : ''}
+        ${d.closing_prayer ? `<div class="row"><span class="label">Benediction:</span><span class="value">${formatHonorificName(d.closing_prayer)}</span></div>` : ''}
 
         ${d.include_class_lessons && d.class_lessons && d.class_lessons.length > 0 ? `
         <div style="margin-top: 3pt; border-top: 1px solid #e2e8f0; padding-top: 3pt;">
@@ -340,9 +343,6 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
           `).join('')}
         </div>
         ` : ''}
-
-        ${d.closing_hymn ? `<div class="row"><span class="label">Closing Hymn:</span><span class="value">${formatHymnDisplay(d.closing_hymn)}</span></div>` : ''}
-        ${d.closing_prayer ? `<div class="row"><span class="label">Benediction:</span><span class="value">${formatHonorificName(d.closing_prayer)}</span></div>` : ''}
       </div>
       ` : ''}
 
@@ -669,7 +669,7 @@ export function generateStandard2PageHtml(d: Bulletin): string {
           <div style="font-weight: 700; color: #475569; margin-bottom: 3pt; font-size: 8.5pt;">Talks:</div>
           ${speakers.map((sp, idx) => `
             <div class="row">
-              <span class="label">${idx === 0 ? 'Youth Speaker:' : `Speaker ${idx + 1}:`}</span>
+              <span class="label">Speaker ${idx + 1}:</span>
               <span class="value">${formatHonorificName(sp.name)}</span>
             </div>
           `).join('')}
@@ -680,6 +680,9 @@ export function generateStandard2PageHtml(d: Bulletin): string {
           <span class="value" style="white-space: pre-line;">${d.speakers.split('\n').map(l => formatHonorificName(l)).join('\n')}</span>
         </div>
         ` : ''}
+
+        ${d.closing_hymn ? `<div class="row"><span class="label">Closing Hymn:</span><span class="value">${formatHymnDisplay(d.closing_hymn)}</span></div>` : ''}
+        ${d.closing_prayer ? `<div class="row"><span class="label">Benediction:</span><span class="value">${formatHonorificName(d.closing_prayer)}</span></div>` : ''}
 
         ${d.include_class_lessons && d.class_lessons && d.class_lessons.length > 0 ? `
         <div style="margin: 6pt 0; border-top: 1px solid #e2e8f0; padding-top: 6pt;">
@@ -697,9 +700,6 @@ export function generateStandard2PageHtml(d: Bulletin): string {
           </div>
         </div>
         ` : ''}
-
-        ${d.closing_hymn ? `<div class="row"><span class="label">Closing Hymn:</span><span class="value">${formatHymnDisplay(d.closing_hymn)}</span></div>` : ''}
-        ${d.closing_prayer ? `<div class="row"><span class="label">Benediction:</span><span class="value">${formatHonorificName(d.closing_prayer)}</span></div>` : ''}
       </div>
       ` : ''}
 
@@ -993,7 +993,7 @@ export function generateBiFoldBookletHtml(d: Bulletin): string {
           <div style="font-weight: 700; color: #475569; margin-bottom: 2pt; font-size: 7.5pt;">Talks:</div>
           ${speakers.map((sp, idx) => `
             <div class="row">
-              <span class="label">${idx === 0 ? 'Youth Speaker:' : `Speaker ${idx + 1}:`}</span>
+              <span class="label">Speaker ${idx + 1}:</span>
               <span class="value">${formatHonorificName(sp.name)}</span>
             </div>
           `).join('')}
@@ -1004,6 +1004,9 @@ export function generateBiFoldBookletHtml(d: Bulletin): string {
           <span class="value" style="white-space: pre-line;">${d.speakers.split('\n').map(l => formatHonorificName(l)).join('\n')}</span>
         </div>
         ` : ''}
+
+        ${d.closing_hymn ? `<div class="row"><span class="label">Closing Hymn:</span><span class="value">${formatHymnDisplay(d.closing_hymn)}</span></div>` : ''}
+        ${d.closing_prayer ? `<div class="row"><span class="label">Benediction:</span><span class="value">${formatHonorificName(d.closing_prayer)}</span></div>` : ''}
 
         ${d.include_class_lessons && d.class_lessons && d.class_lessons.length > 0 ? `
         <div style="margin-top: 4pt; border-top: 1px solid #e2e8f0; padding-top: 3pt;">
@@ -1019,9 +1022,6 @@ export function generateBiFoldBookletHtml(d: Bulletin): string {
           `).join('')}
         </div>
         ` : ''}
-
-        ${d.closing_hymn ? `<div class="row"><span class="label">Closing Hymn:</span><span class="value">${formatHymnDisplay(d.closing_hymn)}</span></div>` : ''}
-        ${d.closing_prayer ? `<div class="row"><span class="label">Benediction:</span><span class="value">${formatHonorificName(d.closing_prayer)}</span></div>` : ''}
         ` : ''}
       </div>
       <div class="page-number">Page 2 • Sacrament & Classes</div>

@@ -290,7 +290,7 @@ export function BulletinPrintPreview({ bulletin: b }: BulletinPrintPreviewProps)
                           <span className="text-[9.5px] font-bold text-slate-500 block mb-0.5">Talks:</span>
                           {speakers.map((sp, idx) => (
                             <div key={idx} className="flex justify-between text-[10px]">
-                              <span className="text-slate-600">{idx === 0 ? 'Youth Speaker:' : `Speaker ${idx + 1}:`}</span>
+                              <span className="text-slate-600">Speaker {idx + 1}:</span>
                               <span className="font-semibold text-slate-900">{formatHonorificName(sp.name)}</span>
                             </div>
                           ))}
@@ -303,6 +303,19 @@ export function BulletinPrintPreview({ bulletin: b }: BulletinPrintPreviewProps)
                           </p>
                         </div>
                       ) : null}
+
+                      {b.closing_hymn && (
+                        <div className="flex justify-between">
+                          <span className="text-slate-500 font-medium">Closing Hymn:</span>
+                          <span className="font-semibold text-slate-900">{formatHymnDisplay(b.closing_hymn)}</span>
+                        </div>
+                      )}
+                      {b.closing_prayer && (
+                        <div className="flex justify-between">
+                          <span className="text-slate-500 font-medium">Benediction:</span>
+                          <span className="font-semibold text-slate-900">{formatHonorificName(b.closing_prayer)}</span>
+                        </div>
+                      )}
 
                       {/* Sunday Class Lessons Preparation */}
                       {b.include_class_lessons && b.class_lessons && b.class_lessons.length > 0 && (
@@ -325,19 +338,6 @@ export function BulletinPrintPreview({ bulletin: b }: BulletinPrintPreviewProps)
                               </div>
                             ))}
                           </div>
-                        </div>
-                      )}
-
-                      {b.closing_hymn && (
-                        <div className="flex justify-between">
-                          <span className="text-slate-500 font-medium">Closing Hymn:</span>
-                          <span className="font-semibold text-slate-900">{formatHymnDisplay(b.closing_hymn)}</span>
-                        </div>
-                      )}
-                      {b.closing_prayer && (
-                        <div className="flex justify-between">
-                          <span className="text-slate-500 font-medium">Benediction:</span>
-                          <span className="font-semibold text-slate-900">{formatHonorificName(b.closing_prayer)}</span>
                         </div>
                       )}
                     </div>

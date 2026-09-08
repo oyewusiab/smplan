@@ -296,7 +296,7 @@ export function PublicBulletinLandingPage() {
                     <span className="text-xs font-bold text-slate-500 block">Talks:</span>
                     {speakers.map((sp, idx) => (
                       <div key={idx} className="flex justify-between text-xs sm:text-sm pl-2">
-                        <span className="text-slate-600 font-medium">{idx === 0 ? 'Youth Speaker:' : `Speaker ${idx + 1}:`}</span>
+                        <span className="text-slate-600 font-medium">Speaker {idx + 1}:</span>
                         <span className="font-semibold text-slate-900 text-right">{formatHonorificName(sp.name)}</span>
                       </div>
                     ))}
@@ -309,6 +309,30 @@ export function PublicBulletinLandingPage() {
                     </p>
                   </div>
                 ) : null}
+
+                {bulletin.closing_hymn && (
+                  <div className="flex justify-between items-center py-1.5 border-b border-slate-50">
+                    <span className="text-slate-500 font-medium">Closing Hymn:</span>
+                    <a
+                      href={resolveHymnLink(bulletin.closing_hymn)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 font-bold hover:underline text-right"
+                      style={{ color: theme.primaryColor }}
+                      title="Listen and view hymn in Sacred Music / Gospel Library"
+                    >
+                      <Music className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span>{formatHymnDisplay(bulletin.closing_hymn)}</span>
+                      <ExternalLink className="w-3 h-3 text-slate-400" />
+                    </a>
+                  </div>
+                )}
+                {bulletin.closing_prayer && (
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-slate-500 font-medium">Benediction:</span>
+                    <span className="font-semibold text-slate-900 text-right">{formatHonorificName(bulletin.closing_prayer)}</span>
+                  </div>
+                )}
 
                 {/* Sunday Class Lessons Preparation */}
                 {bulletin.include_class_lessons && bulletin.class_lessons && bulletin.class_lessons.length > 0 && (
@@ -355,30 +379,6 @@ export function PublicBulletinLandingPage() {
                         </div>
                       ))}
                     </div>
-                  </div>
-                )}
-
-                {bulletin.closing_hymn && (
-                  <div className="flex justify-between items-center py-1.5 border-b border-slate-50">
-                    <span className="text-slate-500 font-medium">Closing Hymn:</span>
-                    <a
-                      href={resolveHymnLink(bulletin.closing_hymn)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 font-bold hover:underline text-right"
-                      style={{ color: theme.primaryColor }}
-                      title="Listen and view hymn in Sacred Music / Gospel Library"
-                    >
-                      <Music className="w-3.5 h-3.5 flex-shrink-0" />
-                      <span>{formatHymnDisplay(bulletin.closing_hymn)}</span>
-                      <ExternalLink className="w-3 h-3 text-slate-400" />
-                    </a>
-                  </div>
-                )}
-                {bulletin.closing_prayer && (
-                  <div className="flex justify-between items-center py-1">
-                    <span className="text-slate-500 font-medium">Benediction:</span>
-                    <span className="font-semibold text-slate-900 text-right">{formatHonorificName(bulletin.closing_prayer)}</span>
                   </div>
                 )}
               </div>

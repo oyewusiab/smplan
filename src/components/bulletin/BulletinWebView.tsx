@@ -252,48 +252,6 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp, onOpenFeedbackMo
                 </div>
               ) : null}
 
-              {/* Sunday Class Lessons Preparation */}
-              {b.include_class_lessons && b.class_lessons && b.class_lessons.length > 0 && (
-                <div className="pt-3 border-t border-slate-100 space-y-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700 block">
-                    Sunday Class Lessons Preparation
-                  </span>
-                  <div className="grid gap-2">
-                    {b.class_lessons.map((cl, idx) => (
-                      <div
-                        key={idx}
-                        className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
-                      >
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-2">
-                            <span className="font-extrabold px-2 py-0.5 rounded text-[10px] bg-blue-100 text-blue-900 border border-blue-200">
-                              {cl.className}
-                            </span>
-                            <strong className="text-slate-900">{cl.topic || 'Class Lesson'}</strong>
-                          </div>
-                          {cl.reference && (
-                            <p className="text-[11px] text-slate-600 italic pl-1">
-                              Ref: {cl.reference}
-                            </p>
-                          )}
-                        </div>
-                        {cl.link && (
-                          <a
-                            href={cl.link}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs bg-blue-600 hover:bg-blue-500 text-white shadow-2xs self-start sm:self-auto"
-                          >
-                            <span>Read lesson</span>
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {b.special_music && (
                 <div className="flex justify-between items-center py-1 border-b border-slate-50">
                   <span className="text-slate-500 font-medium">Special Music</span>
@@ -339,9 +297,51 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp, onOpenFeedbackMo
               )}
 
               {b.closing_prayer && (
-                <div className="flex justify-between py-1">
+                <div className="flex justify-between py-1 border-b border-slate-50">
                   <span className="text-slate-500 font-medium">Benediction</span>
                   <span className="font-semibold text-slate-900">{formatHonorificName(b.closing_prayer)}</span>
+                </div>
+              )}
+
+              {/* Sunday Class Lessons Preparation */}
+              {b.include_class_lessons && b.class_lessons && b.class_lessons.length > 0 && (
+                <div className="pt-3 border-t border-slate-100 space-y-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700 block">
+                    Sunday Class Lessons Preparation
+                  </span>
+                  <div className="grid gap-2">
+                    {b.class_lessons.map((cl, idx) => (
+                      <div
+                        key={idx}
+                        className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
+                      >
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="font-extrabold px-2 py-0.5 rounded text-[10px] bg-blue-100 text-blue-900 border border-blue-200">
+                              {cl.className}
+                            </span>
+                            <strong className="text-slate-900">{cl.topic || 'Class Lesson'}</strong>
+                          </div>
+                          {cl.reference && (
+                            <p className="text-[11px] text-slate-600 italic pl-1">
+                              Ref: {cl.reference}
+                            </p>
+                          )}
+                        </div>
+                        {cl.link && (
+                          <a
+                            href={cl.link}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs bg-blue-600 hover:bg-blue-500 text-white shadow-2xs self-start sm:self-auto"
+                          >
+                            <span>Read lesson</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
