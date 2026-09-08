@@ -129,9 +129,9 @@ export function PublicBulletinLandingPage() {
     } else if (pwaState.isIos) {
       setShowIosGuide(true);
     } else {
-      toast('To install, open your browser menu and tap "Install app" or "Add to Home screen".', {
+      toast('To install, open your browser menu (⋮) and tap "Install and create shortcut" or "Add to Home screen".', {
         icon: '📱',
-        duration: 5000,
+        duration: 6000,
       });
     }
   };
