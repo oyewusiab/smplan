@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MyWard Bulletin — Member Installation & Usage Video Guide</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.15); opacity: 0.3; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+    .animate-pulse-ring {
+      animation: pulse-ring 2s infinite ease-in-out;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.5);
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="bg-transparent text-[var(--foreground)] antialiased p-2 sm:p-4">
+  <div class="max-w-4xl mx-auto bg-[var(--card)] border border-[var(--border)] rounded-2xl shadow-xl overflow-hidden text-[var(--foreground)]">
+    
+    <!-- Top Header & Navigation -->
+    <header class="bg-gradient-to-r from-blue-950 via-slate-900 to-indigo-950 text-white p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center font-bold shadow-md shadow-blue-500/30 text-white text-lg">
+          📱
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-bold text-base sm:text-lg tracking-wide text-white">MyWard Bulletin Guide</h1>
+            <span class="text-[10px] uppercase font-extrabold tracking-wider bg-blue-500/30 text-blue-200 px-2 py-0.5 rounded-full border border-blue-400/30">Member Video & Demo</span>
+          </div>
+          <p class="text-xs text-slate-300">How to install on phone & explore all features in 90 seconds</p>
+        </div>
+      </div>
+
+      <!-- Tab Switcher -->
+      <div class="flex items-center bg-slate-800/80 p-1 rounded-xl border border-slate-700 text-xs">
+        <button id="tab-video-btn" onclick="switchTab('video')" class="px-3 py-1.5 rounded-lg font-semibold bg-blue-600 text-white shadow-sm transition-all flex items-center gap-1.5">
+          <span>🎬</span> Video Player
+        </button>
+        <button id="tab-install-btn" onclick="switchTab('install')" class="px-3 py-1.5 rounded-lg font-semibold text-slate-300 hover:text-white transition-all flex items-center gap-1.5">
+          <span>📲</span> Fast Install Guide
+        </button>
+        <button id="tab-script-btn" onclick="switchTab('script')" class="px-3 py-1.5 rounded-lg font-semibold text-slate-300 hover:text-white transition-all flex items-center gap-1.5">
+          <span>🎙️</span> Video Script
+        </button>
+      </div>
+    </header>
+
+    <!-- TAB 1: INTERACTIVE VIDEO SIMULATOR -->
+    <section id="tab-video" class="p-3 sm:p-5">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        
+        <!-- Left: Animated Mobile Device Player Frame -->
+        <div class="lg:col-span-7 flex flex-col items-center">
+          <div class="relative w-full max-w-[340px] aspect-[9/18.5] bg-slate-950 rounded-[40px] p-3 shadow-2xl border-4 border-slate-700/80 ring-1 ring-slate-600 flex flex-col justify-between overflow-hidden">
+            
+            <!-- Dynamic Island / Speaker notch -->
+            <div class="absolute top-4 left-1/2 -translate-x-1/2 w-24 h-4 bg-slate-900 rounded-full z-30 flex items-center justify-center">
+              <div class="w-2.5 h-2.5 rounded-full bg-slate-950 border border-slate-800 ml-auto mr-3"></div>
+            </div>
+
+            <!-- Screen Area -->
+            <div id="phone-screen" class="w-full h-full bg-slate-50 rounded-[32px] overflow-hidden flex flex-col relative text-slate-900 select-none shadow-inner">
+              
+              <!-- Phone Status Bar -->
+              <div class="pt-2 px-5 flex justify-between items-center text-[10px] font-bold text-slate-700 z-20 bg-white/90 backdrop-blur-xs">
+                <span id="screen-clock">9:41</span>
+                <div class="flex items-center gap-1.5">
+                  <span>📶</span>
+                  <span>5G</span>
+                  <span>🔋 98%</span>
+                </div>
+              </div>
+
+              <!-- Interactive Simulated Scene Container -->
+              <div id="scene-viewport" class="flex-1 overflow-y-auto custom-scrollbar p-3 relative flex flex-col">
+                <!-- Injected via JS -->
+              </div>
+
+              <!-- Animated Action Callout Overlay -->
+              <div id="action-pointer" class="absolute bottom-5 left-1/2 -translate-x-1/2 w-[92%] bg-slate-900/90 backdrop-blur-md text-white px-3 py-2 rounded-xl text-xs flex items-center gap-2.5 shadow-xl border border-slate-700 transition-all duration-300 z-30">
+                <div class="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs animate-bounce flex-shrink-0">
+                  👆
+                </div>
+                <div class="flex-1 text-[11px] leading-tight font-medium" id="pointer-text">
+                  Tap to explore this feature.
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
+          <!-- Video Player Controls Bar -->
+          <div class="w-full max-w-[380px] mt-4 bg-slate-900 text-white rounded-2xl p-3 border border-slate-800 shadow-md">
+            
+            <!-- Progress Bar -->
+            <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden mb-3 cursor-pointer" onclick="handleTimelineClick(event)">
+              <div id="video-progress-bar" class="bg-blue-500 h-full w-[15%] transition-all duration-300"></div>
+            </div>
+
+            <div class="flex items-center justify-between">
+              <!-- Play / Pause & Prev / Next -->
+              <div class="flex items-center gap-2">
+                <button onclick="prevScene()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-xs text-slate-200" title="Previous scene">
+                  ⏮️
+                </button>
+                <button id="play-pause-btn" onclick="togglePlayPause()" class="w-9 h-9 rounded-xl bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center text-sm font-bold shadow-md shadow-blue-600/30" title="Play / Pause">
+                  ⏸️
+                </button>
+                <button onclick="nextScene()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-xs text-slate-200" title="Next scene">
+                  ⏭️
+                </button>
+              </div>
+
+              <!-- Scene Index Indicator -->
+              <div class="text-[11px] font-mono text-slate-400">
+                Scene <span id="current-scene-num" class="text-white font-bold">1</span> / <span id="total-scenes-num">6</span>
+              </div>
+
+              <!-- Audio Voiceover Narration Toggle -->
+              <button id="voice-toggle-btn" onclick="toggleVoiceover()" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5 hover:bg-emerald-500/30 transition-all" title="Toggle AI Voiceover Narration">
+                <span id="voice-icon">🔊</span> Voiceover: <span id="voice-status">ON</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Scene Explanations & Key Takeaways -->
+        <div class="lg:col-span-5 space-y-4">
+          
+          <!-- Active Scene Card -->
+          <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-4 sm:p-5 shadow-sm space-y-3">
+            <div class="flex items-center justify-between">
+              <span id="scene-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200 border border-blue-200 dark:border-blue-700">
+                SCENE 1: ACCESS
+              </span>
+              <span id="scene-duration" class="text-xs text-[var(--muted-foreground)] font-mono">0:15 / scene</span>
+            </div>
+
+            <h2 id="scene-title" class="text-lg font-bold text-[var(--foreground)]">
+              Opening the Ward Bulletin
+            </h2>
+
+            <p id="scene-desc" class="text-xs sm:text-sm text-[var(--muted-foreground)] leading-relaxed">
+              Ward members simply scan the QR code in the chapel foyer or click the link shared on the ward WhatsApp group. No App Store download or account login is required!
+            </p>
+
+            <div id="scene-tips" class="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 rounded-xl p-3 text-xs space-y-1.5">
+              <strong class="text-blue-900 dark:text-blue-300 flex items-center gap-1">
+                💡 Why Members Love This:
+              </strong>
+              <p class="text-blue-800 dark:text-blue-200/90 leading-normal" id="scene-tips-text">
+                Loads in under 1 second. Works on any iPhone, Android phone, iPad, or computer browser!
+              </p>
+            </div>
+          </div>
+
+          <!-- Scene Quick Select List -->
+          <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-4 shadow-sm space-y-2">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-[var(--muted-foreground)] mb-2">Jump to Chapter:</h3>
+            <div class="space-y-1.5" id="scene-jump-list">
+              <!-- Injected via JS -->
+            </div>
+          </div>
+
+          <!-- Share Button for Leadership -->
+          <div class="bg-gradient-to-br from-indigo-900 to-blue-950 text-white rounded-2xl p-4 border border-indigo-700/50 shadow-sm flex items-center justify-between gap-3">
+            <div>
+              <h4 class="text-xs font-bold text-indigo-200">Public Bulletin Link:</h4>
+              <p class="text-[11px] text-slate-300 font-mono truncate max-w-[200px] sm:max-w-xs">https://your-domain.com/visitbulletin</p>
+            </div>
+            <button onclick="copyBulletinLink()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-xs font-bold transition-all flex items-center gap-1 shadow-sm flex-shrink-0">
+              📋 Copy Link
+            </button>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- TAB 2: STEP-BY-STEP FAST INSTALL GUIDE (Android vs iOS) -->
+    <section id="tab-install" class="hidden p-4 sm:p-6 space-y-6">
+      
+      <div class="text-center max-w-xl mx-auto space-y-2">
+        <h2 class="text-xl sm:text-2xl font-extrabold text-[var(--foreground)]">Install as an App on Any Smartphone</h2>
+        <p class="text-xs sm:text-sm text-[var(--muted-foreground)]">
+          MyWard Bulletin is built with modern Progressive Web App (PWA) technology. Members install it directly from their browser with 1 tap — without needing to search the App Store or Google Play!
+        </p>
+      </div>
+
+      <!-- Platform Tabs -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        
+        <!-- iPhone / iPad (iOS) -->
+        <div class="bg-[var(--card)] border-2 border-indigo-500/40 rounded-3xl p-5 shadow-sm space-y-4">
+          <div class="flex items-center gap-3 pb-3 border-b border-[var(--border)]">
+            <div class="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-xl shadow-md">
+              🍎
+            </div>
+            <div>
+              <h3 class="font-bold text-base text-[var(--foreground)]">iPhone & iPad (Safari)</h3>
+              <p class="text-xs text-[var(--muted-foreground)]">Takes only 5 seconds</p>
+            </div>
+          </div>
+
+          <ol class="space-y-3.5 text-xs sm:text-sm text-[var(--foreground)]">
+            <li class="flex items-start gap-3">
+              <span class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-200 font-bold flex items-center justify-center flex-shrink-0 text-xs">1</span>
+              <div>
+                <strong>Open in Safari</strong>
+                <p class="text-[var(--muted-foreground)] text-xs mt-0.5">Tap the bulletin link so it opens in Safari browser.</p>
+              </div>
+            </li>
+
+            <li class="flex items-start gap-3">
+              <span class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-200 font-bold flex items-center justify-center flex-shrink-0 text-xs">2</span>
+              <div>
+                <strong>Tap the Share Button</strong>
+                <p class="text-[var(--muted-foreground)] text-xs mt-0.5">Tap the square icon with an upward arrow <span class="font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">􀈂 Share</span> at the bottom of the screen.</p>
+              </div>
+            </li>
+
+            <li class="flex items-start gap-3">
+              <span class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-200 font-bold flex items-center justify-center flex-shrink-0 text-xs">3</span>
+              <div>
+                <strong>Tap "Add to Home Screen"</strong>
+                <p class="text-[var(--muted-foreground)] text-xs mt-0.5">Scroll down slightly in the share menu and tap ➕ <strong>Add to Home Screen</strong>.</p>
+              </div>
+            </li>
+
+            <li class="flex items-start gap-3">
+              <span class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-200 font-bold flex items-center justify-center flex-shrink-0 text-xs">4</span>
+              <div>
+                <strong>Tap "Add" in Top Right</strong>
+                <p class="text-[var(--muted-foreground)] text-xs mt-0.5">The MyWard Bulletin icon appears instantly on your home screen! Tap it anytime to view your ward.</p>
+              </div>
+            </li>
+          </ol>
+
+          <div class="bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 p-3 rounded-2xl text-xs text-indigo-900 dark:text-indigo-200">
+            ✨ <strong>Pro-Tip:</strong> Once added, it launches in full-screen mode just like a native app from the App Store!
+          </div>
+        </div>
+
+        <!-- Android (Chrome, Samsung Internet) -->
+        <div class="bg-[var(--card)] border-2 border-emerald-500/40 rounded-3xl p-5 shadow-sm space-y-4">
+          <div class="flex items-center gap-3 pb-3 border-b border-[var(--border)]">
+            <div class="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center text-xl shadow-md">
+              🤖
+            </div>
+            <div>
+              <h3 class="font-bold text-base text-[var(--foreground)]">Android (Chrome & Samsung)</h3>
+              <p class="text-xs text-[var(--muted-foreground)]">One-tap direct install</p>
+            </div>
+          </div>
+
+          <ol class="space-y-3.5 text-xs sm:text-sm text-[var(--foreground)]">
+            <li class="flex items-start gap-3">
+              <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-200 font-bold flex items-center justify-center flex-shrink-0 text-xs">1</span>
+              <div>
+                <strong>Open in Chrome</strong>
+                <p class="text-[var(--muted-foreground)] text-xs mt-0.5">Open the ward bulletin link in Google Chrome.</p>
+              </div>
+            </li>
+
+            <li class="flex items-start gap-3">
+              <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-200 font-bold flex items-center justify-center flex-shrink-0 text-xs">2</span>
+              <div>
+                <strong>Tap "Install MyWard Bulletin"</strong>
+                <p class="text-[var(--muted-foreground)] text-xs mt-0.5">A blue banner at the top or bottom of the page will say <strong>"Install MyWard Bulletin"</strong>.</p>
+              </div>
+            </li>
+
+            <li class="flex items-start gap-3">
+              <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-200 font-bold flex items-center justify-center flex-shrink-0 text-xs">3</span>
+              <div>
+                <strong>Or use the 3-Dot Menu (⋮)</strong>
+                <p class="text-[var(--muted-foreground)] text-xs mt-0.5">If the button doesn't appear, tap the 3 dots in the top right and select <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.</p>
+              </div>
+            </li>
+
+            <li class="flex items-start gap-3">
+              <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-200 font-bold flex items-center justify-center flex-shrink-0 text-xs">4</span>
+              <div>
+                <strong>Confirmation</strong>
+                <p class="text-[var(--muted-foreground)] text-xs mt-0.5">Tap <strong>Install</strong>. The app is added to your app drawer and home screen.</p>
+              </div>
+            </li>
+          </ol>
+
+          <div class="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 p-3 rounded-2xl text-xs text-emerald-900 dark:text-emerald-200">
+            ⚡ <strong>Offline Ready:</strong> The app caches this week's bulletin so members can read it in church even without mobile data!
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- TAB 3: VIDEO SCRIPT & STORYBOARD (FOR RECORDING) -->
+    <section id="tab-script" class="hidden p-4 sm:p-6 space-y-5">
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
+        
+        <div class="flex items-center justify-between pb-3 border-b border-[var(--border)]">
+          <div>
+            <h2 class="text-base sm:text-lg font-bold text-[var(--foreground)]">90-Second Member Walkthrough Video Script</h2>
+            <p class="text-xs text-[var(--muted-foreground)]">Use this ready-to-read script to record a video on Loom, your phone screen recorder, or during Sunday announcements.</p>
+          </div>
+          <button onclick="copyScriptText()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm">
+            📄 Copy Script
+          </button>
+        </div>
+
+        <div class="space-y-4 text-xs sm:text-sm text-[var(--foreground)]" id="video-script-body">
+          
+          <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-[var(--border)] space-y-1">
+            <span class="font-mono text-[10px] text-blue-600 dark:text-blue-400 font-bold">[00:00 - 00:15] INTRO: WELCOME TO MYWARD BULLETIN</span>
+            <p class="italic text-[var(--foreground)] font-serif">
+              "Hello brothers and sisters! We are so excited to introduce our ward's new digital companion: <strong>MyWard Bulletin</strong>. You no longer need to carry paper programs or worry about missing announcements. Here is how you can install it on your phone in just 10 seconds and use it every Sunday!"
+            </p>
+            <p class="text-[11px] text-[var(--muted-foreground)]">📹 <em>Visual Action: Show phone scanning the QR code on chapel bulletin board or opening the WhatsApp link.</em></p>
+          </div>
+
+          <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-[var(--border)] space-y-1">
+            <span class="font-mono text-[10px] text-blue-600 dark:text-blue-400 font-bold">[00:15 - 00:35] INSTALLING TO HOME SCREEN (PWA)</span>
+            <p class="italic text-[var(--foreground)] font-serif">
+              "When you open the link on Android, simply tap <strong>'Install MyWard Bulletin'</strong>. On iPhone, tap the Safari <strong>Share</strong> button at the bottom, scroll down, and tap <strong>'Add to Home Screen'</strong>. Just like that, the MyWard icon appears on your phone screen just like any app from the App Store — without taking up phone storage!"
+            </p>
+            <p class="text-[11px] text-[var(--muted-foreground)]">📹 <em>Visual Action: Demonstrate tapping Share -> 'Add to Home Screen' -> show app icon on home screen.</em></p>
+          </div>
+
+          <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-[var(--border)] space-y-1">
+            <span class="font-mono text-[10px] text-blue-600 dark:text-blue-400 font-bold">[00:35 - 00:55] SACRAMENT PROGRAM & MUSIC HYMNS</span>
+            <p class="italic text-[var(--foreground)] font-serif">
+              "Inside, you'll find today’s sacrament agenda, speakers, and hymns. If you tap any hymn title, it opens directly in Gospel Library or Sacred Music so you can sing along with the sheet music or audio. You can also review this week’s Sunday School or Relief Society class lessons before class starts."
+            </p>
+            <p class="text-[11px] text-[var(--muted-foreground)]">📹 <em>Visual Action: Tap a hymn link to show external hymn view, scroll to Sunday classes.</em></p>
+          </div>
+
+          <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-[var(--border)] space-y-1">
+            <span class="font-mono text-[10px] text-blue-600 dark:text-blue-400 font-bold">[00:55 - 01:15] BIRTHDAYS & ONE-TAP WISHES</span>
+            <p class="italic text-[var(--foreground)] font-serif">
+              "Never miss a member's special day! The bulletin highlights all birthday celebrants for the week. Simply tap any member's name to send them an instant warm WhatsApp or SMS birthday wish from the ward family."
+            </p>
+            <p class="text-[11px] text-[var(--muted-foreground)]">📹 <em>Visual Action: Tap on a birthday celebrant card and show the one-tap WhatsApp wish pop-up.</em></p>
+          </div>
+
+          <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-[var(--border)] space-y-1">
+            <span class="font-mono text-[10px] text-blue-600 dark:text-blue-400 font-bold">[01:15 - 01:30] ACTIVITIES & MESSAGING THE BISHOPRIC</span>
+            <p class="italic text-[var(--foreground)] font-serif">
+              "Check youth nights, ward activities, and chapel cleaning schedules at a glance. And if you need to schedule an appointment with the Bishop or send a note, you can submit it securely right at the bottom of the page. Thank you, and welcome to MyWard Bulletin!"
+            </p>
+            <p class="text-[11px] text-[var(--muted-foreground)]">📹 <em>Visual Action: Scroll to activities schedule and show 'Message the Bishopric / Appointment Request' box.</em></p>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+  </div>
+
+  <script>
+    // Video Scenes Definition
+    const scenes = [
+      {
+        id: 1,
+        title: "Opening the Ward Bulletin",
+        badge: "Scene 1: Instant Access",
+        duration: "0:15",
+        desc: "Members tap the link shared on WhatsApp or scan the chapel QR code. It opens instantly in mobile Safari or Chrome without any login or account required.",
+        tips: "Loads in under 1 second. Fast and lightweight on all mobile networks.",
+        actionText: "Tap the link or scan chapel foyer QR code",
+        render: () => `
+          <div class="flex-1 flex flex-col items-center justify-center p-4 text-center space-y-3 animate-fade-in">
+            <div class="w-16 h-16 rounded-2xl bg-blue-600 text-white flex items-center justify-center text-3xl shadow-lg animate-bounce">
+              ⛪
+            </div>
+            <div class="space-y-1">
+              <span class="text-[10px] font-extrabold uppercase tracking-widest text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">QR CODE / LINK</span>
+              <h3 class="text-base font-bold text-slate-900">Ward Sacrament Bulletin</h3>
+              <p class="text-xs text-slate-500">Scan at the foyer or tap link</p>
+            </div>
+            <div class="w-full bg-white p-3 rounded-2xl border border-slate-200 shadow-sm text-left flex items-center gap-2">
+              <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-sm">
+                💬
+              </div>
+              <div class="text-[11px] truncate flex-1">
+                <p class="font-bold text-slate-800">Ward WhatsApp Group</p>
+                <p class="text-slate-500">"Brothers and sisters, here is today's bulletin..."</p>
+              </div>
+            </div>
+          </div>
+        `
+      },
+      {
+        id: 2,
+        title: "Install to Home Screen (PWA)",
+        badge: "Scene 2: Fast Install",
+        duration: "0:20",
+        desc: "On Android, tap 'Install MyWard Bulletin'. On iPhone, tap Safari Share (􀈂) and choose 'Add to Home Screen'. The app icon now lives right on your phone!",
+        tips: "Works full-screen without address bars and stays updated automatically every week.",
+        actionText: "Tap 'Add to Home Screen' to install as an app",
+        render: () => `
+          <div class="flex-1 flex flex-col justify-center p-2 space-y-3">
+            <div class="bg-blue-600 text-white p-3 rounded-2xl shadow-md text-center space-y-1">
+              <div class="text-xs uppercase font-extrabold tracking-wider text-blue-200">1-Tap Installation</div>
+              <p class="text-sm font-bold">Install MyWard Bulletin</p>
+            </div>
+
+            <!-- Simulated iPhone Safari Share Sheet -->
+            <div class="bg-white/95 rounded-2xl p-3 border border-slate-200 shadow-lg space-y-2">
+              <div class="text-[10px] font-bold text-slate-400 uppercase">Safari Share Menu</div>
+              <div class="p-2 rounded-xl bg-blue-50 border border-blue-200 flex items-center gap-2.5 text-xs font-bold text-blue-900">
+                <span class="text-base">➕</span>
+                <span>Add to Home Screen</span>
+                <span class="ml-auto text-[10px] bg-blue-600 text-white px-1.5 py-0.5 rounded font-bold">Tap Here</span>
+              </div>
+              <div class="p-2 rounded-xl bg-slate-50 flex items-center gap-2.5 text-xs text-slate-600">
+                <span class="text-base">🔖</span>
+                <span>Add Bookmark</span>
+              </div>
+            </div>
+
+            <!-- Simulated Home Screen Icon -->
+            <div class="flex flex-col items-center pt-2">
+              <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-700 to-indigo-900 shadow-md flex items-center justify-center text-white text-xl border-2 border-white">
+                ⛪
+              </div>
+              <span class="text-[11px] font-bold text-slate-800 mt-1">MyWard</span>
+            </div>
+          </div>
+        `
+      },
+      {
+        id: 3,
+        title: "Sacrament Program & Hymns",
+        badge: "Scene 3: Worship Service",
+        duration: "0:20",
+        desc: "Follow the meeting agenda, speakers, and hymns. Tap any hymn to instantly open sheet music and audio in Sacred Music or Gospel Library!",
+        tips: "Great for visitors, youth, and singing hymns with four-part harmonies on your phone.",
+        actionText: "Tap any hymn to open Sacred Music audio",
+        render: () => `
+          <div class="space-y-2 text-xs">
+            <div class="text-center pb-2 border-b border-slate-200">
+              <span class="text-[9px] font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full uppercase">Today's Meeting</span>
+              <h4 class="font-extrabold text-slate-900 text-sm mt-1">Sacrament Program</h4>
+            </div>
+
+            <div class="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-1.5">
+              <div class="flex justify-between items-center text-[11px]">
+                <span class="text-slate-500 font-medium">Opening Hymn:</span>
+                <span class="font-bold text-blue-700 underline flex items-center gap-1">
+                  🎵 #2 The Spirit of God ↗
+                </span>
+              </div>
+              <div class="flex justify-between items-center text-[11px]">
+                <span class="text-slate-500 font-medium">Invocation:</span>
+                <span class="font-semibold text-slate-800">Sister Sarah Johnson</span>
+              </div>
+              <div class="flex justify-between items-center text-[11px]">
+                <span class="text-slate-500 font-medium">Sacrament Hymn:</span>
+                <span class="font-bold text-blue-700 underline flex items-center gap-1">
+                  🎵 #193 I Stand All Amazed ↗
+                </span>
+              </div>
+              <div class="flex justify-between items-center text-[11px] pt-1 border-t border-slate-100">
+                <span class="text-slate-500 font-medium">Speaker 1:</span>
+                <span class="font-semibold text-slate-800">Brother John Doe</span>
+              </div>
+            </div>
+
+            <!-- Class lessons prep -->
+            <div class="p-2 rounded-xl bg-blue-50/70 border border-blue-100 text-[11px] space-y-1">
+              <span class="font-bold text-blue-900 uppercase text-[9px] block">Sunday Class Preparation:</span>
+              <p class="text-slate-700">Relief Society / Elders Quorum: <em>Conference Talk Discussion</em></p>
+            </div>
+          </div>
+        `
+      },
+      {
+        id: 4,
+        title: "Come, Follow Me Study Guide",
+        badge: "Scene 4: Gospel Study",
+        duration: "0:15",
+        desc: "Access the weekly Come, Follow Me reading, key doctrine takeaways, scripture of the week, and family reflection questions.",
+        tips: "Keeps families and classes spiritually aligned during the week.",
+        actionText: "Review this week's discussion questions",
+        render: () => `
+          <div class="space-y-2 text-xs">
+            <div class="p-3 rounded-2xl bg-gradient-to-br from-blue-900 to-indigo-950 text-white shadow-md space-y-1">
+              <div class="flex items-center gap-1.5 text-blue-300 text-[10px] font-bold uppercase tracking-wider">
+                <span>✨</span> Come, Follow Me
+              </div>
+              <h4 class="font-bold text-sm">"Behold, the Lamb of God"</h4>
+              <p class="text-[11px] text-blue-100">John 1:1–51 • Weekly Gospel Study</p>
+            </div>
+
+            <div class="p-2.5 rounded-xl bg-white border border-slate-200 text-[11px] space-y-1 shadow-2xs">
+              <strong class="text-blue-900 block font-bold">Reflection Callout:</strong>
+              <p class="text-slate-700 italic">"How can our family actively seek and hear the voice of the Savior this week?"</p>
+            </div>
+
+            <div class="p-2 rounded-xl bg-amber-50 border border-amber-200 text-[10px] text-amber-900">
+              📖 <strong>Scripture of the Week:</strong> D&C 6:36 — "Look unto me in every thought; doubt not, fear not."
+            </div>
+          </div>
+        `
+      },
+      {
+        id: 5,
+        title: "Birthday Celebrants & Wishes",
+        badge: "Scene 5: Fellowship",
+        duration: "0:15",
+        desc: "See every member celebrating a birthday this week. Tap their name to immediately send a personalized WhatsApp or SMS birthday wish!",
+        tips: "Increases ward fellowship and ensures every member feels remembered.",
+        actionText: "Tap a celebrant's name to send a WhatsApp wish",
+        render: () => `
+          <div class="space-y-2 text-xs">
+            <div class="p-3 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md flex items-center justify-between">
+              <div>
+                <span class="text-[10px] uppercase font-bold tracking-wider opacity-90">Celebration</span>
+                <h4 class="font-extrabold text-sm">🎂 Birthday Celebrants</h4>
+              </div>
+              <span class="text-2xl">🎉</span>
+            </div>
+
+            <div class="space-y-1.5 pt-1">
+              <div class="p-2 rounded-xl bg-white border border-slate-200 shadow-2xs flex items-center justify-between">
+                <div class="text-[11px]">
+                  <strong class="text-slate-900 block">Sister Mercy Adeleke</strong>
+                  <span class="text-slate-500 text-[10px]">Today, Sept 9</span>
+                </div>
+                <span class="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-1 rounded-lg border border-emerald-300 flex items-center gap-1">
+                  💬 Wish
+                </span>
+              </div>
+
+              <div class="p-2 rounded-xl bg-white border border-slate-200 shadow-2xs flex items-center justify-between">
+                <div class="text-[11px]">
+                  <strong class="text-slate-900 block">Brother David Adeyemi</strong>
+                  <span class="text-slate-500 text-[10px]">Friday, Sept 12</span>
+                </div>
+                <span class="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-1 rounded-lg border border-emerald-300 flex items-center gap-1">
+                  💬 Wish
+                </span>
+              </div>
+            </div>
+
+            <p class="text-[10px] text-center text-slate-500 italic">Tap any member to open pre-filled WhatsApp greeting</p>
+          </div>
+        `
+      },
+      {
+        id: 6,
+        title: "Activities & Contacting Bishopric",
+        badge: "Scene 6: Leadership & Schedule",
+        duration: "0:15",
+        desc: "Check mid-week youth nights, ward activities, chapel cleaning, and send confidential messages or appointment requests directly to the Bishop.",
+        tips: "Direct, confidential connection with ward leadership at your fingertips.",
+        actionText: "Fill out the appointment request form below",
+        render: () => `
+          <div class="space-y-2 text-xs">
+            <div class="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-1.5">
+              <div class="flex justify-between items-center pb-1 border-b border-slate-100">
+                <span class="font-bold text-slate-800 text-[11px]">📅 Weekly Activities</span>
+                <span class="text-[9px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">This Week</span>
+              </div>
+              <div class="text-[10px] space-y-1">
+                <div class="flex justify-between">
+                  <span class="font-semibold text-blue-900">Wednesday 6:00 PM</span>
+                  <span class="text-slate-600">Youth Night (Activity)</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="font-semibold text-blue-900">Saturday 8:00 AM</span>
+                  <span class="text-slate-600">Building Cleaning (Group 2)</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Bishopric message box -->
+            <div class="p-2.5 rounded-xl bg-blue-50 border border-blue-200 text-[11px] space-y-1.5">
+              <div class="flex items-center gap-1 text-blue-900 font-bold">
+                <span>✉️</span> Message Bishopric / Appointment
+              </div>
+              <div class="bg-white p-1.5 rounded-lg border border-blue-200 text-slate-400 text-[10px]">
+                Type note or appointment request...
+              </div>
+              <div class="flex justify-end">
+                <span class="bg-blue-600 text-white font-bold text-[9px] px-2 py-0.5 rounded shadow-2xs">
+                  Send to Bishopric
+                </span>
+              </div>
+            </div>
+          </div>
+        `
+      }
+    ];
+
+    let currentSceneIndex = 0;
+    let isPlaying = true;
+    let autoPlayTimer = null;
+    let voiceoverEnabled = true;
+
+    function renderCurrentScene() {
+      const scene = scenes[currentSceneIndex];
+      const viewport = document.getElementById('scene-viewport');
+      viewport.innerHTML = scene.render();
+
+      // Update Header Info
+      document.getElementById('current-scene-num').textContent = currentSceneIndex + 1;
+      document.getElementById('total-scenes-num').textContent = scenes.length;
+      document.getElementById('scene-badge').textContent = scene.badge;
+      document.getElementById('scene-title').textContent = scene.title;
+      document.getElementById('scene-desc').textContent = scene.desc;
+      document.getElementById('scene-tips-text').textContent = scene.tips;
+      document.getElementById('pointer-text').textContent = scene.actionText;
+
+      // Update progress bar
+      const progressPercent = ((currentSceneIndex + 1) / scenes.length) * 100;
+      document.getElementById('video-progress-bar').style.width = `${progressPercent}%`;
+
+      // Update jump list active state
+      renderJumpList();
+
+      // Voiceover Narration via SpeechSynthesis
+      if (voiceoverEnabled && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const speech = new SpeechSynthesisUtterance(`${scene.title}. ${scene.desc}`);
+        speech.rate = 1.0;
+        speech.pitch = 1.0;
+        window.speechSynthesis.speak(speech);
+      }
+    }
+
+    function renderJumpList() {
+      const listEl = document.getElementById('scene-jump-list');
+      listEl.innerHTML = scenes.map((sc, idx) => `
+        <button onclick="goToScene(${idx})" class="w-full text-left px-2.5 py-1.5 rounded-xl text-xs flex items-center justify-between transition-all ${idx === currentSceneIndex ? 'bg-blue-600 text-white font-bold shadow-xs' : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'}">
+          <div class="flex items-center gap-2 truncate">
+            <span class="w-4 text-center font-mono opacity-80">${idx + 1}.</span>
+            <span class="truncate">${sc.title}</span>
+          </div>
+          <span class="text-[10px] opacity-75 font-mono">${sc.duration}</span>
+        </button>
+      `).join('');
+    }
+
+    function startAutoPlay() {
+      stopAutoPlay();
+      autoPlayTimer = setInterval(() => {
+        if (currentSceneIndex < scenes.length - 1) {
+          currentSceneIndex++;
+          renderCurrentScene();
+        } else {
+          // Loop back to scene 1
+          currentSceneIndex = 0;
+          renderCurrentScene();
+        }
+      }, 7000);
+    }
+
+    function stopAutoPlay() {
+      if (autoPlayTimer) {
+        clearInterval(autoPlayTimer);
+        autoPlayTimer = null;
+      }
+    }
+
+    function togglePlayPause() {
+      isPlaying = !isPlaying;
+      const btn = document.getElementById('play-pause-btn');
+      if (isPlaying) {
+        btn.textContent = '⏸️';
+        startAutoPlay();
+      } else {
+        btn.textContent = '▶️';
+        stopAutoPlay();
+        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      }
+    }
+
+    function nextScene() {
+      if (currentSceneIndex < scenes.length - 1) {
+        currentSceneIndex++;
+      } else {
+        currentSceneIndex = 0;
+      }
+      renderCurrentScene();
+      if (isPlaying) startAutoPlay();
+    }
+
+    function prevScene() {
+      if (currentSceneIndex > 0) {
+        currentSceneIndex--;
+      } else {
+        currentSceneIndex = scenes.length - 1;
+      }
+      renderCurrentScene();
+      if (isPlaying) startAutoPlay();
+    }
+
+    function goToScene(index) {
+      currentSceneIndex = index;
+      renderCurrentScene();
+      if (isPlaying) startAutoPlay();
+    }
+
+    function handleTimelineClick(event) {
+      const bar = event.currentTarget;
+      const rect = bar.getBoundingClientRect();
+      const clickX = event.clientX - rect.left;
+      const ratio = Math.max(0, Math.min(1, clickX / rect.width));
+      const targetIndex = Math.floor(ratio * scenes.length);
+      goToScene(targetIndex);
+    }
+
+    function toggleVoiceover() {
+      voiceoverEnabled = !voiceoverEnabled;
+      const statusEl = document.getElementById('voice-status');
+      const iconEl = document.getElementById('voice-icon');
+      const btn = document.getElementById('voice-toggle-btn');
+      if (voiceoverEnabled) {
+        statusEl.textContent = 'ON';
+        iconEl.textContent = '🔊';
+        btn.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5 hover:bg-emerald-500/30 transition-all';
+        renderCurrentScene();
+      } else {
+        statusEl.textContent = 'OFF';
+        iconEl.textContent = '🔇';
+        btn.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-700 text-slate-400 border border-slate-600 flex items-center gap-1.5 hover:bg-slate-600 transition-all';
+        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      }
+    }
+
+    function switchTab(tabId) {
+      document.getElementById('tab-video').classList.add('hidden');
+      document.getElementById('tab-install').classList.add('hidden');
+      document.getElementById('tab-script').classList.add('hidden');
+
+      document.getElementById('tab-video-btn').className = 'px-3 py-1.5 rounded-lg font-semibold text-slate-300 hover:text-white transition-all flex items-center gap-1.5';
+      document.getElementById('tab-install-btn').className = 'px-3 py-1.5 rounded-lg font-semibold text-slate-300 hover:text-white transition-all flex items-center gap-1.5';
+      document.getElementById('tab-script-btn').className = 'px-3 py-1.5 rounded-lg font-semibold text-slate-300 hover:text-white transition-all flex items-center gap-1.5';
+
+      if (tabId === 'video') {
+        document.getElementById('tab-video').classList.remove('hidden');
+        document.getElementById('tab-video-btn').className = 'px-3 py-1.5 rounded-lg font-semibold bg-blue-600 text-white shadow-sm transition-all flex items-center gap-1.5';
+        if (isPlaying) startAutoPlay();
+      } else if (tabId === 'install') {
+        document.getElementById('tab-install').classList.remove('hidden');
+        document.getElementById('tab-install-btn').className = 'px-3 py-1.5 rounded-lg font-semibold bg-blue-600 text-white shadow-sm transition-all flex items-center gap-1.5';
+        stopAutoPlay();
+        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      } else if (tabId === 'script') {
+        document.getElementById('tab-script').classList.remove('hidden');
+        document.getElementById('tab-script-btn').className = 'px-3 py-1.5 rounded-lg font-semibold bg-blue-600 text-white shadow-sm transition-all flex items-center gap-1.5';
+        stopAutoPlay();
+        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      }
+    }
+
+    function copyBulletinLink() {
+      const url = window.location.origin + '/visitbulletin';
+      navigator.clipboard.writeText(url).then(() => {
+        alert('Public Bulletin Link copied: ' + url);
+      }).catch(() => {
+        alert('Link: ' + url);
+      });
+    }
+
+    function copyScriptText() {
+      const text = `
+MYWARD BULLETIN — 90-SECOND MEMBER VIDEO SCRIPT
+
+[00:00 - 00:15] INTRO: WELCOME TO MYWARD BULLETIN
+"Hello brothers and sisters! We are excited to introduce our ward's new digital companion: MyWard Bulletin. You no longer need to carry paper programs or worry about missing announcements. Here is how you can install it on your phone in just 10 seconds and use it every Sunday!"
+
+[00:15 - 00:35] INSTALLING TO HOME SCREEN (PWA)
+"When you open the link on Android, simply tap 'Install MyWard Bulletin'. On iPhone, tap the Safari Share button at the bottom, scroll down, and tap 'Add to Home Screen'. Just like that, the MyWard icon appears on your phone screen just like any app from the App Store — without taking up phone storage!"
+
+[00:35 - 00:55] SACRAMENT PROGRAM & MUSIC HYMNS
+"Inside, you'll find today’s sacrament agenda, speakers, and hymns. If you tap any hymn title, it opens directly in Gospel Library or Sacred Music so you can sing along with the sheet music or audio. You can also review this week’s Sunday School or Relief Society class lessons before class starts."
+
+[00:55 - 01:15] BIRTHDAYS & ONE-TAP WISHES
+"Never miss a member's special day! The bulletin highlights all birthday celebrants for the week. Simply tap any member's name to send them an instant warm WhatsApp or SMS birthday wish from the ward family."
+
+[01:15 - 01:30] ACTIVITIES & MESSAGING THE BISHOPRIC
+"Check youth nights, ward activities, and chapel cleaning schedules at a glance. And if you need to schedule an appointment with the Bishop or send a note, you can submit it securely right at the bottom of the page. Thank you, and welcome to MyWard Bulletin!"
+      `.trim();
+      navigator.clipboard.writeText(text).then(() => {
+        alert('Video script copied to clipboard!');
+      });
+    }
+
+    // Initialize clock and first scene
+    setInterval(() => {
+      const now = new Date();
+      document.getElementById('screen-clock').textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }, 1000);
+
+    renderCurrentScene();
+    startAutoPlay();
+  </script>
+</body>
+</html>
