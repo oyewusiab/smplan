@@ -106,12 +106,20 @@ export async function registerBulletinServiceWorker() {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
 
   try {
-    const registration = await navigator.serviceWorker.register('/visitbulletin/sw.js', {
+    const registration = await navigator.serviceWorker.register('/bulletin-sw.js', {
       scope: '/visitbulletin',
     });
     console.log('[Ward Bulletin] Service worker registered with scope:', registration.scope);
   } catch (error) {
-    console.warn('[Ward Bulletin] Service worker registration failed:', error);
+    console.warn('[Ward Bulletin] Root sw registration failed, trying /visitbulletin/sw.js:', error);
+    try {
+      const regAlt = await navigator.serviceWorker.register('/visitbulletin/sw.js', {
+        scope: '/visitbulletin',
+      });
+      console.log('[Ward Bulletin] Service worker registered with alt path:', regAlt.scope);
+    } catch (err2) {
+      console.warn('[Ward Bulletin] Service worker registration failed completely:', err2);
+    }
   }
 }
 

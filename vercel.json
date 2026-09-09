@@ -1,10 +1,18 @@
 {
   "headers": [
     {
+      "source": "/bulletin-sw.js",
+      "headers": [
+        { "key": "Content-Type", "value": "application/javascript; charset=utf-8" },
+        { "key": "Service-Worker-Allowed", "value": "/" },
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+      ]
+    },
+    {
       "source": "/visitbulletin/sw.js",
       "headers": [
         { "key": "Content-Type", "value": "application/javascript; charset=utf-8" },
-        { "key": "Service-Worker-Allowed", "value": "/visitbulletin" },
+        { "key": "Service-Worker-Allowed", "value": "/" },
         { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
       ]
     },
@@ -17,6 +25,10 @@
     }
   ],
   "rewrites": [
+    {
+      "source": "/bulletin-sw.js",
+      "destination": "/bulletin-sw.js"
+    },
     {
       "source": "/visitbulletin/manifest.json",
       "destination": "/visitbulletin/manifest.json"
