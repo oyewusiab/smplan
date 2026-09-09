@@ -261,60 +261,68 @@ export function BulletinPrintPreview({ bulletin: b }: BulletinPrintPreviewProps)
                     </div>
 
                     <div className="space-y-1 text-[10.5px]">
-                      {b.opening_hymn && (
-                        <div className="flex justify-between">
-                          <span className="text-slate-500 font-medium">Opening Hymn:</span>
-                          <span className="font-semibold text-slate-900">{formatHymnDisplay(b.opening_hymn)}</span>
+                      {b.is_canceled ? (
+                        <div className="p-2 rounded bg-rose-50 border border-rose-200 text-rose-900 text-[10px] font-bold">
+                          ⚠️ There will be no Sacrament Meeting because {b.cancel_reason || 'stated reasons in the planner.'}
                         </div>
-                      )}
-                      {b.opening_prayer && (
-                        <div className="flex justify-between">
-                          <span className="text-slate-500 font-medium">Invocation:</span>
-                          <span className="font-semibold text-slate-900">{formatHonorificName(b.opening_prayer)}</span>
-                        </div>
-                      )}
-                      {b.sacrament_hymn && (
-                        <div className="flex justify-between">
-                          <span className="text-slate-500 font-medium">Sacrament Hymn:</span>
-                          <span className="font-semibold text-slate-900">{formatHymnDisplay(b.sacrament_hymn)}</span>
-                        </div>
-                      )}
-
-                      {b.meeting_type === 'FAST_SUNDAY' ? (
-                        <div className="p-1.5 rounded bg-emerald-50 border-l-2 border-emerald-500 my-1">
-                          <span className="text-[10px] font-bold text-emerald-800">Testimonies: </span>
-                          <span className="text-[10px] text-emerald-950">Bearing of Testimonies by Congregation</span>
-                        </div>
-                      ) : speakers.length > 0 ? (
-                        <div className="pt-1 border-t border-slate-100">
-                          <span className="text-[9.5px] font-bold text-slate-500 block mb-0.5">Talks:</span>
-                          {speakers.map((sp, idx) => (
-                            <div key={idx} className="flex justify-between text-[10px]">
-                              <span className="text-slate-600">Speaker {idx + 1}:</span>
-                              <span className="font-semibold text-slate-900">{formatHonorificName(sp.name)}</span>
+                      ) : (
+                        <>
+                          {b.opening_hymn && (
+                            <div className="flex justify-between">
+                              <span className="text-slate-500 font-medium">Opening Hymn:</span>
+                              <span className="font-semibold text-slate-900">{formatHymnDisplay(b.opening_hymn)}</span>
                             </div>
-                          ))}
-                        </div>
-                      ) : b.speakers ? (
-                        <div className="pt-1 border-t border-slate-100">
-                          <span className="text-[9.5px] font-bold text-slate-500 block mb-0.5">Talks:</span>
-                          <p className="text-slate-800 font-medium whitespace-pre-line text-[10px]">
-                            {b.speakers.split('\n').map(l => formatHonorificName(l)).join('\n')}
-                          </p>
-                        </div>
-                      ) : null}
+                          )}
+                          {b.opening_prayer && (
+                            <div className="flex justify-between">
+                              <span className="text-slate-500 font-medium">Invocation:</span>
+                              <span className="font-semibold text-slate-900">{formatHonorificName(b.opening_prayer)}</span>
+                            </div>
+                          )}
+                          {b.sacrament_hymn && (
+                            <div className="flex justify-between">
+                              <span className="text-slate-500 font-medium">Sacrament Hymn:</span>
+                              <span className="font-semibold text-slate-900">{formatHymnDisplay(b.sacrament_hymn)}</span>
+                            </div>
+                          )}
 
-                      {b.closing_hymn && (
-                        <div className="flex justify-between">
-                          <span className="text-slate-500 font-medium">Closing Hymn:</span>
-                          <span className="font-semibold text-slate-900">{formatHymnDisplay(b.closing_hymn)}</span>
-                        </div>
-                      )}
-                      {b.closing_prayer && (
-                        <div className="flex justify-between">
-                          <span className="text-slate-500 font-medium">Benediction:</span>
-                          <span className="font-semibold text-slate-900">{formatHonorificName(b.closing_prayer)}</span>
-                        </div>
+                          {b.meeting_type === 'FAST_SUNDAY' ? (
+                            <div className="p-1.5 rounded bg-emerald-50 border-l-2 border-emerald-500 my-1">
+                              <span className="text-[10px] font-bold text-emerald-800">Testimonies: </span>
+                              <span className="text-[10px] text-emerald-950">Bearing of Testimonies by Congregation</span>
+                            </div>
+                          ) : speakers.length > 0 ? (
+                            <div className="pt-1 border-t border-slate-100">
+                              <span className="text-[9.5px] font-bold text-slate-500 block mb-0.5">Talks:</span>
+                              {speakers.map((sp, idx) => (
+                                <div key={idx} className="flex justify-between text-[10px]">
+                                  <span className="text-slate-600">Speaker {idx + 1}:</span>
+                                  <span className="font-semibold text-slate-900">{formatHonorificName(sp.name)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : b.speakers ? (
+                            <div className="pt-1 border-t border-slate-100">
+                              <span className="text-[9.5px] font-bold text-slate-500 block mb-0.5">Talks:</span>
+                              <p className="text-slate-800 font-medium whitespace-pre-line text-[10px]">
+                                {b.speakers.split('\n').map(l => formatHonorificName(l)).join('\n')}
+                              </p>
+                            </div>
+                          ) : null}
+
+                          {b.closing_hymn && (
+                            <div className="flex justify-between">
+                              <span className="text-slate-500 font-medium">Closing Hymn:</span>
+                              <span className="font-semibold text-slate-900">{formatHymnDisplay(b.closing_hymn)}</span>
+                            </div>
+                          )}
+                          {b.closing_prayer && (
+                            <div className="flex justify-between">
+                              <span className="text-slate-500 font-medium">Benediction:</span>
+                              <span className="font-semibold text-slate-900">{formatHonorificName(b.closing_prayer)}</span>
+                            </div>
+                          )}
+                        </>
                       )}
 
                       {/* Sunday Class Lessons Preparation */}

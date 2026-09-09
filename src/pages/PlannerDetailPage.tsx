@@ -1508,62 +1508,66 @@ export function PlannerDetailPage() {
                       </div>
 
                       <div className="grid sm:grid-cols-12 gap-4 p-4.5 bg-blue-50/25 rounded-xl border border-blue-200/80 shadow-2xs">
-                        <div className="sm:col-span-3">
+                        <div className={isCanceled ? 'sm:col-span-12' : 'sm:col-span-3'}>
                           <Input
-                            type="date"
                             label="Meeting Date"
+                            type="date"
                             disabled={!canEdit}
                             value={ag.date}
                             onChange={(e) => updateAgendaField(wIdx, { date: e.target.value })}
                           />
                         </div>
 
-                        <div className="sm:col-span-3">
-                          <Input
-                            label="Presiding Officer (Optional)"
-                            disabled={!canEdit}
-                            placeholder="e.g. Bishop Johnson / Stake President"
-                            value={ag.presiding || ''}
-                            onChange={(e) => updateAgendaField(wIdx, { presiding: e.target.value })}
-                          />
-                        </div>
-
-                        <div className="sm:col-span-3">
-                          <Select
-                            label="Meeting Type"
-                            disabled={!canEdit}
-                            options={[
-                              { value: 'SACRAMENT', label: 'Normal Sacrament' },
-                              { value: 'FAST_SUNDAY', label: 'Fast & Testimony' },
-                              { value: 'COMBINED', label: 'Combined Meeting' },
-                              { value: 'STAKE_CONFERENCE', label: 'Stake Conference' },
-                              { value: 'SPECIAL', label: 'Special Meeting' },
-                              { value: 'OTHER', label: 'Others (Specified)' },
-                            ]}
-                            value={ag.type_of_meeting}
-                            onChange={(e) => updateAgendaField(wIdx, { type_of_meeting: e.target.value as MeetingType })}
-                          />
-                          {ag.type_of_meeting === 'OTHER' && (
-                            <div className="mt-2">
+                        {!isCanceled && (
+                          <>
+                            <div className="sm:col-span-3">
                               <Input
-                                placeholder="Specify meeting type..."
+                                label="Presiding Officer (Optional)"
                                 disabled={!canEdit}
-                                value={ag.other_meeting_specify || ''}
-                                onChange={(e) => updateAgendaField(wIdx, { other_meeting_specify: e.target.value })}
+                                placeholder="e.g. Bishop Johnson / Stake President"
+                                value={ag.presiding || ''}
+                                onChange={(e) => updateAgendaField(wIdx, { presiding: e.target.value })}
                               />
                             </div>
-                          )}
-                        </div>
 
-                        <div className="sm:col-span-3">
-                          <Input
-                            label="Venue / Time Override"
-                            disabled={!canEdit}
-                            placeholder="e.g. Main Chapel @ 10:00 AM"
-                            value={ag.meeting_time_override || ag.start_time || ''}
-                            onChange={(e) => updateAgendaField(wIdx, { meeting_time_override: e.target.value })}
-                          />
-                        </div>
+                            <div className="sm:col-span-3">
+                              <Select
+                                label="Meeting Type"
+                                disabled={!canEdit}
+                                options={[
+                                  { value: 'SACRAMENT', label: 'Normal Sacrament' },
+                                  { value: 'FAST_SUNDAY', label: 'Fast & Testimony' },
+                                  { value: 'COMBINED', label: 'Combined Meeting' },
+                                  { value: 'STAKE_CONFERENCE', label: 'Stake Conference' },
+                                  { value: 'SPECIAL', label: 'Special Meeting' },
+                                  { value: 'OTHER', label: 'Others (Specified)' },
+                                ]}
+                                value={ag.type_of_meeting}
+                                onChange={(e) => updateAgendaField(wIdx, { type_of_meeting: e.target.value as MeetingType })}
+                              />
+                              {ag.type_of_meeting === 'OTHER' && (
+                                <div className="mt-2">
+                                  <Input
+                                    placeholder="Specify meeting type..."
+                                    disabled={!canEdit}
+                                    value={ag.other_meeting_specify || ''}
+                                    onChange={(e) => updateAgendaField(wIdx, { other_meeting_specify: e.target.value })}
+                                  />
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="sm:col-span-3">
+                              <Input
+                                label="Venue / Time Override"
+                                disabled={!canEdit}
+                                placeholder="e.g. Main Chapel @ 10:00 AM"
+                                value={ag.meeting_time_override || ag.start_time || ''}
+                                onChange={(e) => updateAgendaField(wIdx, { meeting_time_override: e.target.value })}
+                              />
+                            </div>
+                          </>
+                        )}
 
                         {/* On/Off Sacrament Meeting Toggle Switch */}
                         <div className="sm:col-span-12 pt-3 border-t border-blue-200/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -1571,7 +1575,7 @@ export function PlannerDetailPage() {
                             <label className="text-xs font-extrabold text-slate-800 flex items-center gap-2">
                               Sacrament Meeting Will be Held?
                               <span className={`px-2.5 py-0.5 rounded-full text-2xs font-black ${!isCanceled ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'}`}>
-                                {!isCanceled ? 'YES — SACRAMENT HELD' : 'NO — SACRAMENT CANCELED'}
+                                {!isCanceled ? 'YES — SACRAMENT HELD' : 'NO — NO SACRAMENT MEETING'}
                               </span>
                             </label>
                             <p className="text-xs text-slate-500 mt-0.5">
@@ -1612,10 +1616,10 @@ export function PlannerDetailPage() {
                         <AlertTriangle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
                         <div className="space-y-1">
                           <h5 className="font-extrabold text-red-900 text-sm uppercase tracking-wide">
-                            No Sacrament Meeting Scheduled
+                            There Will Be No Sacrament Meeting
                           </h5>
                           <p className="text-xs text-red-800">
-                            Reason: <strong>{ag.cancel_reason || 'Special Ward/Stake Scheduling'}</strong>.
+                            There will be no Sacrament Meeting because <strong>{ag.cancel_reason || 'Special Ward/Stake Scheduling'}</strong>.
                           </p>
                           <p className="text-2xs text-red-600">
                             All speaker slots, hymn selections, sacrament duty rosters, and prayer assignments for this Sunday have been deactivated.

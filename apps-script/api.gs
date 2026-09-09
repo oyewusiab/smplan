@@ -2722,6 +2722,8 @@ function handleGetBulletinDraftData(params) {
   const sourceObj = agenda || plannerWeek || {};
   meetingType = sourceObj.type_of_meeting || sourceObj.meeting_type || 'SACRAMENT';
   meetingTheme = sourceObj.other_meeting_specify || sourceObj.theme || '';
+  const isCanceledMeeting = !!sourceObj.is_canceled;
+  const cancelReasonMeeting = sourceObj.cancel_reason || '';
   
   // Format hymns with both number and title together
   function formatHymn(numVal, titleVal) {
@@ -2930,6 +2932,79 @@ function handleGetBulletinDraftData(params) {
     });
   });
 
+  // Collect recurring activities from previous saved bulletins and database
+  const allBulletins = dbReadAll('BULLETINS');
+  const recurringFromPast = [];
+  allBulletins.forEach(function(b) {
+    if (b && b.activities_list) {
+      try {
+        const list = typeof b.activities_list === 'string' ? JSON.parse(b.activities_list) : b.activities_list;
+        if (Array.isArray(list)) {
+          list.forEach(function(item) {
+            if (item && (item.reoccurring || item.is_recurring)) {
+              const exists = recurringFromPast.some(function(r) {
+                return (r.day || '').toLowerCase() === (item.day || '').toLowerCase() &&
+                       (r.activity || '').toLowerCase() === (item.activity || '').toLowerCase();
+              });
+              if (!exists) {
+                recurringFromPast.push({
+                  id: item.id || ('past_rec_' + recurringFromPast.length),
+                  day: item.day || 'Monday',
+                  activity: item.activity || '',
+                  time: item.time || '4:30 PM',
+                  scope: item.scope || 'Ward',
+                  reoccurring: true,
+                  is_recurring: true
+                });
+              }
+            }
+          });
+        }
+      } catch(e) {}
+    }
+  });
+
+  allActivities.forEach(function(act, idx) {
+    if (act.reoccurring) {
+      let matchedDay = 'Monday';
+      if (act.date) {
+        try {
+          const parts = act.date.split('-');
+          if (parts.length === 3) {
+            const dObj = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+            matchedDay = dayNamesFull[dObj.getDay() === 0 ? 6 : dObj.getDay() - 1];
+          }
+        } catch(e) {}
+      }
+      const exists = recurringFromPast.some(function(r) {
+        return (r.day || '').toLowerCase() === matchedDay.toLowerCase() &&
+               (r.activity || '').toLowerCase() === (act.activity || '').toLowerCase();
+      });
+      if (!exists) {
+        recurringFromPast.push({
+          id: act.activity_id || ('act_rec_' + idx),
+          day: matchedDay,
+          activity: act.activity || 'Church Activity',
+          time: act.time || '4:30 PM',
+          scope: (act.organisation || '').toLowerCase().includes('stake') ? 'Stake' : 'Ward',
+          reoccurring: true,
+          is_recurring: true
+        });
+      }
+    }
+  });
+
+  // Merge recurring activities into activitiesList if not already present
+  recurringFromPast.forEach(function(rec) {
+    const alreadyIn = activitiesList.some(function(a) {
+      return (a.day || '').toLowerCase() === (rec.day || '').toLowerCase() &&
+             (a.activity || '').toLowerCase() === (rec.activity || '').toLowerCase();
+    });
+    if (!alreadyIn) {
+      activitiesList.push(rec);
+    }
+  });
+
   if (activitiesList.length === 0) {
     activitiesList = [
       { id: 'act_1', day: 'Monday', activity: 'YSA Family Home Evening', time: '4:30 PM', scope: 'Ward', reoccurring: true, is_recurring: true },
@@ -2943,6 +3018,10 @@ function handleGetBulletinDraftData(params) {
       { id: 'act_9', day: 'Sunday', activity: 'Sacrament Meeting', time: '9:00 AM', scope: 'Ward', reoccurring: true, is_recurring: true },
     ];
   }
+
+  // Sort activities by Mon-Sun
+  const dayOrderMap = { 'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4, 'Saturday': 5, 'Sunday': 6 };
+  activitiesList.sort((a, b) => (dayOrderMap[a.day] !== undefined ? dayOrderMap[a.day] : 99) - (dayOrderMap[b.day] !== undefined ? dayOrderMap[b.day] : 99));
 
   const activitiesText = activitiesList.map(a => `${a.day}: ${a.activity} @ ${a.time} [${a.scope}]`).join('\n');
 
@@ -2992,6 +3071,8 @@ function handleGetBulletinDraftData(params) {
         unit_name: unitName,
         stake_name: stakeName,
         meeting_type: meetingType,
+        is_canceled: isCanceledMeeting,
+        cancel_reason: cancelReasonMeeting,
         theme: sourceObj.other_meeting_specify || (meetingType === 'FAST_SUNDAY' ? 'Fast & Testimony Meeting' : 'Focus on Jesus Christ and His Atonement'),
         special_music: specialMusic,
         opening_hymn: openingHymn,

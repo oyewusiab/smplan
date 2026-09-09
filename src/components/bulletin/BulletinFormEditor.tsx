@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import {
   Sparkles, Calendar, Music, MessageSquare,
   Users, CheckSquare, Bookmark, Layers, Send, Link, Globe,
-  ArrowUp, ArrowDown, Trash2, Plus, Clock, MapPin, Repeat, ShieldAlert, Heart, ExternalLink, Mail, Smartphone
+  ArrowUp, ArrowDown, Trash2, Plus, Clock, MapPin, Repeat, ShieldAlert, Heart, ExternalLink, Mail, Smartphone,
+  AlertTriangle
 } from 'lucide-react';
 import { Card, CardBody, CardHeader } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -474,78 +475,90 @@ export function BulletinFormEditor({
               </div>
             </CardHeader>
             <CardBody className="space-y-4">
-              <div className="grid sm:grid-cols-2 gap-4">
-                {f.meeting_type === 'FAST_SUNDAY' && (
-                  <div className="sm:col-span-2 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 flex items-center gap-2">
-                    <span className="font-semibold">Fast & Testimony Meeting:</span> Talks replaced with open congregation testimonies following the Sacrament hymn and administration.
+              {f.is_canceled ? (
+                <div className="p-4 rounded-xl border border-rose-200 bg-rose-50/70 text-rose-900 space-y-1.5">
+                  <div className="flex items-center gap-2 font-bold text-sm text-rose-800">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>There will be no Sacrament Meeting because {f.cancel_reason || 'stated reasons in the planner.'}</span>
                   </div>
-                )}
+                  <p className="text-xs text-rose-700">
+                    Sacrament order of service is omitted for this week. Sunday class lessons and weekly activities are retained below.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {f.meeting_type === 'FAST_SUNDAY' && (
+                    <div className="sm:col-span-2 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 flex items-center gap-2">
+                      <span className="font-semibold">Fast & Testimony Meeting:</span> Talks replaced with open congregation testimonies following the Sacrament hymn and administration.
+                    </div>
+                  )}
 
-                <Input
-                  label="Opening Hymn"
-                  placeholder="e.g. 2 — The Spirit of God"
-                  value={f.opening_hymn || ''}
-                  onChange={(e) => setForm((prev) => ({ ...prev, opening_hymn: e.target.value }))}
-                  onBlur={(e) => setForm((prev) => ({ ...prev, opening_hymn: formatHymnDisplay(e.target.value) }))}
-                />
-                <Input
-                  label="Invocation (Opening Prayer)"
-                  placeholder="e.g. Sister Jane Smith"
-                  value={f.opening_prayer || ''}
-                  onChange={(e) => setForm((prev) => ({ ...prev, opening_prayer: e.target.value }))}
-                  onBlur={(e) => setForm((prev) => ({ ...prev, opening_prayer: formatHonorificName(e.target.value) }))}
-                />
-                <Input
-                  label="Sacrament Hymn"
-                  placeholder="e.g. 169 — As Now We Take the Sacrament"
-                  value={f.sacrament_hymn || ''}
-                  onChange={(e) => setForm((prev) => ({ ...prev, sacrament_hymn: e.target.value }))}
-                  onBlur={(e) => setForm((prev) => ({ ...prev, sacrament_hymn: formatHymnDisplay(e.target.value) }))}
-                />
-                <div className="sm:col-span-2">
-                  <Textarea
-                    label={f.meeting_type === 'FAST_SUNDAY' ? 'Testimonies Note' : 'Talks / Speakers Roster (Names with Titles, e.g. Brother / Sister)'}
-                    rows={3}
-                    placeholder={`Brother Emmanuel Olajide\nSister Grace Adams`}
-                    value={
-                      typeof f.speakers === 'string'
-                        ? f.speakers
-                        : Array.isArray(f.speakers)
-                        ? (f.speakers as any[]).map((s) => s.name || s.speaker_name || '').filter(Boolean).join('\n')
-                        : ''
-                    }
-                    onChange={(e) => setForm((prev) => ({ ...prev, speakers: e.target.value }))}
-                    onBlur={(e) => {
-                      if (f.meeting_type === 'FAST_SUNDAY') return;
-                      const formatted = e.target.value
-                        .split('\n')
-                        .map((line) => {
-                          const namePart = line.split(/[—–-]/)[0]?.trim();
-                          return namePart ? formatHonorificName(namePart) : '';
-                        })
-                        .filter(Boolean)
-                        .join('\n');
-                      if (formatted) {
-                        setForm((prev) => ({ ...prev, speakers: formatted }));
+                  <Input
+                    label="Opening Hymn"
+                    placeholder="e.g. 2 — The Spirit of God"
+                    value={f.opening_hymn || ''}
+                    onChange={(e) => setForm((prev) => ({ ...prev, opening_hymn: e.target.value }))}
+                    onBlur={(e) => setForm((prev) => ({ ...prev, opening_hymn: formatHymnDisplay(e.target.value) }))}
+                  />
+                  <Input
+                    label="Invocation (Opening Prayer)"
+                    placeholder="e.g. Sister Jane Smith"
+                    value={f.opening_prayer || ''}
+                    onChange={(e) => setForm((prev) => ({ ...prev, opening_prayer: e.target.value }))}
+                    onBlur={(e) => setForm((prev) => ({ ...prev, opening_prayer: formatHonorificName(e.target.value) }))}
+                  />
+                  <Input
+                    label="Sacrament Hymn"
+                    placeholder="e.g. 169 — As Now We Take the Sacrament"
+                    value={f.sacrament_hymn || ''}
+                    onChange={(e) => setForm((prev) => ({ ...prev, sacrament_hymn: e.target.value }))}
+                    onBlur={(e) => setForm((prev) => ({ ...prev, sacrament_hymn: formatHymnDisplay(e.target.value) }))}
+                  />
+                  <div className="sm:col-span-2">
+                    <Textarea
+                      label={f.meeting_type === 'FAST_SUNDAY' ? 'Testimonies Note' : 'Talks / Speakers Roster (Names with Titles, e.g. Brother / Sister)'}
+                      rows={3}
+                      placeholder={`Brother Emmanuel Olajide\nSister Grace Adams`}
+                      value={
+                        typeof f.speakers === 'string'
+                          ? f.speakers
+                          : Array.isArray(f.speakers)
+                          ? (f.speakers as any[]).map((s) => s.name || s.speaker_name || '').filter(Boolean).join('\n')
+                          : ''
                       }
-                    }}
+                      onChange={(e) => setForm((prev) => ({ ...prev, speakers: e.target.value }))}
+                      onBlur={(e) => {
+                        if (f.meeting_type === 'FAST_SUNDAY') return;
+                        const formatted = e.target.value
+                          .split('\n')
+                          .map((line) => {
+                            const namePart = line.split(/[—–-]/)[0]?.trim();
+                            return namePart ? formatHonorificName(namePart) : '';
+                          })
+                          .filter(Boolean)
+                          .join('\n');
+                        if (formatted) {
+                          setForm((prev) => ({ ...prev, speakers: formatted }));
+                        }
+                      }}
+                    />
+                  </div>
+                  <Input
+                    label="Closing Hymn"
+                    placeholder="e.g. 152 — God Be with You Till We Meet Again"
+                    value={f.closing_hymn || ''}
+                    onChange={(e) => setForm((prev) => ({ ...prev, closing_hymn: e.target.value }))}
+                    onBlur={(e) => setForm((prev) => ({ ...prev, closing_hymn: formatHymnDisplay(e.target.value) }))}
+                  />
+                  <Input
+                    label="Benediction (Closing Prayer)"
+                    placeholder="e.g. Brother Michael Adebayo"
+                    value={f.closing_prayer || ''}
+                    onChange={(e) => setForm((prev) => ({ ...prev, closing_prayer: e.target.value }))}
+                    onBlur={(e) => setForm((prev) => ({ ...prev, closing_prayer: formatHonorificName(e.target.value) }))}
                   />
                 </div>
-                <Input
-                  label="Closing Hymn"
-                  placeholder="e.g. 152 — God Be with You Till We Meet Again"
-                  value={f.closing_hymn || ''}
-                  onChange={(e) => setForm((prev) => ({ ...prev, closing_hymn: e.target.value }))}
-                  onBlur={(e) => setForm((prev) => ({ ...prev, closing_hymn: formatHymnDisplay(e.target.value) }))}
-                />
-                <Input
-                  label="Benediction (Closing Prayer)"
-                  placeholder="e.g. Brother Michael Adebayo"
-                  value={f.closing_prayer || ''}
-                  onChange={(e) => setForm((prev) => ({ ...prev, closing_prayer: e.target.value }))}
-                  onBlur={(e) => setForm((prev) => ({ ...prev, closing_prayer: formatHonorificName(e.target.value) }))}
-                />
-              </div>
+              )}
 
               {/* ─── Sunday Class Lessons Section ───────────────────────────── */}
               <div className="pt-4 border-t border-slate-200/80 space-y-3">

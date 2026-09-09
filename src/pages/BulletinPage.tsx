@@ -220,9 +220,8 @@ export function BulletinPage() {
     return () => clearTimeout(timer);
   }, [form]);
 
-  // ─── Generate Bulletin Week Options (Monday – Sunday Range Architecture) ─────
+  // ─── Generate Bulletin Week Options (Strictly Active Planners Architecture) ─────
   const weekOptions: BulletinWeekOption[] = useMemo(() => {
-    const options: BulletinWeekOption[] = [];
     const dateMap = new Map<string, BulletinWeekOption>();
 
     planners.forEach((p) => {
@@ -257,32 +256,23 @@ export function BulletinPage() {
       });
     });
 
-    const now = new Date();
-    for (let offset = -4; offset <= 8; offset++) {
-      const target = addWeeks(now, offset);
-      const dayOfWeek = target.getDay();
-      const diffToSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
-      const targetSunday = new Date(target);
-      targetSunday.setDate(target.getDate() + diffToSunday);
-      const sunStr = format(targetSunday, 'yyyy-MM-dd');
-
-      if (!dateMap.has(sunStr)) {
-        const range = getWeekDateRange(sunStr, form.unit_name);
-        const monthName = format(targetSunday, 'MMMM');
-        const opt: BulletinWeekOption = {
-          value: sunStr,
-          label: `${range.monFormatted} – ${range.sunFormatted} Bulletin (${monthName})`,
-          mondayDate: range.mondayStr,
-          sundayDate: sunStr,
-          unitName: form.unit_name,
-        };
-        dateMap.set(sunStr, opt);
-      }
+    // If current form date is set and not yet in map, include it
+    if (form.date && !dateMap.has(form.date)) {
+      const range = getWeekDateRange(form.date, form.unit_name);
+      const monthName = format(parseISO(form.date), 'MMMM');
+      const opt: BulletinWeekOption = {
+        value: form.date,
+        label: `${range.monFormatted} – ${range.sunFormatted} Bulletin (${monthName})`,
+        mondayDate: range.mondayStr,
+        sundayDate: form.date,
+        unitName: form.unit_name,
+      };
+      dateMap.set(form.date, opt);
     }
 
     const sorted = Array.from(dateMap.values()).sort((a, b) => b.value.localeCompare(a.value));
     return sorted;
-  }, [planners, form.unit_name]);
+  }, [planners, form.date, form.unit_name]);
 
   // Non-destructive Sacrament Program Sync from Planner
   const handleSyncSacramentFromPlanner = async (targetDateOverride?: string, targetPlannerIdOverride?: string) => {
@@ -370,7 +360,12 @@ export function BulletinPage() {
       incomingSpeakersText = 'Bearing of Testimonies by the Congregation';
     }
 
+    const isCanceledMeeting = !!targetAgenda.is_canceled;
+    const cancelReasonMeeting = targetAgenda.cancel_reason || '';
+
     const incoming: Partial<Bulletin> = {
+      is_canceled: isCanceledMeeting,
+      cancel_reason: cancelReasonMeeting,
       opening_hymn: formatHymnDisplay(targetAgenda.opening_hymn, targetAgenda.opening_hymn_number),
       opening_prayer: targetAgenda.opening_prayer ? formatHonorificName(targetAgenda.opening_prayer) : '',
       sacrament_hymn: formatHymnDisplay(targetAgenda.sacrament_hymn, targetAgenda.sacrament_hymn_number),
@@ -389,8 +384,6 @@ export function BulletinPage() {
       { key: 'opening_hymn', label: 'Opening Hymn' },
       { key: 'opening_prayer', label: 'Invocation (Opening Prayer)' },
       { key: 'sacrament_hymn', label: 'Sacrament Hymn' },
-      { key: 'opening_prayer', label: 'Invocation (Opening Prayer)' },
-      { key: 'sacrament_hymn', label: 'Sacrament Hymn' },
       { key: 'speakers', label: 'Speakers / Testimonies' },
       { key: 'special_music', label: 'Special Musical Item' },
       { key: 'closing_hymn', label: 'Closing Hymn' },
@@ -398,7 +391,10 @@ export function BulletinPage() {
     ];
 
     const diffs: SyncFieldDifference[] = [];
-    const autoApplyFields: Partial<Bulletin> = {};
+    const autoApplyFields: Partial<Bulletin> = {
+      is_canceled: isCanceledMeeting,
+      cancel_reason: cancelReasonMeeting,
+    };
 
     fieldMapping.forEach(({ key, label }) => {
       const currentVal = String((form as any)[key] || '').trim();
@@ -485,6 +481,35 @@ export function BulletinPage() {
     const targetPlannerId = overridePlannerId || form.planner_id;
     toast.loading('Auto-harvesting data for ' + targetDate + '…', { id: 'drafting' });
 
+    // Collect all recurring activities from previous saved bulletins and current form
+    const recurringPool: WeeklyActivityItem[] = [];
+    bulletins.forEach((b) => {
+      if (Array.isArray(b.activities_list)) {
+        b.activities_list.forEach((item) => {
+          if (item && item.reoccurring) {
+            const exists = recurringPool.some(
+              (r) =>
+                (r.day || '').toLowerCase() === (item.day || '').toLowerCase() &&
+                (r.activity || '').toLowerCase() === (item.activity || '').toLowerCase()
+            );
+            if (!exists) recurringPool.push({ ...item });
+          }
+        });
+      }
+    });
+    if (Array.isArray(form.activities_list)) {
+      form.activities_list.forEach((item) => {
+        if (item && item.reoccurring) {
+          const exists = recurringPool.some(
+            (r) =>
+              (r.day || '').toLowerCase() === (item.day || '').toLowerCase() &&
+              (r.activity || '').toLowerCase() === (item.activity || '').toLowerCase()
+          );
+          if (!exists) recurringPool.push({ ...item });
+        }
+      });
+    }
+
     try {
       const res = (await bulletinsApi.getDraftData(
         session.token,
@@ -526,6 +551,8 @@ export function BulletinPage() {
           setForm((prev) => ({
             ...prev,
             ...sug,
+            is_canceled: sug.is_canceled !== undefined ? sug.is_canceled : prev.is_canceled,
+            cancel_reason: sug.cancel_reason !== undefined ? sug.cancel_reason : prev.cancel_reason,
             opening_hymn: formatHymnDisplay(sug.opening_hymn || prev.opening_hymn),
             opening_prayer: formatHonorificName(sug.opening_prayer || prev.opening_prayer),
             sacrament_hymn: formatHymnDisplay(sug.sacrament_hymn || prev.sacrament_hymn),
@@ -544,12 +571,32 @@ export function BulletinPage() {
       }
     } catch {
       const { celebrants: harvestedBirthdays, formattedString: bdaysText } = getBirthdaysForWeek(members, targetDate);
-      const { items: actItems, formattedText: actText } = harvestWeeklyActivities(activities, targetDate);
+      const { items: actItems, formattedText: actText } = harvestWeeklyActivities(activities, targetDate, recurringPool);
       const next5 = getNext5Activities(activities, targetDate);
+
+      // Check if agenda for this target date is canceled in local planners
+      let localCanceled = false;
+      let localReason = '';
+      for (const p of planners) {
+        let weeks: any[] = [];
+        try {
+          weeks = typeof p.weeks === 'string' ? JSON.parse(p.weeks) : (p.weeks || []);
+        } catch {}
+        const match = weeks.find((w: any) => w.date === targetDate);
+        if (match) {
+          if (match.is_canceled) {
+            localCanceled = true;
+            localReason = match.cancel_reason || '';
+          }
+          break;
+        }
+      }
 
       setForm((prev) => ({
         ...prev,
         date: targetDate,
+        is_canceled: localCanceled || prev.is_canceled,
+        cancel_reason: localReason || prev.cancel_reason,
         birthdays: bdaysText,
         birthday_celebrants_list: harvestedBirthdays,
         activities: actText,

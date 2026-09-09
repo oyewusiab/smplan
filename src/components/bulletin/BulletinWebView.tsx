@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import {
   Heart, Calendar, Music, Sparkles, Send, Volume2, Share2,
-  CheckCircle2, Clock, MapPin, Users, BookOpen, MessageSquare, ChevronDown, ExternalLink, QrCode, Mail, Smartphone
+  CheckCircle2, Clock, MapPin, Users, BookOpen, MessageSquare, ChevronDown, ExternalLink, QrCode, Mail, Smartphone,
+  AlertTriangle
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { Button } from '../ui/Button';
@@ -157,160 +158,170 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp, onOpenFeedbackMo
                 Sacrament and Classes Programes
               </h2>
               <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md">
-                {b.meeting_type === 'FAST_SUNDAY' ? 'Fast & Testimony Meeting' : 'Sacrament Service'}
+                {b.is_canceled ? 'Meeting Canceled' : b.meeting_type === 'FAST_SUNDAY' ? 'Fast & Testimony Meeting' : 'Sacrament Service'}
               </span>
             </div>
 
-            <div className="space-y-2 text-xs">
-              {/* Opening Hymn + Church Link */}
-              {b.opening_hymn && (
-                <div className="flex items-center justify-between py-1.5 border-b border-slate-50">
-                  <div className="min-w-0 flex-1 pr-2">
-                    <span className="text-slate-500 font-medium block">Opening Hymn</span>
+            {b.is_canceled ? (
+              <div className="p-3.5 rounded-xl border border-rose-200 bg-rose-50 text-rose-900 space-y-1">
+                <div className="flex items-center gap-2 font-bold text-xs text-rose-800">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>There will be no Sacrament Meeting because {b.cancel_reason || 'stated reasons in the planner.'}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2 text-xs">
+                {/* Opening Hymn + Church Link */}
+                {b.opening_hymn && (
+                  <div className="flex items-center justify-between py-1.5 border-b border-slate-50">
+                    <div className="min-w-0 flex-1 pr-2">
+                      <span className="text-slate-500 font-medium block">Opening Hymn</span>
+                      <a
+                        href={resolveHymnLink(b.opening_hymn)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-semibold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1 truncate"
+                        title="Open hymn on churchofjesuschrist.org"
+                      >
+                        <span>{formatHymnDisplay(b.opening_hymn)}</span>
+                        <ExternalLink className="w-3 h-3 shrink-0 text-blue-500" />
+                      </a>
+                    </div>
                     <a
                       href={resolveHymnLink(b.opening_hymn)}
                       target="_blank"
                       rel="noreferrer"
-                      className="font-semibold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1 truncate"
-                      title="Open hymn on churchofjesuschrist.org"
+                      className="p-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 flex items-center gap-1 text-[11px] font-semibold shrink-0"
+                      title="Listen & view sheet music on Church site"
                     >
-                      <span>{formatHymnDisplay(b.opening_hymn)}</span>
-                      <ExternalLink className="w-3 h-3 shrink-0 text-blue-500" />
+                      <Volume2 className="w-3.5 h-3.5" />
+                      <span>Church Music</span>
                     </a>
                   </div>
-                  <a
-                    href={resolveHymnLink(b.opening_hymn)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="p-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 flex items-center gap-1 text-[11px] font-semibold shrink-0"
-                    title="Listen & view sheet music on Church site"
-                  >
-                    <Volume2 className="w-3.5 h-3.5" />
-                    <span>Church Music</span>
-                  </a>
-                </div>
-              )}
+                )}
 
-              {b.opening_prayer && (
+                {b.opening_prayer && (
+                  <div className="flex justify-between py-1 border-b border-slate-50">
+                    <span className="text-slate-500 font-medium">Invocation (Opening Prayer)</span>
+                    <span className="font-semibold text-slate-900">{formatHonorificName(b.opening_prayer)}</span>
+                  </div>
+                )}
+
                 <div className="flex justify-between py-1 border-b border-slate-50">
-                  <span className="text-slate-500 font-medium">Invocation (Opening Prayer)</span>
-                  <span className="font-semibold text-slate-900">{formatHonorificName(b.opening_prayer)}</span>
+                  <span className="text-slate-500 font-medium">Ward & Stake Business</span>
+                  <span className="font-semibold text-slate-900">As Announced</span>
                 </div>
-              )}
 
-              <div className="flex justify-between py-1 border-b border-slate-50">
-                <span className="text-slate-500 font-medium">Ward & Stake Business</span>
-                <span className="font-semibold text-slate-900">As Announced</span>
-              </div>
-
-              {/* Sacrament Hymn + Church Link */}
-              {b.sacrament_hymn && (
-                <div className="flex items-center justify-between py-1.5 border-b border-slate-50">
-                  <div className="min-w-0 flex-1 pr-2">
-                    <span className="text-slate-500 font-medium block">Sacrament Hymn</span>
+                {/* Sacrament Hymn + Church Link */}
+                {b.sacrament_hymn && (
+                  <div className="flex items-center justify-between py-1.5 border-b border-slate-50">
+                    <div className="min-w-0 flex-1 pr-2">
+                      <span className="text-slate-500 font-medium block">Sacrament Hymn</span>
+                      <a
+                        href={resolveHymnLink(b.sacrament_hymn)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-semibold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1 truncate"
+                        title="Open sacrament hymn on churchofjesuschrist.org"
+                      >
+                        <span>{formatHymnDisplay(b.sacrament_hymn)}</span>
+                        <ExternalLink className="w-3 h-3 shrink-0 text-blue-500" />
+                      </a>
+                    </div>
                     <a
                       href={resolveHymnLink(b.sacrament_hymn)}
                       target="_blank"
                       rel="noreferrer"
-                      className="font-semibold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1 truncate"
-                      title="Open sacrament hymn on churchofjesuschrist.org"
+                      className="p-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 flex items-center gap-1 text-[11px] font-semibold shrink-0"
+                      title="Listen & view sacrament sheet music on Church site"
                     >
-                      <span>{formatHymnDisplay(b.sacrament_hymn)}</span>
+                      <Volume2 className="w-3.5 h-3.5" />
+                      <span>Church Music</span>
+                    </a>
+                  </div>
+                )}
+
+                <div className="flex justify-between py-1 border-b border-slate-50">
+                  <span className="text-slate-500 font-medium">Administration of Sacrament</span>
+                  <span className="font-semibold text-slate-900">Aaronic Priesthood</span>
+                </div>
+
+                {/* Fast Sunday or Speakers */}
+                {b.meeting_type === 'FAST_SUNDAY' ? (
+                  <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs">
+                    <span className="font-bold text-emerald-900 block mb-0.5">Congregation Testimonies:</span>
+                    <p className="text-emerald-800">Bearing of Testimonies by the Congregation</p>
+                  </div>
+                ) : speakers.length > 0 ? (
+                  <div className="pt-2 pb-1">
+                    <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px] block mb-1">
+                      Speakers Roster
+                    </span>
+                    <div className="space-y-1.5 pl-2 border-l-2 border-blue-300">
+                      {speakers.map((sp, idx) => (
+                        <div key={idx} className="flex justify-between items-start text-xs">
+                          <span className="font-semibold text-slate-900">{formatHonorificName(sp.name)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {b.special_music && (
+                  <div className="flex justify-between items-center py-1 border-b border-slate-50">
+                    <span className="text-slate-500 font-medium">Special Music</span>
+                    <a
+                      href={resolveHymnLink(b.special_music)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-semibold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1 text-right"
+                    >
+                      <span>{formatHymnDisplay(b.special_music)}</span>
                       <ExternalLink className="w-3 h-3 shrink-0 text-blue-500" />
                     </a>
                   </div>
-                  <a
-                    href={resolveHymnLink(b.sacrament_hymn)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="p-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 flex items-center gap-1 text-[11px] font-semibold shrink-0"
-                    title="Listen & view sacrament sheet music on Church site"
-                  >
-                    <Volume2 className="w-3.5 h-3.5" />
-                    <span>Church Music</span>
-                  </a>
-                </div>
-              )}
+                )}
 
-              <div className="flex justify-between py-1 border-b border-slate-50">
-                <span className="text-slate-500 font-medium">Administration of Sacrament</span>
-                <span className="font-semibold text-slate-900">Aaronic Priesthood</span>
-              </div>
-
-              {/* Fast Sunday or Speakers */}
-              {b.meeting_type === 'FAST_SUNDAY' ? (
-                <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs">
-                  <span className="font-bold text-emerald-900 block mb-0.5">Congregation Testimonies:</span>
-                  <p className="text-emerald-800">Bearing of Testimonies by the Congregation</p>
-                </div>
-              ) : speakers.length > 0 ? (
-                <div className="pt-2 pb-1">
-                  <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px] block mb-1">
-                    Speakers Roster
-                  </span>
-                  <div className="space-y-1.5 pl-2 border-l-2 border-blue-300">
-                    {speakers.map((sp, idx) => (
-                      <div key={idx} className="flex justify-between items-start text-xs">
-                        <span className="font-semibold text-slate-900">{formatHonorificName(sp.name)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
-              {b.special_music && (
-                <div className="flex justify-between items-center py-1 border-b border-slate-50">
-                  <span className="text-slate-500 font-medium">Special Music</span>
-                  <a
-                    href={resolveHymnLink(b.special_music)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="font-semibold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1 text-right"
-                  >
-                    <span>{formatHymnDisplay(b.special_music)}</span>
-                    <ExternalLink className="w-3 h-3 shrink-0 text-blue-500" />
-                  </a>
-                </div>
-              )}
-
-              {/* Closing Hymn */}
-              {b.closing_hymn && (
-                <div className="flex items-center justify-between py-1.5 border-b border-slate-50">
-                  <div className="min-w-0 flex-1 pr-2">
-                    <span className="text-slate-500 font-medium block">Closing Hymn</span>
+                {/* Closing Hymn */}
+                {b.closing_hymn && (
+                  <div className="flex items-center justify-between py-1.5 border-b border-slate-50">
+                    <div className="min-w-0 flex-1 pr-2">
+                      <span className="text-slate-500 font-medium block">Closing Hymn</span>
+                      <a
+                        href={resolveHymnLink(b.closing_hymn)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-semibold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1 truncate"
+                        title="Open closing hymn on churchofjesuschrist.org"
+                      >
+                        <span>{formatHymnDisplay(b.closing_hymn)}</span>
+                        <ExternalLink className="w-3 h-3 shrink-0 text-blue-500" />
+                      </a>
+                    </div>
                     <a
                       href={resolveHymnLink(b.closing_hymn)}
                       target="_blank"
                       rel="noreferrer"
-                      className="font-semibold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1 truncate"
-                      title="Open closing hymn on churchofjesuschrist.org"
+                      className="p-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 flex items-center gap-1 text-[11px] font-semibold shrink-0"
+                      title="Listen & view sheet music on Church site"
                     >
-                      <span>{formatHymnDisplay(b.closing_hymn)}</span>
-                      <ExternalLink className="w-3 h-3 shrink-0 text-blue-500" />
+                      <Volume2 className="w-3.5 h-3.5" />
+                      <span>Church Music</span>
                     </a>
                   </div>
-                  <a
-                    href={resolveHymnLink(b.closing_hymn)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="p-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 flex items-center gap-1 text-[11px] font-semibold shrink-0"
-                    title="Listen & view sheet music on Church site"
-                  >
-                    <Volume2 className="w-3.5 h-3.5" />
-                    <span>Church Music</span>
-                  </a>
-                </div>
-              )}
+                )}
 
-              {b.closing_prayer && (
-                <div className="flex justify-between py-1 border-b border-slate-50">
-                  <span className="text-slate-500 font-medium">Benediction</span>
-                  <span className="font-semibold text-slate-900">{formatHonorificName(b.closing_prayer)}</span>
-                </div>
-              )}
+                {b.closing_prayer && (
+                  <div className="flex justify-between py-1 border-b border-slate-50">
+                    <span className="text-slate-500 font-medium">Benediction</span>
+                    <span className="font-semibold text-slate-900">{formatHonorificName(b.closing_prayer)}</span>
+                  </div>
+                )}
+              </div>
+            )}
 
-              {/* Sunday Class Lessons Preparation */}
-              {b.include_class_lessons && b.class_lessons && b.class_lessons.length > 0 && (
+            {/* Sunday Class Lessons Preparation */}
+            {b.include_class_lessons && b.class_lessons && b.class_lessons.length > 0 && (
                 <div className="pt-3 border-t border-slate-100 space-y-2">
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-700 block">
                     Sunday Class Lessons Preparation
@@ -350,7 +361,6 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp, onOpenFeedbackMo
                   </div>
                 </div>
               )}
-            </div>
           </div>
         )}
 

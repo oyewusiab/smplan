@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Calendar, Music, Sparkles, MessageSquare, Users, Globe, ExternalLink,
   Share2, Check, ArrowRight, Heart, MapPin, Clock, BookOpen, Send,
-  Bookmark, ChevronRight, Phone, Mail, AlertCircle, RefreshCw, Download, Smartphone, X
+  Bookmark, ChevronRight, Phone, Mail, AlertCircle, RefreshCw, Download, Smartphone, X, AlertTriangle
 } from 'lucide-react';
 import { bulletinsApi } from '../services/api';
 import { getBulletinTheme } from '../utils/bulletinThemes';
@@ -318,148 +318,157 @@ export function PublicBulletinLandingPage() {
                   Sacrament and Classes Programes
                 </h2>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-md border" style={{ background: theme.badgeBg, color: theme.badgeText, borderColor: theme.borderLight }}>
-                  {bulletin.meeting_type === 'FAST_SUNDAY' ? 'Fast & Testimony' : 'Sacrament Service'}
+                  {bulletin.is_canceled ? 'Meeting Canceled' : bulletin.meeting_type === 'FAST_SUNDAY' ? 'Fast & Testimony' : 'Sacrament Service'}
                 </span>
               </div>
 
-              <div className="space-y-2 text-xs sm:text-sm">
-                {bulletin.opening_hymn && (
-                  <div className="flex justify-between items-center py-1.5 border-b border-slate-50">
-                    <span className="text-slate-500 font-medium">Opening Hymn:</span>
-                    <a
-                      href={resolveHymnLink(bulletin.opening_hymn)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 font-bold hover:underline text-right"
-                      style={{ color: theme.primaryColor }}
-                      title="Listen and view hymn in Sacred Music / Gospel Library"
-                    >
-                      <Music className="w-3.5 h-3.5 flex-shrink-0" />
-                      <span>{formatHymnDisplay(bulletin.opening_hymn)}</span>
-                      <ExternalLink className="w-3 h-3 text-slate-400" />
-                    </a>
+              {bulletin.is_canceled ? (
+                <div className="p-4 rounded-xl border border-rose-200 bg-rose-50 text-rose-900 space-y-1">
+                  <div className="flex items-center gap-2 font-bold text-xs sm:text-sm text-rose-800">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>There will be no Sacrament Meeting because {bulletin.cancel_reason || 'stated reasons in the planner.'}</span>
                   </div>
-                )}
-                {bulletin.opening_prayer && (
-                  <div className="flex justify-between items-center py-1 border-b border-slate-50">
-                    <span className="text-slate-500 font-medium">Invocation:</span>
-                    <span className="font-semibold text-slate-900 text-right">{formatHonorificName(bulletin.opening_prayer)}</span>
-                  </div>
-                )}
-                {bulletin.sacrament_hymn && (
-                  <div className="flex justify-between items-center py-1.5 border-b border-slate-50">
-                    <span className="text-slate-500 font-medium">Sacrament Hymn:</span>
-                    <a
-                      href={resolveHymnLink(bulletin.sacrament_hymn)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 font-bold hover:underline text-right"
-                      style={{ color: theme.primaryColor }}
-                      title="Listen and view hymn in Sacred Music / Gospel Library"
-                    >
-                      <Music className="w-3.5 h-3.5 flex-shrink-0" />
-                      <span>{formatHymnDisplay(bulletin.sacrament_hymn)}</span>
-                      <ExternalLink className="w-3 h-3 text-slate-400" />
-                    </a>
-                  </div>
-                )}
+                </div>
+              ) : (
+                <div className="space-y-2 text-xs sm:text-sm">
+                  {bulletin.opening_hymn && (
+                    <div className="flex justify-between items-center py-1.5 border-b border-slate-50">
+                      <span className="text-slate-500 font-medium">Opening Hymn:</span>
+                      <a
+                        href={resolveHymnLink(bulletin.opening_hymn)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 font-bold hover:underline text-right"
+                        style={{ color: theme.primaryColor }}
+                        title="Listen and view hymn in Sacred Music / Gospel Library"
+                      >
+                        <Music className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span>{formatHymnDisplay(bulletin.opening_hymn)}</span>
+                        <ExternalLink className="w-3 h-3 text-slate-400" />
+                      </a>
+                    </div>
+                  )}
+                  {bulletin.opening_prayer && (
+                    <div className="flex justify-between items-center py-1 border-b border-slate-50">
+                      <span className="text-slate-500 font-medium">Invocation:</span>
+                      <span className="font-semibold text-slate-900 text-right">{formatHonorificName(bulletin.opening_prayer)}</span>
+                    </div>
+                  )}
+                  {bulletin.sacrament_hymn && (
+                    <div className="flex justify-between items-center py-1.5 border-b border-slate-50">
+                      <span className="text-slate-500 font-medium">Sacrament Hymn:</span>
+                      <a
+                        href={resolveHymnLink(bulletin.sacrament_hymn)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 font-bold hover:underline text-right"
+                        style={{ color: theme.primaryColor }}
+                        title="Listen and view hymn in Sacred Music / Gospel Library"
+                      >
+                        <Music className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span>{formatHymnDisplay(bulletin.sacrament_hymn)}</span>
+                        <ExternalLink className="w-3 h-3 text-slate-400" />
+                      </a>
+                    </div>
+                  )}
 
-                {bulletin.meeting_type === 'FAST_SUNDAY' ? (
-                  <div className="p-3 rounded-xl border-l-4 my-2" style={{ background: theme.bgLight, borderColor: theme.primaryColor }}>
-                    <span className="text-xs font-bold" style={{ color: theme.primaryColor }}>Bearing of Testimonies: </span>
-                    <span className="text-xs text-slate-800">Open to members of the congregation following the administration of the sacrament.</span>
-                  </div>
-                ) : speakers.length > 0 ? (
-                  <div className="pt-2 border-t border-slate-100 space-y-1.5">
-                    <span className="text-xs font-bold text-slate-500 block">Talks:</span>
-                    {speakers.map((sp, idx) => (
-                      <div key={idx} className="flex justify-between text-xs sm:text-sm pl-2">
-                        <span className="text-slate-600 font-medium">Speaker {idx + 1}:</span>
-                        <span className="font-semibold text-slate-900 text-right">{formatHonorificName(sp.name)}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : bulletin.speakers ? (
-                  <div className="pt-2 border-t border-slate-100">
-                    <span className="text-xs font-bold text-slate-500 block mb-1">Talks:</span>
-                    <p className="text-slate-800 whitespace-pre-line text-xs pl-2 font-medium">
-                      {bulletin.speakers.split('\n').map(l => formatHonorificName(l)).join('\n')}
-                    </p>
-                  </div>
-                ) : null}
-
-                {bulletin.closing_hymn && (
-                  <div className="flex justify-between items-center py-1.5 border-b border-slate-50">
-                    <span className="text-slate-500 font-medium">Closing Hymn:</span>
-                    <a
-                      href={resolveHymnLink(bulletin.closing_hymn)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 font-bold hover:underline text-right"
-                      style={{ color: theme.primaryColor }}
-                      title="Listen and view hymn in Sacred Music / Gospel Library"
-                    >
-                      <Music className="w-3.5 h-3.5 flex-shrink-0" />
-                      <span>{formatHymnDisplay(bulletin.closing_hymn)}</span>
-                      <ExternalLink className="w-3 h-3 text-slate-400" />
-                    </a>
-                  </div>
-                )}
-                {bulletin.closing_prayer && (
-                  <div className="flex justify-between items-center py-1">
-                    <span className="text-slate-500 font-medium">Benediction:</span>
-                    <span className="font-semibold text-slate-900 text-right">{formatHonorificName(bulletin.closing_prayer)}</span>
-                  </div>
-                )}
-
-                {/* Sunday Class Lessons Preparation */}
-                {bulletin.include_class_lessons && bulletin.class_lessons && bulletin.class_lessons.length > 0 && (
-                  <div className="pt-3 border-t border-slate-100 space-y-2">
-                    <span className="text-xs font-bold uppercase tracking-wider block" style={{ color: theme.primaryColor }}>
-                      Sunday Class Lessons Preparation
-                    </span>
-                    <div className="grid gap-2">
-                      {bulletin.class_lessons.map((cl, idx) => (
-                        <div
-                          key={idx}
-                          className="p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
-                          style={{ background: theme.bgLight, borderColor: theme.borderLight }}
-                        >
-                          <div className="space-y-0.5">
-                            <div className="flex items-center gap-2">
-                              <span
-                                className="font-extrabold px-2 py-0.5 rounded text-[10px] border shadow-2xs"
-                                style={{ background: theme.badgeBg, color: theme.badgeText, borderColor: theme.borderLight }}
-                              >
-                                {cl.className}
-                              </span>
-                              <strong className="text-slate-900 font-bold">{cl.topic || 'Class Lesson'}</strong>
-                            </div>
-                            {cl.reference && (
-                              <p className="text-[11px] text-slate-600 italic pl-1">
-                                Ref: {cl.reference}
-                              </p>
-                            )}
-                          </div>
-
-                          {cl.link && (
-                            <a
-                              href={cl.link}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs shadow-2xs hover:opacity-90 self-start sm:self-auto text-white"
-                              style={{ background: theme.primaryColor }}
-                            >
-                              <span>Read lesson</span>
-                              <ExternalLink className="w-3 h-3" />
-                            </a>
-                          )}
+                  {bulletin.meeting_type === 'FAST_SUNDAY' ? (
+                    <div className="p-3 rounded-xl border-l-4 my-2" style={{ background: theme.bgLight, borderColor: theme.primaryColor }}>
+                      <span className="text-xs font-bold" style={{ color: theme.primaryColor }}>Bearing of Testimonies: </span>
+                      <span className="text-xs text-slate-800">Open to members of the congregation following the administration of the sacrament.</span>
+                    </div>
+                  ) : speakers.length > 0 ? (
+                    <div className="pt-2 border-t border-slate-100 space-y-1.5">
+                      <span className="text-xs font-bold text-slate-500 block">Talks:</span>
+                      {speakers.map((sp, idx) => (
+                        <div key={idx} className="flex justify-between text-xs sm:text-sm pl-2">
+                          <span className="text-slate-600 font-medium">Speaker {idx + 1}:</span>
+                          <span className="font-semibold text-slate-900 text-right">{formatHonorificName(sp.name)}</span>
                         </div>
                       ))}
                     </div>
+                  ) : bulletin.speakers ? (
+                    <div className="pt-2 border-t border-slate-100">
+                      <span className="text-xs font-bold text-slate-500 block mb-1">Talks:</span>
+                      <p className="text-slate-800 whitespace-pre-line text-xs pl-2 font-medium">
+                        {bulletin.speakers.split('\n').map(l => formatHonorificName(l)).join('\n')}
+                      </p>
+                    </div>
+                  ) : null}
+
+                  {bulletin.closing_hymn && (
+                    <div className="flex justify-between items-center py-1.5 border-b border-slate-50">
+                      <span className="text-slate-500 font-medium">Closing Hymn:</span>
+                      <a
+                        href={resolveHymnLink(bulletin.closing_hymn)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 font-bold hover:underline text-right"
+                        style={{ color: theme.primaryColor }}
+                        title="Listen and view hymn in Sacred Music / Gospel Library"
+                      >
+                        <Music className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span>{formatHymnDisplay(bulletin.closing_hymn)}</span>
+                        <ExternalLink className="w-3 h-3 text-slate-400" />
+                      </a>
+                    </div>
+                  )}
+                  {bulletin.closing_prayer && (
+                    <div className="flex justify-between items-center py-1">
+                      <span className="text-slate-500 font-medium">Benediction:</span>
+                      <span className="font-semibold text-slate-900 text-right">{formatHonorificName(bulletin.closing_prayer)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Sunday Class Lessons Preparation */}
+              {bulletin.include_class_lessons && bulletin.class_lessons && bulletin.class_lessons.length > 0 && (
+                <div className="pt-3 border-t border-slate-100 space-y-2">
+                  <span className="text-xs font-bold uppercase tracking-wider block" style={{ color: theme.primaryColor }}>
+                    Sunday Class Lessons Preparation
+                  </span>
+                  <div className="grid gap-2">
+                    {bulletin.class_lessons.map((cl, idx) => (
+                      <div
+                        key={idx}
+                        className="p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
+                        style={{ background: theme.bgLight, borderColor: theme.borderLight }}
+                      >
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="font-extrabold px-2 py-0.5 rounded text-[10px] border shadow-2xs"
+                              style={{ background: theme.badgeBg, color: theme.badgeText, borderColor: theme.borderLight }}
+                            >
+                              {cl.className}
+                            </span>
+                            <strong className="text-slate-900 font-bold">{cl.topic || 'Class Lesson'}</strong>
+                          </div>
+                          {cl.reference && (
+                            <p className="text-[11px] text-slate-600 italic pl-1">
+                              Ref: {cl.reference}
+                            </p>
+                          )}
+                        </div>
+
+                        {cl.link && (
+                          <a
+                            href={cl.link}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs shadow-2xs hover:opacity-90 self-start sm:self-auto text-white"
+                            style={{ background: theme.primaryColor }}
+                          >
+                            <span>Read lesson</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </section>
           )}
 

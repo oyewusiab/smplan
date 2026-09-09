@@ -300,6 +300,11 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
             ${d.meeting_type === 'FAST_SUNDAY' ? 'Fast & Testimony' : 'Sacrament Service'}
           </span>
         </div>
+        ${d.is_canceled ? `
+        <div style="background: #fff1f2; border: 1px solid #fecdd3; border-radius: 3pt; padding: 4pt; margin-bottom: 4pt; color: #9f1239; font-size: 7.5pt; font-weight: 700;">
+          ⚠️ There will be no Sacrament Meeting because ${d.cancel_reason || 'stated reasons in the planner.'}
+        </div>
+        ` : `
         ${d.opening_hymn ? `<div class="row"><span class="label">Opening Hymn:</span><span class="value">${formatHymnDisplay(d.opening_hymn)}</span></div>` : ''}
         ${d.opening_prayer ? `<div class="row"><span class="label">Invocation:</span><span class="value">${formatHonorificName(d.opening_prayer)}</span></div>` : ''}
         ${d.sacrament_hymn ? `<div class="row"><span class="label">Sacrament Hymn:</span><span class="value">${formatHymnDisplay(d.sacrament_hymn)}</span></div>` : ''}
@@ -328,6 +333,7 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
 
         ${d.closing_hymn ? `<div class="row"><span class="label">Closing Hymn:</span><span class="value">${formatHymnDisplay(d.closing_hymn)}</span></div>` : ''}
         ${d.closing_prayer ? `<div class="row"><span class="label">Benediction:</span><span class="value">${formatHonorificName(d.closing_prayer)}</span></div>` : ''}
+        `}
 
         ${d.include_class_lessons && d.class_lessons && d.class_lessons.length > 0 ? `
         <div style="margin-top: 3pt; border-top: 1px solid #e2e8f0; padding-top: 3pt;">
@@ -655,6 +661,11 @@ export function generateStandard2PageHtml(d: Bulletin): string {
             ${d.meeting_type === 'FAST_SUNDAY' ? 'Fast & Testimony' : 'Sacrament Service'}
           </span>
         </div>
+        ${d.is_canceled ? `
+        <div style="background: #fff1f2; border: 1px solid #fecdd3; border-radius: 4pt; padding: 6pt; margin-bottom: 6pt; color: #9f1239; font-size: 8.5pt; font-weight: 700;">
+          ⚠️ There will be no Sacrament Meeting because ${d.cancel_reason || 'stated reasons in the planner.'}
+        </div>
+        ` : `
         ${d.opening_hymn ? `<div class="row"><span class="label">Opening Hymn:</span><span class="value">${formatHymnDisplay(d.opening_hymn)}</span></div>` : ''}
         ${d.opening_prayer ? `<div class="row"><span class="label">Invocation:</span><span class="value">${formatHonorificName(d.opening_prayer)}</span></div>` : ''}
         ${d.sacrament_hymn ? `<div class="row"><span class="label">Sacrament Hymn:</span><span class="value">${formatHymnDisplay(d.sacrament_hymn)}</span></div>` : ''}
@@ -683,6 +694,7 @@ export function generateStandard2PageHtml(d: Bulletin): string {
 
         ${d.closing_hymn ? `<div class="row"><span class="label">Closing Hymn:</span><span class="value">${formatHymnDisplay(d.closing_hymn)}</span></div>` : ''}
         ${d.closing_prayer ? `<div class="row"><span class="label">Benediction:</span><span class="value">${formatHonorificName(d.closing_prayer)}</span></div>` : ''}
+        `}
 
         ${d.include_class_lessons && d.class_lessons && d.class_lessons.length > 0 ? `
         <div style="margin: 6pt 0; border-top: 1px solid #e2e8f0; padding-top: 6pt;">
@@ -979,6 +991,11 @@ export function generateBiFoldBookletHtml(d: Bulletin): string {
             ${d.meeting_type === 'FAST_SUNDAY' ? 'Fast & Testimony' : 'Sacrament Service'}
           </span>
         </div>
+        ${d.is_canceled ? `
+        <div style="background: #fff1f2; border: 1px solid #fecdd3; border-radius: 3pt; padding: 4pt; margin-bottom: 4pt; color: #9f1239; font-size: 7.5pt; font-weight: 700;">
+          ⚠️ There will be no Sacrament Meeting because ${d.cancel_reason || 'stated reasons in the planner.'}
+        </div>
+        ` : `
         ${d.opening_hymn ? `<div class="row"><span class="label">Opening Hymn:</span><span class="value">${formatHymnDisplay(d.opening_hymn)}</span></div>` : ''}
         ${d.opening_prayer ? `<div class="row"><span class="label">Invocation:</span><span class="value">${formatHonorificName(d.opening_prayer)}</span></div>` : ''}
         ${d.sacrament_hymn ? `<div class="row"><span class="label">Sacrament Hymn:</span><span class="value">${formatHymnDisplay(d.sacrament_hymn)}</span></div>` : ''}
@@ -1007,6 +1024,7 @@ export function generateBiFoldBookletHtml(d: Bulletin): string {
 
         ${d.closing_hymn ? `<div class="row"><span class="label">Closing Hymn:</span><span class="value">${formatHymnDisplay(d.closing_hymn)}</span></div>` : ''}
         ${d.closing_prayer ? `<div class="row"><span class="label">Benediction:</span><span class="value">${formatHonorificName(d.closing_prayer)}</span></div>` : ''}
+        `}
 
         ${d.include_class_lessons && d.class_lessons && d.class_lessons.length > 0 ? `
         <div style="margin-top: 4pt; border-top: 1px solid #e2e8f0; padding-top: 3pt;">

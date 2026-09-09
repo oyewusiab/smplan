@@ -73,7 +73,8 @@ export function normalizeActivity(raw: any): Activity {
  */
 export function harvestWeeklyActivities(
   rawActivities: Activity[],
-  sundayDateStr: string
+  sundayDateStr: string,
+  recurringSourceItems?: WeeklyActivityItem[]
 ): { items: WeeklyActivityItem[]; formattedText: string } {
   const activities = (rawActivities || []).map(normalizeActivity);
 
@@ -126,7 +127,7 @@ export function harvestWeeklyActivities(
         activity: act.activity || 'Church Activity',
         time: act.time || '6:00 PM',
         scope: scope,
-        reoccurring: false,
+        reoccurring: !!(act as any).reoccurring,
       });
     }
   });
@@ -134,29 +135,46 @@ export function harvestWeeklyActivities(
   let finalItems: WeeklyActivityItem[] = [];
 
   if (harvestedItems.length > 0) {
-    // Sort harvested items chronologically (Mon -> Sun)
-    harvestedItems.sort((a, b) => {
-      const idxA = dayNames.indexOf(a.day);
-      const idxB = dayNames.indexOf(b.day);
-      return idxA - idxB;
-    });
-
-    // Merge with key standing recurring meetings if missing
-    const hasSunday = harvestedItems.some((h) => h.day === 'Sunday');
     finalItems = [...harvestedItems];
-    if (!hasSunday) {
-      finalItems.push({
-        id: 'act_sun',
-        day: 'Sunday',
-        activity: 'Sacrament Meeting',
-        time: '9:00 AM',
-        scope: 'Ward',
-        reoccurring: true,
-      });
-    }
   } else {
     finalItems = [...DEFAULT_WEEKLY_ACTIVITIES];
   }
+
+  // Merge recurringSourceItems if supplied
+  if (Array.isArray(recurringSourceItems) && recurringSourceItems.length > 0) {
+    recurringSourceItems.forEach((rec) => {
+      if (rec && rec.reoccurring) {
+        const alreadyExists = finalItems.some(
+          (item) =>
+            (item.day || '').toLowerCase() === (rec.day || '').toLowerCase() &&
+            (item.activity || '').toLowerCase() === (rec.activity || '').toLowerCase()
+        );
+        if (!alreadyExists) {
+          finalItems.push({ ...rec });
+        }
+      }
+    });
+  }
+
+  // Ensure Sunday Sacrament Meeting is present
+  const hasSunday = finalItems.some((h) => h.day === 'Sunday');
+  if (!hasSunday) {
+    finalItems.push({
+      id: 'act_sun',
+      day: 'Sunday',
+      activity: 'Sacrament Meeting',
+      time: '9:00 AM',
+      scope: 'Ward',
+      reoccurring: true,
+    });
+  }
+
+  // Sort chronologically (Mon -> Sun)
+  finalItems.sort((a, b) => {
+    const idxA = dayNames.indexOf(a.day);
+    const idxB = dayNames.indexOf(b.day);
+    return (idxA !== -1 ? idxA : 99) - (idxB !== -1 ? idxB : 99);
+  });
 
   const formattedText = formatActivitiesToText(finalItems);
   return { items: finalItems, formattedText };

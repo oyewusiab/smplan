@@ -178,7 +178,9 @@ export function PlannerPrintModal({ open, onClose, planner, agendas }: PlannerPr
                         <td className="week-date">{dateFormatted}</td>
                         {isCanceled || isFT ? (
                           <td colSpan={3} className="ft-cell">
-                            {isCanceled ? `Meeting Canceled — ${ag.cancel_reason || 'No planned speakers'}` : 'Fast & Testimony Sunday — No Planned Speakers'}
+                            {isCanceled
+                              ? (ag.cancel_reason ? `There will be no Sacrament Meeting because ${ag.cancel_reason}` : 'There will be no Sacrament Meeting')
+                              : 'Fast & Testimony Sunday — No Planned Speakers'}
                           </td>
                         ) : (
                           <>
@@ -275,7 +277,7 @@ export function PlannerPrintModal({ open, onClose, planner, agendas }: PlannerPr
                         </td>
                         {isCanceled ? (
                           <td colSpan={3} className="ft-cell">
-                            Meeting Canceled — {ag.cancel_reason || 'No planned sacrament meeting'}
+                            {ag.cancel_reason ? `There will be no Sacrament Meeting because ${ag.cancel_reason}` : 'There will be no Sacrament Meeting'}
                           </td>
                         ) : (
                           <>

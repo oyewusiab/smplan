@@ -384,6 +384,8 @@ export interface Bulletin {
   date: string;
   theme: string;
   meeting_type?: MeetingType | string;
+  is_canceled?: boolean;
+  cancel_reason?: string;
   unit_name?: string;
   stake_name?: string;
   presiding?: string;
