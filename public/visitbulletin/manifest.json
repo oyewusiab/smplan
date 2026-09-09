@@ -1,8 +1,8 @@
 {
   "id": "/visitbulletin",
-  "name": "Ward Bulletin",
-  "short_name": "Ward Bulletin",
-  "description": "Weekly Ward Bulletin and announcements",
+  "name": "MyWard Bulletin",
+  "short_name": "MyWard Bulletin",
+  "description": "Weekly MyWard Bulletin and announcements",
   "start_url": "/visitbulletin",
   "scope": "/visitbulletin",
   "display": "standalone",

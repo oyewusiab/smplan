@@ -124,7 +124,7 @@ export function PublicBulletinLandingPage() {
     if (pwaState.isInstallable) {
       const res = await promptBulletinInstall();
       if (res.outcome === 'accepted') {
-        toast.success('Ward Bulletin installed to your device!');
+        toast.success('MyWard Bulletin installed to your device!');
       }
     } else if (pwaState.isIos) {
       setShowIosGuide(true);
@@ -190,7 +190,7 @@ export function PublicBulletinLandingPage() {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="text-center space-y-3">
           <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-sm font-semibold text-slate-700">Loading Ward Bulletin…</p>
+          <p className="text-sm font-semibold text-slate-700">Loading MyWard Bulletin…</p>
         </div>
       </div>
     );
@@ -203,9 +203,9 @@ export function PublicBulletinLandingPage() {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-slate-200 shadow-xl text-center space-y-4">
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto overflow-hidden bg-white shadow-sm border border-slate-200 p-2">
-            <img src="/bulletin_icon.png" alt="Ward Bulletin Icon" className="w-full h-full object-contain" />
+            <img src="/bulletin_icon.png" alt="MyWard Bulletin Icon" className="w-full h-full object-contain" />
           </div>
-          <h2 className="text-xl font-bold text-slate-900">Ward Bulletin</h2>
+          <h2 className="text-xl font-bold text-slate-900">MyWard Bulletin</h2>
           <p className="text-sm text-slate-600">
             {isExpired
               ? 'The previous weekly bulletin expired on Sunday at 11:59 PM. Please check back when next week’s bulletin is published.'
@@ -225,10 +225,10 @@ export function PublicBulletinLandingPage() {
                 type="button"
                 onClick={handleInstallClick}
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-sm border border-slate-200 shadow-xs transition-all"
-                title="Install Ward Bulletin app to your device"
+                title="Install MyWard Bulletin app to your device"
               >
                 <Download className="w-4 h-4 text-blue-600" />
-                Install Ward Bulletin
+                Install MyWard Bulletin
               </button>
             )}
           </div>
@@ -295,10 +295,10 @@ export function PublicBulletinLandingPage() {
                   onClick={handleInstallClick}
                   className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-bold transition-all shadow-2xs hover:opacity-95 border"
                   style={{ background: theme.primaryColor, borderColor: theme.primaryColor }}
-                  title="Install Ward Bulletin app to your device"
+                  title="Install MyWard Bulletin app to your device"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span>Install Ward Bulletin</span>
+                  <span>Install MyWard Bulletin</span>
                 </button>
               )}
             </div>
@@ -852,12 +852,12 @@ export function PublicBulletinLandingPage() {
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 text-center space-y-4 animate-in fade-in zoom-in-95 duration-200">
             <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto overflow-hidden bg-white shadow-md border border-slate-200 p-2">
-              <img src="/bulletin_icon.png" alt="Ward Bulletin App Icon" className="w-full h-full object-contain" />
+              <img src="/bulletin_icon.png" alt="MyWard Bulletin App Icon" className="w-full h-full object-contain" />
             </div>
             <div>
               <h3 className="text-lg font-bold text-slate-900">Install on iPhone / iPad</h3>
               <p className="text-xs text-slate-500 mt-1">
-                Follow these simple steps in Safari to add the Ward Bulletin app to your home screen:
+                Follow these simple steps in Safari to add the MyWard Bulletin app to your home screen:
               </p>
             </div>
 
