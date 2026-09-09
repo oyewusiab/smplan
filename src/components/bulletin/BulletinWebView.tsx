@@ -480,14 +480,14 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp, onOpenFeedbackMo
           </div>
         )}
 
-        {/* 3. Birthday Celebrants Frame with 1-Click WhatsApp, Email & SMS Greetings */}
+        {/* 3. Birthday Celebrants Frame with direct celebrant hyperlinks */}
         {isSectionVisible(b.show_birthdays) && (b.birthdays || (b.birthday_celebrants_list && b.birthday_celebrants_list.length > 0)) && (() => {
           const celebrantsList: BulletinCelebrant[] = (b.birthday_celebrants_list && b.birthday_celebrants_list.length > 0)
             ? b.birthday_celebrants_list
             : parseCelebrantsFromText(b.birthdays, undefined, b.date);
 
           return (
-            <div className="rounded-2xl p-4 bg-yellow-50/80 border border-yellow-200 shadow-2xs space-y-3">
+            <div className="rounded-2xl p-4 bg-yellow-50/80 border border-yellow-200 shadow-2xs space-y-2.5">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-yellow-950 flex items-center gap-1.5">
                   🎂 Celebrants This Week
@@ -497,81 +497,41 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp, onOpenFeedbackMo
                 </span>
               </div>
 
-              {b.birthdays && (
+              {celebrantsList.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                  {celebrantsList.map((c, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => {
+                        setSelectedCelebrant(c);
+                        setSelectedChannel('WHATSAPP');
+                        setBirthdayModalOpen(true);
+                      }}
+                      title={`Click to send WhatsApp, Email or SMS birthday wish to ${c.name}`}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-yellow-300/80 bg-white hover:bg-yellow-50 text-xs font-bold text-yellow-950 transition-all shadow-2xs hover:shadow-xs hover:scale-[1.02] active:scale-95 cursor-pointer text-left group"
+                    >
+                      <span>🎂</span>
+                      <span className="group-hover:underline underline-offset-2 font-bold">
+                        {c.name}
+                      </span>
+                      {c.birth_date && (
+                        <span className="text-[11px] font-semibold text-yellow-800/80">
+                          ({c.birth_date})
+                        </span>
+                      )}
+                      <span className="text-[10px] text-emerald-700 font-semibold ml-0.5 opacity-85 group-hover:opacity-100 flex items-center gap-0.5">
+                        💬 Wish
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : b.birthdays ? (
                 <p className="text-xs font-semibold text-yellow-900 leading-relaxed">{normalizeBirthdaysString(b.birthdays, b.date)}</p>
-              )}
+              ) : null}
 
               {b.birthday_message && (
                 <p className="text-[11px] text-yellow-800 italic">{b.birthday_message}</p>
-              )}
-
-              {/* Direct Multi-Channel Wish Buttons */}
-              {celebrantsList.length > 0 && (
-                <div className="pt-2 border-t border-yellow-200/70 space-y-2">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800 flex items-center gap-1">
-                    <Sparkles className="w-3 h-3 text-amber-600" />
-                    Send Birthday Wishes (WhatsApp, Email & SMS)
-                  </p>
-                  <div className="grid gap-2">
-                    {celebrantsList.map((c, i) => (
-                      <div
-                        key={i}
-                        className="flex items-center justify-between p-2 rounded-xl bg-white/90 border border-yellow-200 shadow-2xs gap-2"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-bold text-yellow-950 truncate">
-                            🎂 {c.name}
-                          </p>
-                          <p className="text-[10px] text-slate-500 truncate">
-                            {c.birth_date ? `${c.birth_date}` : 'This week'} {c.phone ? `• ${c.phone}` : ''}
-                          </p>
-                        </div>
-
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          <button
-                            type="button"
-                            title="Wish via WhatsApp"
-                            onClick={() => {
-                              setSelectedCelebrant(c);
-                              setSelectedChannel('WHATSAPP');
-                              setBirthdayModalOpen(true);
-                            }}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-2xs transition-all active:scale-95"
-                          >
-                            <MessageSquare className="w-3 h-3" />
-                            <span>WhatsApp</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            title="Wish via Email"
-                            onClick={() => {
-                              setSelectedCelebrant(c);
-                              setSelectedChannel('EMAIL');
-                              setBirthdayModalOpen(true);
-                            }}
-                            className="p-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold shadow-2xs transition-all active:scale-95"
-                          >
-                            <Mail className="w-3 h-3" />
-                          </button>
-
-                          <button
-                            type="button"
-                            title="Wish via SMS"
-                            onClick={() => {
-                              setSelectedCelebrant(c);
-                              setSelectedChannel('SMS');
-                              setBirthdayModalOpen(true);
-                            }}
-                            className="p-1 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-bold shadow-2xs transition-all active:scale-95"
-                          >
-                            <Smartphone className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
               )}
             </div>
           );
