@@ -323,9 +323,11 @@ export type BulletinLayoutMode = 'standard_1p' | 'standard_2p' | 'bifold_booklet
 
 export interface BulletinCelebrant {
   name: string;
-  day: number;
+  day?: number;
   dateStr?: string;
   phone?: string;
+  email?: string;
+  birth_date?: string;
   formatted?: string;
 }
 

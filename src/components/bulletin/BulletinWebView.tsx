@@ -1,18 +1,19 @@
 import React, { useState } from 'react';
 import {
   Heart, Calendar, Music, Sparkles, Send, Volume2, Share2,
-  CheckCircle2, Clock, MapPin, Users, BookOpen, MessageSquare, ChevronDown, ExternalLink, QrCode
+  CheckCircle2, Clock, MapPin, Users, BookOpen, MessageSquare, ChevronDown, ExternalLink, QrCode, Mail, Smartphone
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { Button } from '../ui/Button';
 import { Input, Textarea, Select } from '../ui/Input';
 import { getBulletinTheme } from '../../utils/bulletinThemes';
-import { buildWhatsAppBirthdayGreetingUrl, normalizeBirthdaysString } from '../../utils/bulletinBirthdayEngine';
+import { buildWhatsAppBirthdayGreetingUrl, normalizeBirthdaysString, parseCelebrantsFromText } from '../../utils/bulletinBirthdayEngine';
+import { BirthdayWishModal, type BirthdayChannel } from './BirthdayWishModal';
 import { getWeekDateRange, isSectionVisible } from '../../utils/bulletinPrintEngine';
 import { resolveHymnLink, formatHymnDisplay } from '../../data/bundledHymns';
 import { formatHonorificName } from '../../utils/memberTitle';
 import { bulletinsApi } from '../../services/api';
-import type { Bulletin } from '../../types';
+import type { Bulletin, BulletinCelebrant } from '../../types';
 import toast from 'react-hot-toast';
 
 interface BulletinWebViewProps {
@@ -39,6 +40,11 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp, onOpenFeedbackMo
   const [feedbackMsg, setFeedbackMsg] = useState('');
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+
+  // Birthday Wishes Modal state
+  const [selectedCelebrant, setSelectedCelebrant] = useState<BulletinCelebrant | null>(null);
+  const [selectedChannel, setSelectedChannel] = useState<BirthdayChannel>('WHATSAPP');
+  const [birthdayModalOpen, setBirthdayModalOpen] = useState(false);
 
   // Parse speakers
   const speakers = (() => {
@@ -474,42 +480,102 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp, onOpenFeedbackMo
           </div>
         )}
 
-        {/* 3. Birthday Celebrants Frame with 1-Click WhatsApp Greetings */}
-        {isSectionVisible(b.show_birthdays) && b.birthdays && (
-          <div className="rounded-2xl p-4 bg-yellow-50/70 border border-yellow-200 shadow-2xs space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-yellow-950 flex items-center gap-1.5">
-                🎂 Celebrants This Week
-              </span>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded-md">
-                Birthdays
-              </span>
-            </div>
+        {/* 3. Birthday Celebrants Frame with 1-Click WhatsApp, Email & SMS Greetings */}
+        {isSectionVisible(b.show_birthdays) && (b.birthdays || (b.birthday_celebrants_list && b.birthday_celebrants_list.length > 0)) && (() => {
+          const celebrantsList: BulletinCelebrant[] = (b.birthday_celebrants_list && b.birthday_celebrants_list.length > 0)
+            ? b.birthday_celebrants_list
+            : parseCelebrantsFromText(b.birthdays, undefined, b.date);
 
-            <p className="text-xs font-semibold text-yellow-900 leading-relaxed">{normalizeBirthdaysString(b.birthdays, b.date)}</p>
-
-            {b.birthday_message && (
-              <p className="text-[11px] text-yellow-800 italic">{b.birthday_message}</p>
-            )}
-
-            {/* Direct WhatsApp Wish Buttons */}
-            {b.birthday_celebrants_list && b.birthday_celebrants_list.length > 0 && (
-              <div className="pt-2 border-t border-yellow-200/60 flex flex-wrap gap-1.5">
-                {b.birthday_celebrants_list.map((c, i) => (
-                  <a
-                    key={i}
-                    href={buildWhatsAppBirthdayGreetingUrl(c.phone || '', c.name, b.unit_name)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-[11px] font-semibold hover:bg-emerald-700 shadow-xs"
-                  >
-                    <span>💬 Wish {c.name}</span>
-                  </a>
-                ))}
+          return (
+            <div className="rounded-2xl p-4 bg-yellow-50/80 border border-yellow-200 shadow-2xs space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-yellow-950 flex items-center gap-1.5">
+                  🎂 Celebrants This Week
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded-md">
+                  Birthdays
+                </span>
               </div>
-            )}
-          </div>
-        )}
+
+              {b.birthdays && (
+                <p className="text-xs font-semibold text-yellow-900 leading-relaxed">{normalizeBirthdaysString(b.birthdays, b.date)}</p>
+              )}
+
+              {b.birthday_message && (
+                <p className="text-[11px] text-yellow-800 italic">{b.birthday_message}</p>
+              )}
+
+              {/* Direct Multi-Channel Wish Buttons */}
+              {celebrantsList.length > 0 && (
+                <div className="pt-2 border-t border-yellow-200/70 space-y-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-amber-600" />
+                    Send Birthday Wishes (WhatsApp, Email & SMS)
+                  </p>
+                  <div className="grid gap-2">
+                    {celebrantsList.map((c, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center justify-between p-2 rounded-xl bg-white/90 border border-yellow-200 shadow-2xs gap-2"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-yellow-950 truncate">
+                            🎂 {c.name}
+                          </p>
+                          <p className="text-[10px] text-slate-500 truncate">
+                            {c.birth_date ? `${c.birth_date}` : 'This week'} {c.phone ? `• ${c.phone}` : ''}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <button
+                            type="button"
+                            title="Wish via WhatsApp"
+                            onClick={() => {
+                              setSelectedCelebrant(c);
+                              setSelectedChannel('WHATSAPP');
+                              setBirthdayModalOpen(true);
+                            }}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-2xs transition-all active:scale-95"
+                          >
+                            <MessageSquare className="w-3 h-3" />
+                            <span>WhatsApp</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            title="Wish via Email"
+                            onClick={() => {
+                              setSelectedCelebrant(c);
+                              setSelectedChannel('EMAIL');
+                              setBirthdayModalOpen(true);
+                            }}
+                            className="p-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold shadow-2xs transition-all active:scale-95"
+                          >
+                            <Mail className="w-3 h-3" />
+                          </button>
+
+                          <button
+                            type="button"
+                            title="Wish via SMS"
+                            onClick={() => {
+                              setSelectedCelebrant(c);
+                              setSelectedChannel('SMS');
+                              setBirthdayModalOpen(true);
+                            }}
+                            className="p-1 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-bold shadow-2xs transition-all active:scale-95"
+                          >
+                            <Smartphone className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* 4. Weekly Activities Roster */}
         {isSectionVisible(b.show_activities) && (
@@ -779,6 +845,17 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp, onOpenFeedbackMo
           This is prepared as a weekly informational sheet for local ward members. It is not an official publication of The Church of Jesus Christ of Latter-day Saints.
         </div>
       </div>
+
+      {/* Birthday Wish Modal */}
+      {b && (
+        <BirthdayWishModal
+          open={birthdayModalOpen}
+          onClose={() => setBirthdayModalOpen(false)}
+          celebrant={selectedCelebrant}
+          unitName={b.unit_name || 'Ward'}
+          initialChannel={selectedChannel}
+        />
+      )}
     </div>
   );
 }

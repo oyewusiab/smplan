@@ -2898,6 +2898,7 @@ function handleGetBulletinDraftData(params) {
               day: bDayParsed.day,
               dateStr: w.dateStr,
               phone: m.phone || '',
+              email: m.email || '',
               formatted: `🎂 ${m.name} (${dayFormatted})`
             });
           }

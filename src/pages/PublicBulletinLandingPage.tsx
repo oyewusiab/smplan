@@ -8,8 +8,9 @@ import { bulletinsApi } from '../services/api';
 import { getBulletinTheme } from '../utils/bulletinThemes';
 import { getWeekDateRange, isSectionVisible } from '../utils/bulletinPrintEngine';
 import { resolveHymnLink, formatHymnDisplay } from '../data/bundledHymns';
-import { formatBirthdayLabel, getOrdinalSuffix, normalizeBirthdaysString } from '../utils/bulletinBirthdayEngine';
+import { formatBirthdayLabel, getOrdinalSuffix, normalizeBirthdaysString, parseCelebrantsFromText } from '../utils/bulletinBirthdayEngine';
 import { formatHonorificName } from '../utils/memberTitle';
+import { BirthdayWishModal, type BirthdayChannel } from '../components/bulletin/BirthdayWishModal';
 import {
   initializeBulletinPwa,
   subscribePwaState,
@@ -17,7 +18,7 @@ import {
   isBulletinInstalled,
   isIosDevice
 } from '../utils/bulletinPwa';
-import type { Bulletin, SpeakerItem, WeeklyActivityItem, NextActivityItem } from '../types';
+import type { Bulletin, SpeakerItem, WeeklyActivityItem, NextActivityItem, BulletinCelebrant } from '../types';
 import toast from 'react-hot-toast';
 
 function parseSpeakersArray(speakersRaw?: any): SpeakerItem[] {
@@ -78,6 +79,11 @@ export function PublicBulletinLandingPage() {
   const [message, setMessage] = useState('');
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
   const [feedbackSent, setFeedbackSent] = useState(false);
+
+  // Birthday Wishes Modal state
+  const [selectedCelebrant, setSelectedCelebrant] = useState<BulletinCelebrant | null>(null);
+  const [selectedChannel, setSelectedChannel] = useState<BirthdayChannel>('WHATSAPP');
+  const [birthdayModalOpen, setBirthdayModalOpen] = useState(false);
 
   const loadLiveBulletin = async () => {
     setLoading(true);
@@ -528,32 +534,112 @@ export function PublicBulletinLandingPage() {
           )}
 
           {/* 3. Birthday Celebrants Frame */}
-          {isSectionVisible(bulletin.show_birthdays) && bulletin.birthdays && (
-            <section
-              className="rounded-2xl border-2 p-4 sm:p-5 space-y-2.5 shadow-xs"
-              style={{
-                borderColor: theme.secondaryColor,
-                background: `linear-gradient(135deg, ${theme.bgLight} 0%, #ffffff 100%)`
-              }}
-            >
-              <div className="flex items-center justify-between pb-1.5 border-b" style={{ borderColor: theme.borderLight }}>
-                <h2 className="text-xs sm:text-sm font-extrabold flex items-center gap-1.5" style={{ color: theme.primaryColor }}>
-                  🎂 Birthday Celebrants (This Week)
-                </h2>
-                <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full text-white" style={{ background: theme.secondaryColor }}>
-                  CELEBRATION
-                </span>
-              </div>
-              <p className="font-bold text-xs sm:text-sm leading-relaxed" style={{ color: theme.primaryColor }}>
-                {normalizeBirthdaysString(bulletin.birthdays, bulletin.date)}
-              </p>
-              {bulletin.birthday_message && (
-                <p className="text-xs italic bg-white/90 p-2.5 rounded-xl border" style={{ borderColor: theme.borderLight, color: theme.primaryColor }}>
-                  {bulletin.birthday_message}
-                </p>
-              )}
-            </section>
-          )}
+          {isSectionVisible(bulletin.show_birthdays) && (bulletin.birthdays || (bulletin.birthday_celebrants_list && bulletin.birthday_celebrants_list.length > 0)) && (() => {
+            const celebrantsList: BulletinCelebrant[] = (bulletin.birthday_celebrants_list && bulletin.birthday_celebrants_list.length > 0)
+              ? bulletin.birthday_celebrants_list
+              : parseCelebrantsFromText(bulletin.birthdays, undefined, bulletin.date);
+
+            return (
+              <section
+                className="rounded-2xl border-2 p-4 sm:p-5 space-y-3.5 shadow-xs"
+                style={{
+                  borderColor: theme.secondaryColor,
+                  background: `linear-gradient(135deg, ${theme.bgLight} 0%, #ffffff 100%)`
+                }}
+              >
+                <div className="flex items-center justify-between pb-1.5 border-b" style={{ borderColor: theme.borderLight }}>
+                  <h2 className="text-xs sm:text-sm font-extrabold flex items-center gap-1.5" style={{ color: theme.primaryColor }}>
+                    🎂 Birthday Celebrants (This Week)
+                  </h2>
+                  <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full text-white" style={{ background: theme.secondaryColor }}>
+                    CELEBRATION
+                  </span>
+                </div>
+
+                {bulletin.birthdays && (
+                  <p className="font-bold text-xs sm:text-sm leading-relaxed" style={{ color: theme.primaryColor }}>
+                    {normalizeBirthdaysString(bulletin.birthdays, bulletin.date)}
+                  </p>
+                )}
+
+                {bulletin.birthday_message && (
+                  <p className="text-xs italic bg-white/90 p-2.5 rounded-xl border" style={{ borderColor: theme.borderLight, color: theme.primaryColor }}>
+                    {bulletin.birthday_message}
+                  </p>
+                )}
+
+                {/* Celebrant 1-Click Wish Dispatch Buttons */}
+                {celebrantsList.length > 0 && (
+                  <div className="pt-2.5 border-t space-y-2" style={{ borderColor: theme.borderLight }}>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                      Send Birthday Wishes (WhatsApp, Email & SMS)
+                    </p>
+                    <div className="grid sm:grid-cols-2 gap-2.5">
+                      {celebrantsList.map((c, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between p-2.5 rounded-xl border bg-white/95 shadow-2xs gap-2 transition-all hover:shadow-xs"
+                          style={{ borderColor: theme.borderLight }}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold truncate" style={{ color: theme.primaryColor }}>
+                              🎂 {c.name}
+                            </p>
+                            <p className="text-[10px] text-slate-500 truncate">
+                              {c.birth_date ? `${c.birth_date}` : 'This week'} {c.phone ? `• ${c.phone}` : ''}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <button
+                              type="button"
+                              title="Send WhatsApp Birthday Wish"
+                              onClick={() => {
+                                setSelectedCelebrant(c);
+                                setSelectedChannel('WHATSAPP');
+                                setBirthdayModalOpen(true);
+                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-2xs transition-all active:scale-95 cursor-pointer"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5" />
+                              <span className="hidden xs:inline">WhatsApp</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              title="Send Email Birthday Wish"
+                              onClick={() => {
+                                setSelectedCelebrant(c);
+                                setSelectedChannel('EMAIL');
+                                setBirthdayModalOpen(true);
+                              }}
+                              className="p-1.5 sm:px-2 sm:py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold shadow-2xs transition-all active:scale-95 cursor-pointer"
+                            >
+                              <Mail className="w-3.5 h-3.5" />
+                            </button>
+
+                            <button
+                              type="button"
+                              title="Send SMS Birthday Text"
+                              onClick={() => {
+                                setSelectedCelebrant(c);
+                                setSelectedChannel('SMS');
+                                setBirthdayModalOpen(true);
+                              }}
+                              className="p-1.5 sm:px-2 sm:py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-bold shadow-2xs transition-all active:scale-95 cursor-pointer"
+                            >
+                              <Smartphone className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </section>
+            );
+          })()}
 
           {/* 4. Weekly Activities Schedule */}
           {isSectionVisible(bulletin.show_activities) && (bulletin.activities || activitiesList.length > 0) && (
@@ -885,6 +971,17 @@ export function PublicBulletinLandingPage() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Birthday Wish Modal */}
+      {bulletin && (
+        <BirthdayWishModal
+          open={birthdayModalOpen}
+          onClose={() => setBirthdayModalOpen(false)}
+          celebrant={selectedCelebrant}
+          unitName={bulletin.unit_name || 'Ward'}
+          initialChannel={selectedChannel}
+        />
       )}
     </div>
   );

@@ -2,18 +2,19 @@ import React, { useState } from 'react';
 import {
   Sparkles, Calendar, Music, MessageSquare,
   Users, CheckSquare, Bookmark, Layers, Send, Link, Globe,
-  ArrowUp, ArrowDown, Trash2, Plus, Clock, MapPin, Repeat, ShieldAlert, Heart, ExternalLink
+  ArrowUp, ArrowDown, Trash2, Plus, Clock, MapPin, Repeat, ShieldAlert, Heart, ExternalLink, Mail, Smartphone
 } from 'lucide-react';
 import { Card, CardBody, CardHeader } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Input, Select, Textarea } from '../ui/Input';
 import { BULLETIN_THEMES } from '../../utils/bulletinThemes';
-import { buildWhatsAppBirthdayGreetingUrl } from '../../utils/bulletinBirthdayEngine';
+import { buildWhatsAppBirthdayGreetingUrl, parseCelebrantsFromText } from '../../utils/bulletinBirthdayEngine';
+import { BirthdayWishModal, type BirthdayChannel } from './BirthdayWishModal';
 import { formatActivitiesToText } from '../../utils/bulletinActivityHarvester';
 import { isSectionVisible } from '../../utils/bulletinPrintEngine';
 import { resolveHymnLink, formatHymnDisplay } from '../../data/bundledHymns';
 import { formatHonorificName } from '../../utils/memberTitle';
-import type { Bulletin, Planner, Hymn, WeeklyActivityItem, NextActivityItem, BulletinClassLesson, BulletinCustomLink } from '../../types';
+import type { Bulletin, Planner, Hymn, WeeklyActivityItem, NextActivityItem, BulletinClassLesson, BulletinCustomLink, BulletinCelebrant } from '../../types';
 import toast from 'react-hot-toast';
 
 export interface BulletinWeekOption {
@@ -105,6 +106,11 @@ export function BulletinFormEditor({
   lastSavedTime = null,
 }: BulletinFormEditorProps) {
   const [activeSubSection, setActiveSubSection] = useState<'core' | 'sacrament' | 'cfm' | 'community' | 'initiatives' | 'toggles'>('core');
+
+  // Birthday Wishes Modal state
+  const [selectedCelebrant, setSelectedCelebrant] = useState<BulletinCelebrant | null>(null);
+  const [selectedChannel, setSelectedChannel] = useState<BirthdayChannel>('WHATSAPP');
+  const [birthdayModalOpen, setBirthdayModalOpen] = useState(false);
 
   const themeKeys = Object.keys(BULLETIN_THEMES).filter((k) =>
     ['navy', 'forest', 'plum', 'slate', 'teal'].includes(k)
@@ -882,37 +888,82 @@ export function BulletinFormEditor({
                 onChange={(e) => setForm((prev) => ({ ...prev, birthday_message: e.target.value }))}
               />
 
-              {/* Direct WhatsApp Celebrant Greetings Bot */}
-              {f.birthday_celebrants_list && f.birthday_celebrants_list.length > 0 && (
-                <div className="pt-2 border-t border-amber-200/70 space-y-2">
-                  <p className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
-                    <MessageSquare className="w-3.5 h-3.5 text-amber-700" />
-                    Direct WhatsApp Celebrant Wish Links
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {f.birthday_celebrants_list.map((c, i) => {
-                      const waUrl = buildWhatsAppBirthdayGreetingUrl(
-                        c.phone,
-                        c.name,
-                        f.unit_name || 'Ward',
-                        f.birthday_message
-                      );
-                      return (
-                        <a
+              {/* Direct Multi-Channel Celebrant Greetings */}
+              {(() => {
+                const celebrantsList: BulletinCelebrant[] = (f.birthday_celebrants_list && f.birthday_celebrants_list.length > 0)
+                  ? f.birthday_celebrants_list
+                  : parseCelebrantsFromText(f.birthdays, undefined, f.date);
+
+                if (celebrantsList.length === 0) return null;
+
+                return (
+                  <div className="pt-2 border-t border-amber-200/70 space-y-2">
+                    <p className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-700" />
+                      Send Celebrant Birthday Greetings (WhatsApp, Email & SMS)
+                    </p>
+                    <div className="grid sm:grid-cols-2 gap-2">
+                      {celebrantsList.map((c, i) => (
+                        <div
                           key={i}
-                          href={waUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-2xs transition-all"
+                          className="flex items-center justify-between p-2 rounded-xl bg-white border border-amber-200 shadow-2xs gap-2"
                         >
-                          <Send className="w-3 h-3" />
-                          <span>Wish {c.name} ({c.birth_date})</span>
-                        </a>
-                      );
-                    })}
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold text-slate-900 truncate">
+                              🎂 {c.name}
+                            </p>
+                            <p className="text-[10px] text-slate-500 truncate">
+                              {c.birth_date ? `${c.birth_date}` : 'This week'} {c.phone ? `• ${c.phone}` : ''}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <button
+                              type="button"
+                              title="Wish via WhatsApp"
+                              onClick={() => {
+                                setSelectedCelebrant(c);
+                                setSelectedChannel('WHATSAPP');
+                                setBirthdayModalOpen(true);
+                              }}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-2xs transition-all active:scale-95"
+                            >
+                              <MessageSquare className="w-3 h-3" />
+                              <span>WhatsApp</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              title="Wish via Email"
+                              onClick={() => {
+                                setSelectedCelebrant(c);
+                                setSelectedChannel('EMAIL');
+                                setBirthdayModalOpen(true);
+                              }}
+                              className="p-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold shadow-2xs transition-all active:scale-95"
+                            >
+                              <Mail className="w-3 h-3" />
+                            </button>
+
+                            <button
+                              type="button"
+                              title="Wish via SMS"
+                              onClick={() => {
+                                setSelectedCelebrant(c);
+                                setSelectedChannel('SMS');
+                                setBirthdayModalOpen(true);
+                              }}
+                              className="p-1 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-bold shadow-2xs transition-all active:scale-95"
+                            >
+                              <Smartphone className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
             </CardBody>
           </Card>
 
@@ -1485,6 +1536,15 @@ export function BulletinFormEditor({
           </Button>
         </div>
       </div>
+
+      {/* Birthday Wish Modal */}
+      <BirthdayWishModal
+        open={birthdayModalOpen}
+        onClose={() => setBirthdayModalOpen(false)}
+        celebrant={selectedCelebrant}
+        unitName={f.unit_name || 'Ward'}
+        initialChannel={selectedChannel}
+      />
     </div>
   );
 }
