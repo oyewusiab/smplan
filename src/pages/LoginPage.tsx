@@ -55,13 +55,13 @@ export function LoginPage() {
           <div className="flex items-center justify-center mb-8">
             <div className="flex h-44 w-44 items-center justify-center rounded-3xl bg-white p-4 shadow-2xl shadow-[#041427]/70 border border-white/20 overflow-hidden">
               <img
-                src="/sm_image.png"
+                src="/logo_icon.png"
                 alt="SM Planner Logo"
                 className="h-full w-full object-contain"
                 onError={(e) => {
                   const target = e.currentTarget;
-                  if (!target.src.endsWith('/logo.png')) {
-                    target.src = '/logo.png';
+                  if (!target.src.endsWith('/logo_icon.png')) {
+                    target.src = '/logo_icon.png';
                   } else {
                     target.style.display = 'none';
                     if (target.nextElementSibling) {
@@ -103,13 +103,13 @@ export function LoginPage() {
           <div className="flex lg:hidden items-center gap-3.5 mb-8">
             <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-white shadow-md border border-slate-200 p-2 overflow-hidden shrink-0">
               <img
-                src="/sm_image.png"
+                src="/logo_icon.png"
                 alt="SM Planner Logo"
                 className="h-full w-full object-contain"
                 onError={(e) => {
                   const target = e.currentTarget;
-                  if (!target.src.endsWith('/logo.png')) {
-                    target.src = '/logo.png';
+                  if (!target.src.endsWith('/logo_icon.png')) {
+                    target.src = '/logo_icon.png';
                   } else {
                     target.style.display = 'none';
                     if (target.nextElementSibling) {

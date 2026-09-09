@@ -168,13 +168,13 @@ export function Sidebar() {
             {/* White Logo Container */}
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white p-1.5 shadow-md shadow-slate-950/30 shrink-0 overflow-hidden">
               <img
-                src="/sm_image.png"
+                src="/logo_icon.png"
                 alt="SM Planner Logo"
                 className="h-full w-full object-contain"
                 onError={(e) => {
                   const target = e.currentTarget;
-                  if (!target.src.endsWith('/logo.png')) {
-                    target.src = '/logo.png';
+                  if (!target.src.endsWith('/logo_icon.png')) {
+                    target.src = '/logo_icon.png';
                   } else {
                     target.style.display = 'none';
                     if (target.nextElementSibling) {

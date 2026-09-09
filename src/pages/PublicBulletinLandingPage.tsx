@@ -202,8 +202,8 @@ export function PublicBulletinLandingPage() {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-slate-200 shadow-xl text-center space-y-4">
-          <div className="w-14 h-14 bg-amber-100 text-amber-800 rounded-2xl flex items-center justify-center mx-auto">
-            <BookOpen className="w-7 h-7" />
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto overflow-hidden bg-white shadow-sm border border-slate-200 p-2">
+            <img src="/bulletin_icon.png" alt="Ward Bulletin Icon" className="w-full h-full object-contain" />
           </div>
           <h2 className="text-xl font-bold text-slate-900">Ward Bulletin</h2>
           <p className="text-sm text-slate-600">
@@ -255,11 +255,16 @@ export function PublicBulletinLandingPage() {
         <div className="p-5 sm:p-8 space-y-6">
           {/* Header Section Matching Specified Typography & Palette */}
           <header className="text-center pb-5 border-b-2" style={{ borderColor: theme.primaryColor }}>
-            <div
-              className="inline-block px-3 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider mb-2 border shadow-2xs"
-              style={{ background: theme.badgeBg, color: theme.badgeText, borderColor: theme.borderLight }}
-            >
-              Live Ward Bulletin
+            <div className="flex items-center justify-center gap-2 mb-2.5">
+              <div className="w-9 h-9 rounded-xl overflow-hidden bg-white shadow-2xs border border-slate-200/80 p-1 shrink-0 flex items-center justify-center">
+                <img src="/bulletin_icon.png" alt="Ward Bulletin" className="w-full h-full object-contain" />
+              </div>
+              <div
+                className="inline-block px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider border shadow-2xs"
+                style={{ background: theme.badgeBg, color: theme.badgeText, borderColor: theme.borderLight }}
+              >
+                Live Ward Bulletin
+              </div>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-wide uppercase font-serif" style={{ color: theme.primaryColor }}>
               {unitTitle}
@@ -851,8 +856,8 @@ export function PublicBulletinLandingPage() {
       {showIosGuide && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 text-center space-y-4 animate-in fade-in zoom-in-95 duration-200">
-            <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto">
-              <Smartphone className="w-6 h-6" />
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto overflow-hidden bg-white shadow-md border border-slate-200 p-2">
+              <img src="/bulletin_icon.png" alt="Ward Bulletin App Icon" className="w-full h-full object-contain" />
             </div>
             <div>
               <h3 className="text-lg font-bold text-slate-900">Install on iPhone / iPad</h3>

@@ -215,13 +215,13 @@ export function DashboardPage() {
             {/* Prominent 2x Platform Logo Container */}
             <div className="hidden md:flex h-28 w-28 lg:h-32 lg:w-32 items-center justify-center rounded-3xl bg-white/10 backdrop-blur-md p-3 border border-white/25 shadow-2xl shadow-black/40 overflow-hidden shrink-0">
               <img
-                src="/sm_image.png"
+                src="/logo_icon.png"
                 alt="SM Planner Logo"
                 className="h-full w-full object-contain drop-shadow-md"
                 onError={(e) => {
                   const target = e.currentTarget;
-                  if (!target.src.endsWith('/logo.png')) {
-                    target.src = '/logo.png';
+                  if (!target.src.endsWith('/logo_icon.png')) {
+                    target.src = '/logo_icon.png';
                   } else {
                     target.style.display = 'none';
                   }
