@@ -163,10 +163,10 @@ export function Sidebar() {
         )}
       >
         {/* Top Logo & App Title Bar */}
-        <div className="flex items-center justify-between gap-2.5 border-b border-slate-800/80 px-4 py-3.5 shrink-0 bg-slate-900/40">
-          <div className="flex items-center gap-3 min-w-0">
-            {/* White Logo Container */}
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white p-1.5 shadow-md shadow-slate-950/30 shrink-0 overflow-hidden">
+        <div className="flex flex-col items-center text-center gap-2 border-b border-slate-800/80 px-4 py-4 shrink-0 bg-slate-900/40 relative">
+          <div className="flex flex-col items-center gap-2.5 w-full">
+            {/* White Logo Container (2x enlarged) */}
+            <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-white p-2 shadow-lg shadow-slate-950/40 shrink-0 overflow-hidden border border-white/20">
               <img
                 src="/logo_icon.png"
                 alt="SM Planner Logo"
@@ -183,37 +183,22 @@ export function Sidebar() {
                   }
                 }}
               />
-              <Church className="h-7 w-7 text-blue-800 stroke-[1.75] hidden" />
+              <Church className="h-10 w-10 text-blue-800 stroke-[1.75] hidden" />
             </div>
-            {/* 3-line Stacked Title */}
-            <div className="flex flex-col leading-none">
-              <span className="text-[11px] font-black tracking-wider text-white uppercase">SACRAMENT</span>
-              <span className="text-[12px] font-bold text-slate-200 leading-tight">Meeting</span>
-              <span className="text-[11px] font-bold text-cyan-400 tracking-wide">Planner</span>
+            {/* Stacked Title */}
+            <div className="flex flex-col leading-snug">
+              <span className="text-[12px] font-black tracking-wider text-white uppercase">SACRAMENT MEETING</span>
+              <span className="text-[11px] font-bold text-cyan-400 tracking-wide">PLANNER</span>
             </div>
           </div>
 
-          {/* Top Right Notification Bell / Mobile Close */}
-          <div className="flex items-center gap-1 shrink-0">
-            <button
-              onClick={() => navigate('/notifications')}
-              className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 text-slate-200 transition-colors"
-              title="Notifications"
-            >
-              <Bell className="h-4 w-4" />
-              {unreadNotifications > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-cyan-500 text-[10px] font-black text-slate-950 shadow-xs">
-                  {unreadNotifications > 99 ? '99+' : unreadNotifications}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={toggleSidebar}
-              className="lg:hidden rounded-lg p-1.5 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
+          {/* Close button on mobile */}
+          <button
+            onClick={toggleSidebar}
+            className="lg:hidden absolute top-3 right-3 rounded-lg p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
         {/* Ward / Unit Status Card */}

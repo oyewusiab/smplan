@@ -1,10 +1,11 @@
-﻿// Ward Bulletin - Dedicated Route Service Worker
+// Ward Bulletin - Dedicated Route Service Worker
 // Scoped strictly to /visitbulletin/
 
-const CACHE_NAME = 'ward-bulletin-shell-v1';
+const CACHE_NAME = 'ward-bulletin-shell-v2';
 const PRECACHE_ASSETS = [
   '/visitbulletin',
   '/visitbulletin/manifest.json',
+  '/bulletin_icon.png',
   '/visitbulletin/icons/icon-192.png',
   '/visitbulletin/icons/icon-512.png',
 ];

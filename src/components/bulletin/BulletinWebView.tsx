@@ -107,11 +107,6 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp, onOpenFeedbackMo
         style={{ backgroundColor: theme.primaryColor }}
       >
         <div className="relative z-10 text-center">
-          <div className="flex justify-center mb-2">
-            <div className="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 p-1 flex items-center justify-center shadow-xs">
-              <img src="/bulletin_icon.png" alt="Ward Bulletin" className="w-full h-full object-contain" />
-            </div>
-          </div>
           <h1 className="text-xl font-extrabold tracking-wide uppercase font-serif text-white">
             {unitTitle}
           </h1>

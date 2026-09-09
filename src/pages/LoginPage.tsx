@@ -51,9 +51,9 @@ export function LoginPage() {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[550px] w-[550px] rounded-full bg-white/3" />
 
         <div className="relative z-10 text-center max-w-md">
-          {/* Logo container (6x larger, crisp presentation) */}
+          {/* Logo container (2x enlarged, crisp presentation) */}
           <div className="flex items-center justify-center mb-8">
-            <div className="flex h-44 w-44 items-center justify-center rounded-3xl bg-white p-4 shadow-2xl shadow-[#041427]/70 border border-white/20 overflow-hidden">
+            <div className="flex h-72 w-72 items-center justify-center rounded-3xl bg-white p-5 shadow-2xl shadow-[#041427]/70 border border-white/20 overflow-hidden">
               <img
                 src="/logo_icon.png"
                 alt="SM Planner Logo"
@@ -70,7 +70,7 @@ export function LoginPage() {
                   }
                 }}
               />
-              <Church className="h-16 w-16 text-[#082749] hidden" />
+              <Church className="h-24 w-24 text-[#082749] hidden" />
             </div>
           </div>
           <h1 className="text-4xl font-extrabold text-white mb-2 tracking-tight">SM Planner</h1>
@@ -99,9 +99,9 @@ export function LoginPage() {
       {/* Right panel — login form */}
       <div className="flex flex-1 flex-col items-center justify-center p-8 bg-white">
         <div className="w-full max-w-sm">
-          {/* Mobile logo (enlarged) */}
-          <div className="flex lg:hidden items-center gap-3.5 mb-8">
-            <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-white shadow-md border border-slate-200 p-2 overflow-hidden shrink-0">
+          {/* Mobile logo (2x enlarged) */}
+          <div className="flex lg:hidden flex-col items-center text-center gap-3 mb-8">
+            <div className="flex h-36 w-36 items-center justify-center rounded-3xl bg-white shadow-lg border border-slate-200 p-3.5 overflow-hidden shrink-0">
               <img
                 src="/logo_icon.png"
                 alt="SM Planner Logo"

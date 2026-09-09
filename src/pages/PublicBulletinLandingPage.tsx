@@ -255,16 +255,11 @@ export function PublicBulletinLandingPage() {
         <div className="p-5 sm:p-8 space-y-6">
           {/* Header Section Matching Specified Typography & Palette */}
           <header className="text-center pb-5 border-b-2" style={{ borderColor: theme.primaryColor }}>
-            <div className="flex items-center justify-center gap-2 mb-2.5">
-              <div className="w-9 h-9 rounded-xl overflow-hidden bg-white shadow-2xs border border-slate-200/80 p-1 shrink-0 flex items-center justify-center">
-                <img src="/bulletin_icon.png" alt="Ward Bulletin" className="w-full h-full object-contain" />
-              </div>
-              <div
-                className="inline-block px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider border shadow-2xs"
-                style={{ background: theme.badgeBg, color: theme.badgeText, borderColor: theme.borderLight }}
-              >
-                Live Ward Bulletin
-              </div>
+            <div
+              className="inline-block px-3 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider mb-2 border shadow-2xs"
+              style={{ background: theme.badgeBg, color: theme.badgeText, borderColor: theme.borderLight }}
+            >
+              Live Ward Bulletin
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-wide uppercase font-serif" style={{ color: theme.primaryColor }}>
               {unitTitle}
