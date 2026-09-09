@@ -11,7 +11,7 @@ import {
 import toast from 'react-hot-toast';
 
 export type BirthdayChannel = 'WHATSAPP' | 'EMAIL' | 'SMS';
-export type BirthdayTemplateStyle = 'WARM_FAITHFUL' | 'SHORT_SWEET' | 'WARD_FAMILY';
+export type BirthdayTemplateStyle = 'WARM_FAITHFUL' | 'SHORT_SWEET';
 
 interface BirthdayWishModalProps {
   open: boolean;
@@ -62,8 +62,6 @@ export function BirthdayWishModal({
     if (curChannel === 'SMS') {
       if (style === 'SHORT_SWEET') {
         return `Happy Birthday ${name}! 🎂🎉 Wishing you joy and happiness on your special day! - ${signOff}`;
-      } else if (style === 'WARD_FAMILY') {
-        return `Happy Birthday ${name}! 🎂 On behalf of the ${uName}, we wish you the Lord's richest blessings, joy, and peace in this new year of life!`;
       } else {
         // WARM_FAITHFUL
         return `Happy Birthday ${name}! 🎂🎉 May your day and the coming year be filled with the Lord's peace, love, and richest blessings. - ${signOff}`;
@@ -81,17 +79,6 @@ export function BirthdayWishModal({
           '',
           `Warm regards,`,
           signOff,
-        ].join('\n');
-      } else if (style === 'WARD_FAMILY') {
-        return [
-          `Dear ${name},`,
-          '',
-          `On behalf of the Bishopric and members of the ${uName}, we extend our heartfelt birthday wishes to you! 🎂🎉`,
-          '',
-          `We thank the Lord for your life, your faith, and your presence in our ward family. May He bless you with strength, good health, peace, and eternal joy in this new year of your life.`,
-          '',
-          `With love and blessings,`,
-          `The Bishopric & ${uName} Family`,
         ].join('\n');
       } else {
         // WARM_FAITHFUL
@@ -117,17 +104,6 @@ export function BirthdayWishModal({
         '',
         `Warm regards,`,
         signOff,
-      ].join('\n');
-    } else if (style === 'WARD_FAMILY') {
-      return [
-        `Dear ${name},`,
-        '',
-        `Happy Birthday! 🎂🎉 The Bishopric and members of ${uName} celebrate you today!`,
-        '',
-        `We pray that the Lord grants you peace, prosperity, good health, and continued spiritual growth in this new year of life.`,
-        '',
-        `Warm regards,`,
-        `The Bishopric & ${uName} Family`,
       ].join('\n');
     } else {
       // WARM_FAITHFUL
@@ -375,17 +351,6 @@ export function BirthdayWishModal({
                 }`}
               >
                 ✨ Short & Sweet
-              </button>
-              <button
-                type="button"
-                onClick={() => setTemplateStyle('WARD_FAMILY')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  templateStyle === 'WARD_FAMILY'
-                    ? 'bg-amber-100 text-amber-900 border border-amber-300 font-bold'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200'
-                }`}
-              >
-                🏛️ Bishopric & Ward Greeting
               </button>
             </div>
           </div>
