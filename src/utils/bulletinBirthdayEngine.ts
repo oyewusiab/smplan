@@ -141,7 +141,7 @@ export function getBirthdaysForWeek(
             dateStr: matchDay.dateStr,
             phone: m.phone || '',
             email: m.email || '',
-            birth_date: bDateStr,
+            birth_date: dayLabel,
             formatted: `🎂 ${rawName} (${dayLabel})`,
           });
         }
@@ -218,7 +218,7 @@ export function parseCelebrantsFromText(
 ): BulletinCelebrant[] {
   if (!birthdaysText) return [];
   const normalized = normalizeBirthdaysString(birthdaysText, targetDateStr);
-  const items = normalized.split(/[\\n,]| {3,}|🎂/).map((s) => s.trim()).filter(Boolean);
+  const items = normalized.split(/[\n,]| {3,}|🎂/).map((s) => s.trim()).filter(Boolean);
 
   return items.map((raw) => {
     // raw e.g. "Akande, Babatunde Adewale (Sept. 11)" or "Brother Samuel Ade (Sept. 28)"
@@ -241,6 +241,15 @@ export function parseCelebrantsFromText(
       if (matched) {
         phone = matched.phone || '';
         email = matched.email || '';
+        if (!dayLabel) {
+          const bDateStr = (matched as any).birthdate || (matched as any).dob || '';
+          if (bDateStr) {
+            const parsed = parseMemberBirthMonthDay(bDateStr);
+            if (parsed) {
+              dayLabel = formatBirthdayLabel(parsed.month, parsed.day);
+            }
+          }
+        }
       }
     }
 
@@ -252,5 +261,116 @@ export function parseCelebrantsFromText(
       birth_date: dayLabel,
     };
   });
+}
+
+/**
+ * Robust formatter for displaying a celebrant's badge label
+ * e.g. "Akande, Babatunde Adewale (Sept. 11)"
+ */
+export function formatCelebrantDisplayName(
+  celebrant: BulletinCelebrant | string,
+  targetDateStr?: string,
+  members?: Member[]
+): string {
+  if (!celebrant) return '';
+
+  if (typeof celebrant === 'string') {
+    let s = celebrant.replace(/^🎂\s*/, '').trim();
+    // If it already has (Month Day) or (Day)
+    if (/\([^)]+\)/.test(s)) {
+      return normalizeBirthdaysString(s, targetDateStr);
+    }
+    // If bare name, try to look up member birthdate
+    if (members && members.length > 0) {
+      const lower = s.toLowerCase().replace(/^(brother|sister|bro\.|sis\.|elder|bishop|president)\s+/i, '').trim();
+      const m = members.find((mem) => {
+        const mLower = (mem.name || '').toLowerCase();
+        return mLower.includes(lower) || lower.includes(mLower);
+      });
+      if (m) {
+        const bDate = (m as any).birthdate || (m as any).dob;
+        const parsed = parseMemberBirthMonthDay(bDate);
+        if (parsed) {
+          return `${s} (${formatBirthdayLabel(parsed.month, parsed.day)})`;
+        }
+      }
+    }
+    return s;
+  }
+
+  // BulletinCelebrant object
+  let name = (celebrant.name || '').replace(/^🎂\s*/, '').trim();
+  let bDate = (celebrant.birth_date || '').trim();
+
+  // If name itself already has "(...)"
+  const parenMatch = name.match(/^(.*?)\s*\(([^)]+)\)$/);
+  if (parenMatch) {
+    const rawBase = parenMatch[1].trim();
+    const insideParen = parenMatch[2].trim();
+    if (/^\d{1,2}$/.test(insideParen)) {
+      const normalized = normalizeBirthdaysString(`(${insideParen})`, targetDateStr);
+      return `${rawBase} ${normalized}`;
+    }
+    return `${rawBase} (${insideParen})`;
+  }
+
+  // If birth_date property is present
+  if (bDate) {
+    bDate = bDate.replace(/^\(|\)$/g, '').trim();
+    if (/^\d{1,2}$/.test(bDate)) {
+      bDate = normalizeBirthdaysString(`(${bDate})`, targetDateStr).replace(/^\(|\)$/g, '');
+    } else {
+      const parsed = parseMemberBirthMonthDay(bDate);
+      if (parsed) {
+        bDate = formatBirthdayLabel(parsed.month, parsed.day);
+      }
+    }
+    return `${name} (${bDate})`;
+  }
+
+  // If dateStr property is present (e.g. 2026-09-11)
+  if (celebrant.dateStr) {
+    try {
+      const parts = celebrant.dateStr.split('-');
+      if (parts.length === 3) {
+        const m = parseInt(parts[1], 10);
+        const d = parseInt(parts[2], 10);
+        if (!isNaN(m) && !isNaN(d) && m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+          return `${name} (${formatBirthdayLabel(m, d)})`;
+        }
+      }
+    } catch {}
+  }
+
+  // If day number is present
+  if (celebrant.day && targetDateStr) {
+    try {
+      const parts = targetDateStr.split('-');
+      if (parts.length >= 2) {
+        const m = parseInt(parts[1], 10);
+        if (!isNaN(m) && m >= 1 && m <= 12) {
+          return `${name} (${formatBirthdayLabel(m, celebrant.day)})`;
+        }
+      }
+    } catch {}
+  }
+
+  // Try member lookup as fallback
+  if (members && members.length > 0 && name) {
+    const lower = name.toLowerCase().replace(/^(brother|sister|bro\.|sis\.|elder|bishop|president)\s+/i, '').trim();
+    const matched = members.find((m) => {
+      const mLower = (m.name || '').toLowerCase();
+      return mLower.includes(lower) || lower.includes(mLower);
+    });
+    if (matched) {
+      const mBDate = (matched as any).birthdate || (matched as any).dob;
+      const parsed = parseMemberBirthMonthDay(mBDate);
+      if (parsed) {
+        return `${name} (${formatBirthdayLabel(parsed.month, parsed.day)})`;
+      }
+    }
+  }
+
+  return name;
 }
 

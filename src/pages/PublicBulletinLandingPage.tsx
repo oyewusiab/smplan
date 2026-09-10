@@ -8,7 +8,7 @@ import { bulletinsApi } from '../services/api';
 import { getBulletinTheme } from '../utils/bulletinThemes';
 import { getWeekDateRange, isSectionVisible } from '../utils/bulletinPrintEngine';
 import { resolveHymnLink, formatHymnDisplay } from '../data/bundledHymns';
-import { formatBirthdayLabel, getOrdinalSuffix, normalizeBirthdaysString, parseCelebrantsFromText } from '../utils/bulletinBirthdayEngine';
+import { formatBirthdayLabel, getOrdinalSuffix, normalizeBirthdaysString, parseCelebrantsFromText, formatCelebrantDisplayName } from '../utils/bulletinBirthdayEngine';
 import { formatHonorificName } from '../utils/memberTitle';
 import { BirthdayWishModal, type BirthdayChannel } from '../components/bulletin/BirthdayWishModal';
 import {
@@ -85,12 +85,31 @@ export function PublicBulletinLandingPage() {
   const [selectedChannel, setSelectedChannel] = useState<BirthdayChannel>('WHATSAPP');
   const [birthdayModalOpen, setBirthdayModalOpen] = useState(false);
 
+  const normalizeLandingBulletin = (b: any): Bulletin => {
+    if (!b) return b;
+    const copy = { ...b };
+    const jsonFields = ['activities_list', 'next_activities_list', 'class_lessons', 'custom_links', 'birthday_celebrants_list'];
+    jsonFields.forEach((kf) => {
+      if (typeof copy[kf] === 'string') {
+        try {
+          copy[kf] = JSON.parse(copy[kf]);
+        } catch {
+          copy[kf] = [];
+        }
+      }
+      if (!Array.isArray(copy[kf])) {
+        copy[kf] = copy[kf] ? [copy[kf]] : [];
+      }
+    });
+    return copy as Bulletin;
+  };
+
   const loadLiveBulletin = async () => {
     setLoading(true);
     try {
       const res = await bulletinsApi.getLive({ forceRefresh: true }) as { ok: boolean; data?: Bulletin; error?: string };
       if (res.ok && res.data) {
-        setBulletin(res.data);
+        setBulletin(normalizeLandingBulletin(res.data));
         return;
       }
     } catch (err) {
@@ -104,7 +123,7 @@ export function PublicBulletinLandingPage() {
         // Find latest published or newest draft
         const published = localSaved.filter((b: any) => b.status === 'PUBLISHED');
         const chosen = published.length > 0 ? published[0] : localSaved[0];
-        setBulletin(chosen);
+        setBulletin(normalizeLandingBulletin(chosen));
         return;
       }
     } catch {}
@@ -582,13 +601,8 @@ export function PublicBulletinLandingPage() {
                       >
                         <span>🎂</span>
                         <span className="group-hover:underline underline-offset-2 font-bold">
-                          {c.name}
+                          {formatCelebrantDisplayName(c, bulletin.date)}
                         </span>
-                        {c.birth_date && (
-                          <span className="text-[11px] font-semibold text-slate-500">
-                            ({c.birth_date})
-                          </span>
-                        )}
                         <span className="text-[10px] text-emerald-600 font-semibold ml-0.5 opacity-85 group-hover:opacity-100 flex items-center gap-0.5">
                           💬 Wish
                         </span>

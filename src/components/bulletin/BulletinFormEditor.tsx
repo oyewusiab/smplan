@@ -9,7 +9,7 @@ import { Card, CardBody, CardHeader } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Input, Select, Textarea } from '../ui/Input';
 import { BULLETIN_THEMES } from '../../utils/bulletinThemes';
-import { buildWhatsAppBirthdayGreetingUrl, parseCelebrantsFromText } from '../../utils/bulletinBirthdayEngine';
+import { buildWhatsAppBirthdayGreetingUrl, parseCelebrantsFromText, formatCelebrantDisplayName } from '../../utils/bulletinBirthdayEngine';
 import { BirthdayWishModal, type BirthdayChannel } from './BirthdayWishModal';
 import { formatActivitiesToText } from '../../utils/bulletinActivityHarvester';
 import { isSectionVisible } from '../../utils/bulletinPrintEngine';
@@ -121,11 +121,22 @@ export function BulletinFormEditor({
   const activitiesList: WeeklyActivityItem[] = f.activities_list || [];
   const next5List: NextActivityItem[] = f.next_activities_list || [];
 
-  const handleUpdateActivity = (index: number, field: keyof WeeklyActivityItem, value: any) => {
-    const updated = [...activitiesList];
-    updated[index] = { ...updated[index], [field]: value };
-    const text = formatActivitiesToText(updated);
-    setForm((prev) => ({ ...prev, activities_list: updated, activities: text }));
+  const handleUpdateActivity = (
+    index: number,
+    updates: Partial<WeeklyActivityItem> | keyof WeeklyActivityItem,
+    value?: any
+  ) => {
+    setForm((prev) => {
+      const currentList = [...(prev.activities_list || [])];
+      if (!currentList[index]) return prev;
+      if (typeof updates === 'string') {
+        currentList[index] = { ...currentList[index], [updates]: value };
+      } else {
+        currentList[index] = { ...currentList[index], ...updates };
+      }
+      const text = formatActivitiesToText(currentList);
+      return { ...prev, activities_list: currentList, activities: text };
+    });
   };
 
   const handleMoveActivity = (index: number, direction: 'up' | 'down') => {
@@ -929,7 +940,7 @@ export function BulletinFormEditor({
                         >
                           <span>🎂</span>
                           <span className="group-hover:underline underline-offset-2">
-                            {c.name} {c.birth_date ? `(${c.birth_date})` : ''}
+                            {formatCelebrantDisplayName(c, f.date)}
                           </span>
                           <span className="text-[10px] text-emerald-600 font-semibold ml-1">
                             💬 Wish
@@ -1023,8 +1034,8 @@ export function BulletinFormEditor({
                           type="checkbox"
                           checked={!!(item.reoccurring || item.is_recurring)}
                           onChange={(e) => {
-                            handleUpdateActivity(idx, 'reoccurring', e.target.checked);
-                            handleUpdateActivity(idx, 'is_recurring', e.target.checked);
+                            const isChecked = e.target.checked;
+                            handleUpdateActivity(idx, { reoccurring: isChecked, is_recurring: isChecked });
                           }}
                           className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
                         />

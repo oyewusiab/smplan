@@ -16,7 +16,7 @@ import { BulletinWhatsAppCard } from '../components/bulletin/BulletinWhatsAppCar
 import { BulletinPrintPreview } from '../components/bulletin/BulletinPrintPreview';
 import { BulletinSyncConfirmModal, SyncFieldDifference } from '../components/bulletin/BulletinSyncConfirmModal';
 import { getBirthdaysForWeek, normalizeBirthdaysString } from '../utils/bulletinBirthdayEngine';
-import { harvestWeeklyActivities, getNext5Activities } from '../utils/bulletinActivityHarvester';
+import { harvestWeeklyActivities, getNext5Activities, formatActivitiesToText, getRecurringActivitiesForTargetWeek, mergeRecurringActivities } from '../utils/bulletinActivityHarvester';
 import { fetchAndParseCfmUrl, generateCfmFromUrlOffline } from '../utils/bulletinCfmParser';
 import { getWeekDateRange } from '../utils/bulletinPrintEngine';
 import { formatHymnDisplay } from '../data/bundledHymns';
@@ -24,6 +24,25 @@ import { formatHonorificName, setMembersDirectoryRegistry } from '../utils/membe
 import type { Bulletin, Planner, Member, Activity, Hymn, BulletinFeedback, UnitSetting } from '../types';
 import { format, parseISO, addWeeks, subWeeks, startOfMonth, endOfMonth, eachWeekOfInterval, isSunday } from 'date-fns';
 import toast from 'react-hot-toast';
+
+function normalizeLoadedBulletin(b: any): Bulletin {
+  if (!b) return b;
+  const copy = { ...b };
+  const jsonFields = ['activities_list', 'next_activities_list', 'class_lessons', 'custom_links', 'birthday_celebrants_list'];
+  jsonFields.forEach((kf) => {
+    if (typeof copy[kf] === 'string') {
+      try {
+        copy[kf] = JSON.parse(copy[kf]);
+      } catch {
+        copy[kf] = [];
+      }
+    }
+    if (!Array.isArray(copy[kf])) {
+      copy[kf] = copy[kf] ? [copy[kf]] : [];
+    }
+  });
+  return copy as Bulletin;
+}
 
 export function BulletinPage() {
   const { session } = useAuthStore();
@@ -150,16 +169,17 @@ export function BulletinPage() {
 
       let loadedBulletins: Bulletin[] = [];
       if (bRes.status === 'fulfilled' && bRes.value.ok && Array.isArray(bRes.value.data)) {
-        loadedBulletins = bRes.value.data;
+        loadedBulletins = bRes.value.data.map(normalizeLoadedBulletin);
       }
       try {
         const localSaved = JSON.parse(localStorage.getItem('SM_SAVED_BULLETINS') || '[]');
         if (Array.isArray(localSaved) && localSaved.length > 0) {
           const map = new Map<string, Bulletin>();
           loadedBulletins.forEach((b) => map.set(b.bulletin_id || b.date, b));
-          localSaved.forEach((b: Bulletin) => {
-            const key = b.bulletin_id || b.date;
-            if (!map.has(key)) map.set(key, b);
+          localSaved.forEach((b: any) => {
+            const normalizedB = normalizeLoadedBulletin(b);
+            const key = normalizedB.bulletin_id || normalizedB.date;
+            if (!map.has(key)) map.set(key, normalizedB);
           });
           loadedBulletins = Array.from(map.values());
         }
@@ -481,34 +501,11 @@ export function BulletinPage() {
     const targetPlannerId = overridePlannerId || form.planner_id;
     toast.loading('Auto-harvesting data for ' + targetDate + '…', { id: 'drafting' });
 
-    // Collect all recurring activities from previous saved bulletins and current form
-    const recurringPool: WeeklyActivityItem[] = [];
-    bulletins.forEach((b) => {
-      if (Array.isArray(b.activities_list)) {
-        b.activities_list.forEach((item) => {
-          if (item && item.reoccurring) {
-            const exists = recurringPool.some(
-              (r) =>
-                (r.day || '').toLowerCase() === (item.day || '').toLowerCase() &&
-                (r.activity || '').toLowerCase() === (item.activity || '').toLowerCase()
-            );
-            if (!exists) recurringPool.push({ ...item });
-          }
-        });
-      }
+    // Collect recurring activities carried over from previous weeks
+    const recurringActivities = getRecurringActivitiesForTargetWeek(targetDate, bulletins, {
+      date: form.date,
+      activities_list: form.activities_list,
     });
-    if (Array.isArray(form.activities_list)) {
-      form.activities_list.forEach((item) => {
-        if (item && item.reoccurring) {
-          const exists = recurringPool.some(
-            (r) =>
-              (r.day || '').toLowerCase() === (item.day || '').toLowerCase() &&
-              (r.activity || '').toLowerCase() === (item.activity || '').toLowerCase()
-          );
-          if (!exists) recurringPool.push({ ...item });
-        }
-      });
-    }
 
     try {
       const res = (await bulletinsApi.getDraftData(
@@ -521,8 +518,8 @@ export function BulletinPage() {
 
       if (res.ok && res.data) {
         if (res.data.existing_bulletin) {
-          setSelectedBulletinId(res.data.existing_bulletin.bulletin_id);
-          const loaded = res.data.existing_bulletin;
+          const loaded = normalizeLoadedBulletin(res.data.existing_bulletin);
+          setSelectedBulletinId(loaded.bulletin_id);
           const validNext5 = (loaded.next_activities_list && loaded.next_activities_list.length > 0 && !loaded.next_activities_list[0].date?.startsWith('act_'))
             ? loaded.next_activities_list
             : next5Fallback;
@@ -548,6 +545,22 @@ export function BulletinPage() {
             ? sug.next_activities_list
             : next5Fallback;
 
+          const baseActivities = Array.isArray(sug.activities_list)
+            ? sug.activities_list
+            : typeof sug.activities_list === 'string'
+            ? (() => { try { return JSON.parse(sug.activities_list); } catch { return []; } })()
+            : [];
+          const mergedActivities = mergeRecurringActivities(baseActivities, recurringActivities);
+
+          const baseCelebrants = Array.isArray(sug.birthday_celebrants_list)
+            ? sug.birthday_celebrants_list
+            : typeof sug.birthday_celebrants_list === 'string'
+            ? (() => { try { return JSON.parse(sug.birthday_celebrants_list); } catch { return []; } })()
+            : [];
+          const finalCelebrants = baseCelebrants.length > 0
+            ? baseCelebrants
+            : getBirthdaysForWeek(members, targetDate).celebrants;
+
           setForm((prev) => ({
             ...prev,
             ...sug,
@@ -563,6 +576,9 @@ export function BulletinPage() {
               return namePart ? formatHonorificName(namePart) : '';
             }).filter(Boolean).join('\n') : '',
             birthdays: normalizeBirthdaysString(sug.birthdays || prev.birthdays, targetDate),
+            birthday_celebrants_list: finalCelebrants,
+            activities_list: mergedActivities,
+            activities: formatActivitiesToText(mergedActivities),
             next_activities_list: validNext5,
             unit_name: overrideUnitName || sug.unit_name || prev.unit_name,
           }));
@@ -571,7 +587,7 @@ export function BulletinPage() {
       }
     } catch {
       const { celebrants: harvestedBirthdays, formattedString: bdaysText } = getBirthdaysForWeek(members, targetDate);
-      const { items: actItems, formattedText: actText } = harvestWeeklyActivities(activities, targetDate, recurringPool);
+      const { items: actItems, formattedText: actText } = harvestWeeklyActivities(activities, targetDate, recurringActivities);
       const next5 = getNext5Activities(activities, targetDate);
 
       // Check if agenda for this target date is canceled in local planners
@@ -675,7 +691,11 @@ export function BulletinPage() {
   // Import Calendar Activities for current week
   const handleImportActivities = () => {
     const targetDate = form.date || initialDate;
-    const { items, formattedText } = harvestWeeklyActivities(activities, targetDate);
+    const recurringActivities = getRecurringActivitiesForTargetWeek(targetDate, bulletins, {
+      date: form.date,
+      activities_list: form.activities_list,
+    });
+    const { items, formattedText } = harvestWeeklyActivities(activities, targetDate, recurringActivities);
     const next5 = getNext5Activities(activities, targetDate);
 
     setForm((prev) => ({
@@ -688,7 +708,8 @@ export function BulletinPage() {
   };
 
   // Select a bulletin from the left sidebar
-  const handleSelectBulletin = (b: Bulletin) => {
+  const handleSelectBulletin = (rawB: Bulletin) => {
+    const b = normalizeLoadedBulletin(rawB);
     setSelectedBulletinId(b.bulletin_id || null);
     setForm({
       ...b,

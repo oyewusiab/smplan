@@ -8,7 +8,7 @@ import { format, parseISO } from 'date-fns';
 import { Button } from '../ui/Button';
 import { Input, Textarea, Select } from '../ui/Input';
 import { getBulletinTheme } from '../../utils/bulletinThemes';
-import { buildWhatsAppBirthdayGreetingUrl, normalizeBirthdaysString, parseCelebrantsFromText } from '../../utils/bulletinBirthdayEngine';
+import { buildWhatsAppBirthdayGreetingUrl, normalizeBirthdaysString, parseCelebrantsFromText, formatCelebrantDisplayName } from '../../utils/bulletinBirthdayEngine';
 import { BirthdayWishModal, type BirthdayChannel } from './BirthdayWishModal';
 import { getWeekDateRange, isSectionVisible } from '../../utils/bulletinPrintEngine';
 import { resolveHymnLink, formatHymnDisplay } from '../../data/bundledHymns';
@@ -523,13 +523,8 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp, onOpenFeedbackMo
                     >
                       <span>🎂</span>
                       <span className="group-hover:underline underline-offset-2 font-bold">
-                        {c.name}
+                        {formatCelebrantDisplayName(c, b.date)}
                       </span>
-                      {c.birth_date && (
-                        <span className="text-[11px] font-semibold text-yellow-800/80">
-                          ({c.birth_date})
-                        </span>
-                      )}
                       <span className="text-[10px] text-emerald-700 font-semibold ml-0.5 opacity-85 group-hover:opacity-100 flex items-center gap-0.5">
                         💬 Wish
                       </span>

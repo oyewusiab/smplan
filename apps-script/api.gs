@@ -2901,6 +2901,7 @@ function handleGetBulletinDraftData(params) {
               dateStr: w.dateStr,
               phone: m.phone || '',
               email: m.email || '',
+              birth_date: dayFormatted,
               formatted: `🎂 ${m.name} (${dayFormatted})`
             });
           }
@@ -2932,35 +2933,51 @@ function handleGetBulletinDraftData(params) {
     });
   });
 
-  // Collect recurring activities from previous saved bulletins and database
+  // Collect recurring activities chronologically from past bulletins (date < targetDate)
   const allBulletins = dbReadAll('BULLETINS');
-  const recurringFromPast = [];
+  const pastBulletins = [];
   allBulletins.forEach(function(b) {
-    if (b && b.activities_list) {
+    if (b && b.date && b.date < targetDate && b.activities_list) {
       try {
         const list = typeof b.activities_list === 'string' ? JSON.parse(b.activities_list) : b.activities_list;
-        if (Array.isArray(list)) {
-          list.forEach(function(item) {
-            if (item && (item.reoccurring || item.is_recurring)) {
-              const exists = recurringFromPast.some(function(r) {
-                return (r.day || '').toLowerCase() === (item.day || '').toLowerCase() &&
-                       (r.activity || '').toLowerCase() === (item.activity || '').toLowerCase();
-              });
-              if (!exists) {
-                recurringFromPast.push({
-                  id: item.id || ('past_rec_' + recurringFromPast.length),
-                  day: item.day || 'Monday',
-                  activity: item.activity || '',
-                  time: item.time || '4:30 PM',
-                  scope: item.scope || 'Ward',
-                  reoccurring: true,
-                  is_recurring: true
-                });
-              }
-            }
-          });
+        if (Array.isArray(list) && list.length > 0) {
+          pastBulletins.push({ date: b.date, activities: list });
         }
       } catch(e) {}
+    }
+  });
+
+  // Sort past bulletins chronologically: earliest to latest
+  pastBulletins.sort(function(a, b) { return (a.date || '').localeCompare(b.date || ''); });
+
+  // Track latest recurring state for each activity
+  const activityStateMap = {};
+  pastBulletins.forEach(function(pb) {
+    pb.activities.forEach(function(item) {
+      if (!item || !item.activity) return;
+      const key = (item.day || '').trim().toLowerCase() + '|' + item.activity.trim().toLowerCase();
+      const isRec = !!(item.reoccurring || item.is_recurring);
+      activityStateMap[key] = {
+        item: item,
+        isRecurring: isRec,
+        date: pb.date
+      };
+    });
+  });
+
+  const recurringFromPast = [];
+  Object.keys(activityStateMap).forEach(function(k) {
+    const val = activityStateMap[k];
+    if (val && val.isRecurring) {
+      recurringFromPast.push({
+        id: val.item.id || ('past_rec_' + recurringFromPast.length),
+        day: val.item.day || 'Monday',
+        activity: val.item.activity || '',
+        time: val.item.time || '4:30 PM',
+        scope: val.item.scope || 'Ward',
+        reoccurring: true,
+        is_recurring: true
+      });
     }
   });
 

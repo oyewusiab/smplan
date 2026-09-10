@@ -40,10 +40,11 @@ export function BirthdayWishModal({
   // Initialize or reset state when celebrant or channel changes
   useEffect(() => {
     if (celebrant) {
+      const cleanName = (celebrant.name || '').replace(/\s*\([^)]+\)$/, '').trim();
       setPhone(celebrant.phone || '');
       setEmail(celebrant.email || '');
       setChannel(initialChannel || 'WHATSAPP');
-      setSubject(`Happy Birthday, ${celebrant.name}! 🎂🎉`);
+      setSubject(`Happy Birthday, ${cleanName || 'Brother / Sister'}! 🎂🎉`);
     }
   }, [celebrant, initialChannel]);
 
@@ -56,7 +57,7 @@ export function BirthdayWishModal({
     uName: string
   ) => {
     if (!cel) return '';
-    const name = cel.name || 'Brother / Sister';
+    const name = (cel.name || 'Brother / Sister').replace(/\s*\([^)]+\)$/, '').trim();
     const signOff = sName.trim() ? sName.trim() : `${uName} Family`;
 
     if (curChannel === 'SMS') {
@@ -142,7 +143,8 @@ export function BirthdayWishModal({
   const handleDispatch = () => {
     if (channel === 'WHATSAPP') {
       const cleaned = cleanPhoneNumberForWhatsApp(phone);
-      const url = buildWhatsAppBirthdayGreetingUrl(cleaned, celebrant.name, unitName, customMessage);
+      const cleanName = (celebrant.name || '').replace(/\s*\([^)]+\)$/, '').trim();
+      const url = buildWhatsAppBirthdayGreetingUrl(cleaned, cleanName, unitName, customMessage);
       window.open(url, '_blank');
       toast.success('Opening WhatsApp...');
       onClose();
@@ -176,7 +178,7 @@ export function BirthdayWishModal({
                 </span>
               </h2>
               <p className="text-xs text-slate-500">
-                Send personal WhatsApp, Email or SMS birthday blessings to <span className="font-semibold text-slate-800">{celebrant.name}</span>
+                Send personal WhatsApp, Email or SMS birthday blessings to <span className="font-semibold text-slate-800">{(celebrant.name || '').replace(/\s*\([^)]+\)$/, '').trim()}</span>
               </p>
             </div>
           </div>
