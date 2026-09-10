@@ -10,6 +10,7 @@ import { getWeekDateRange, isSectionVisible } from '../utils/bulletinPrintEngine
 import { resolveHymnLink, formatHymnDisplay } from '../data/bundledHymns';
 import { formatBirthdayLabel, getOrdinalSuffix, normalizeBirthdaysString, parseCelebrantsFromText, formatCelebrantDisplayName } from '../utils/bulletinBirthdayEngine';
 import { formatHonorificName } from '../utils/memberTitle';
+import { BulletinFormattedText } from '../utils/bulletinFormatter';
 import { BirthdayWishModal, type BirthdayChannel } from '../components/bulletin/BirthdayWishModal';
 import {
   initializeBulletinPwa,
@@ -520,21 +521,23 @@ export function PublicBulletinLandingPage() {
               )}
 
               {bulletin.cfm_introduction && (
-                <p className="text-xs sm:text-sm text-slate-700 italic leading-relaxed">
-                  {bulletin.cfm_introduction}
-                </p>
+                <BulletinFormattedText
+                  text={bulletin.cfm_introduction}
+                  className="text-xs sm:text-sm text-slate-700 italic leading-relaxed"
+                />
               )}
 
               {bulletin.cfm_ideas_for_learning && (
-                <div className="text-xs sm:text-sm text-slate-800 space-y-1 bg-white/80 p-3 rounded-xl border leading-relaxed whitespace-pre-line" style={{ borderColor: theme.borderLight }}>
+                <div className="text-xs sm:text-sm text-slate-800 space-y-1 bg-white/80 p-3 rounded-xl border leading-relaxed" style={{ borderColor: theme.borderLight }}>
                   <strong className="block mb-1" style={{ color: theme.primaryColor }}>Ideas for Learning:</strong>
-                  {bulletin.cfm_ideas_for_learning}
+                  <BulletinFormattedText text={bulletin.cfm_ideas_for_learning} />
                 </div>
               )}
 
               {(bulletin.cfm_reflection || bulletin.cfm_discussion_question) && (
                 <div className="p-3 rounded-xl border-l-4 text-xs sm:text-sm leading-relaxed" style={{ background: theme.badgeBg, borderColor: theme.secondaryColor, color: theme.badgeText }}>
-                  <strong>Reflection Callout:</strong> {bulletin.cfm_reflection || bulletin.cfm_discussion_question}
+                  <strong className="block mb-0.5">Reflection Callout:</strong>
+                  <BulletinFormattedText text={bulletin.cfm_reflection || bulletin.cfm_discussion_question} />
                 </div>
               )}
 
@@ -616,9 +619,11 @@ export function PublicBulletinLandingPage() {
                 ) : null}
 
                 {bulletin.birthday_message && (
-                  <p className="text-xs italic bg-white/90 p-2.5 rounded-xl border" style={{ borderColor: theme.borderLight, color: theme.primaryColor }}>
-                    {bulletin.birthday_message}
-                  </p>
+                  <BulletinFormattedText
+                    text={bulletin.birthday_message}
+                    className="text-xs italic bg-white/90 p-2.5 rounded-xl border"
+                    style={{ borderColor: theme.borderLight, color: theme.primaryColor }}
+                  />
                 )}
               </section>
             );
@@ -654,9 +659,10 @@ export function PublicBulletinLandingPage() {
                   ))}
                 </div>
               ) : (
-                <p className="text-xs sm:text-sm text-slate-700 whitespace-pre-line leading-relaxed">
-                  {bulletin.activities}
-                </p>
+                <BulletinFormattedText
+                  text={bulletin.activities}
+                  className="text-xs sm:text-sm text-slate-700 leading-relaxed"
+                />
               )}
             </section>
           )}
@@ -702,7 +708,10 @@ export function PublicBulletinLandingPage() {
                   </div>
                 )}
                 {bulletin.cleaning_instructions && (
-                  <p className="text-xs text-slate-500 italic pt-1">{bulletin.cleaning_instructions}</p>
+                  <BulletinFormattedText
+                    text={bulletin.cleaning_instructions}
+                    className="text-xs text-slate-500 italic pt-1"
+                  />
                 )}
               </section>
             )}
@@ -712,9 +721,10 @@ export function PublicBulletinLandingPage() {
                 <h3 className="font-bold uppercase tracking-wider text-[11px]" style={{ color: theme.primaryColor }}>
                   Full-Time Missionaries
                 </h3>
-                <p className="text-slate-800 whitespace-pre-line text-xs leading-relaxed font-medium">
-                  {bulletin.missionaries}
-                </p>
+                <BulletinFormattedText
+                  text={bulletin.missionaries}
+                  className="text-slate-800 text-xs leading-relaxed font-medium"
+                />
               </section>
             )}
           </div>
@@ -725,9 +735,23 @@ export function PublicBulletinLandingPage() {
               <h3 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider" style={{ color: theme.primaryColor }}>
                 Message from the Bishopric
               </h3>
-              <p className="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-line">
-                {bulletin.bishopric_message}
-              </p>
+              <BulletinFormattedText
+                text={bulletin.bishopric_message}
+                className="text-xs sm:text-sm text-slate-700 leading-relaxed"
+              />
+            </section>
+          )}
+
+          {/* 7b. Ward Announcements (if present) */}
+          {bulletin.announcements && (
+            <section className="rounded-2xl border bg-white p-4 sm:p-5 space-y-2 shadow-2xs" style={{ borderColor: theme.borderLight }}>
+              <h3 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider" style={{ color: theme.primaryColor }}>
+                Ward Announcements
+              </h3>
+              <BulletinFormattedText
+                text={bulletin.announcements}
+                className="text-xs sm:text-sm text-slate-700 leading-relaxed"
+              />
             </section>
           )}
 
@@ -752,10 +776,17 @@ export function PublicBulletinLandingPage() {
             <section className="rounded-2xl border p-4 space-y-2 text-xs sm:text-sm shadow-2xs" style={{ background: theme.bgLight, borderColor: theme.borderLight }}>
               <h3 className="font-bold text-xs uppercase tracking-wider" style={{ color: theme.primaryColor }}>Ward Initiatives</h3>
               {bulletin.self_reliance_classes && (
-                <p className="text-xs whitespace-pre-line" style={{ color: theme.primaryColor }}>{bulletin.self_reliance_classes}</p>
+                <BulletinFormattedText
+                  text={bulletin.self_reliance_classes}
+                  className="text-xs"
+                  style={{ color: theme.primaryColor }}
+                />
               )}
               {bulletin.welfare_reminders && (
-                <p className="text-xs whitespace-pre-line text-slate-700">{bulletin.welfare_reminders}</p>
+                <BulletinFormattedText
+                  text={bulletin.welfare_reminders}
+                  className="text-xs text-slate-700"
+                />
               )}
             </section>
           )}

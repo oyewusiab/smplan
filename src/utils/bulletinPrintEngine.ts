@@ -11,6 +11,7 @@
 import { format, parseISO } from 'date-fns';
 import { getBulletinTheme } from './bulletinThemes';
 import { formatHonorificName } from './memberTitle';
+import { formatBulletinTextToHtml } from './bulletinFormatter';
 import { formatHymnDisplay } from '../data/bundledHymns';
 import { normalizeBirthdaysString } from './bulletinBirthdayEngine';
 import type { Bulletin, SpeakerItem, WeeklyActivityItem, NextActivityItem } from '../types';
@@ -361,8 +362,8 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
         </div>
         ${d.cfm_theme ? `<div style="font-weight: 700; font-size: 8pt; color: ${theme.primaryColor}; margin-bottom: 2pt;">${d.cfm_theme}</div>` : ''}
         ${d.cfm_introduction ? `<div style="font-size: 7pt; color: #334155; font-style: italic; margin-bottom: 2.5pt; line-height: 1.3;">${d.cfm_introduction}</div>` : ''}
-        ${d.cfm_ideas_for_learning ? `<div style="font-size: 7pt; color: #334155; margin-bottom: 2.5pt; white-space: pre-line; line-height: 1.3;"><strong>Ideas for Learning:</strong><br/>${d.cfm_ideas_for_learning}</div>` : ''}
-        ${d.cfm_reflection || d.cfm_discussion_question ? `<div style="font-size: 7.5pt; color: #92400e; margin-bottom: 2pt; background: #fef9c3; padding: 2.5pt 4pt; border-radius: 3pt; border-left: 2px solid #ca8a04;"><strong>Reflection:</strong> ${d.cfm_reflection || d.cfm_discussion_question}</div>` : ''}
+        ${d.cfm_ideas_for_learning ? `<div style="font-size: 7pt; color: #334155; margin-bottom: 2.5pt; line-height: 1.3;"><strong>Ideas for Learning:</strong><br/>${formatBulletinTextToHtml(d.cfm_ideas_for_learning, { forPrint: true })}</div>` : ''}
+        ${d.cfm_reflection || d.cfm_discussion_question ? `<div style="font-size: 7.5pt; color: #92400e; margin-bottom: 2pt; background: #fef9c3; padding: 2.5pt 4pt; border-radius: 3pt; border-left: 2px solid #ca8a04;"><strong>Reflection:</strong> ${formatBulletinTextToHtml(d.cfm_reflection || d.cfm_discussion_question, { inlineOnly: true })}</div>` : ''}
         ${d.scripture_of_the_week ? `<div style="font-size: 7pt; color: #334155; margin-top: 2pt; font-style: italic; background: #ffffff; padding: 2pt 4pt; border-radius: 2pt; border: 1px solid #e2e8f0;"><strong>Scripture of the Week:</strong> ${d.scripture_of_the_week}</div>` : ''}
         ${d.cfm_url ? `<div style="font-size: 6.5pt; color: ${theme.secondaryColor}; margin-top: 1.5pt;"><strong>Lesson Link:</strong> <a href="${d.cfm_url}" style="color: ${theme.primaryColor}; text-decoration: underline;">${d.cfm_url}</a></div>` : ''}
       </div>
@@ -372,7 +373,15 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
       <!-- 6. Message from the Bishopric -->
       <div class="card">
         <div class="card-title">Message from the Bishopric</div>
-        <p style="margin: 0; font-size: 7.5pt; line-height: 1.35; color: #334155; white-space: pre-line;">${d.bishopric_message}</p>
+        <div style="margin: 0; font-size: 7.5pt; line-height: 1.35; color: #334155;">${formatBulletinTextToHtml(d.bishopric_message, { forPrint: true })}</div>
+      </div>
+      ` : ''}
+
+      ${d.announcements ? `
+      <!-- 6b. Ward Announcements -->
+      <div class="card">
+        <div class="card-title">Ward Announcements</div>
+        <div style="margin: 0; font-size: 7.5pt; line-height: 1.35; color: #334155;">${formatBulletinTextToHtml(d.announcements, { forPrint: true })}</div>
       </div>
       ` : ''}
 
@@ -390,7 +399,7 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
       <!-- 9. Self-Reliance -->
       <div class="card" style="background: #f0fdf4; border-color: #bbf7d0;">
         <div class="card-title" style="color: #166534; border-color: #22c55e;">Self-Reliance Services</div>
-        <div style="font-size: 7pt; color: #14532d; white-space: pre-line;">${d.self_reliance_classes}</div>
+        <div style="font-size: 7pt; color: #14532d;">${formatBulletinTextToHtml(d.self_reliance_classes, { forPrint: true })}</div>
       </div>
       ` : ''}
 
@@ -398,7 +407,7 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
       <!-- 10. Welfare Notices -->
       <div class="card" style="background: #fefce8; border-color: #fef08a;">
         <div class="card-title" style="color: #854d0e; border-color: #eab308;">Welfare & Fast Offering</div>
-        <div style="font-size: 7pt; color: #713f12; white-space: pre-line;">${d.welfare_reminders}</div>
+        <div style="font-size: 7pt; color: #713f12;">${formatBulletinTextToHtml(d.welfare_reminders, { forPrint: true })}</div>
       </div>
       ` : ''}
     </div>
@@ -415,7 +424,7 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
         <div style="margin-bottom: 3pt; display: flex; flex-wrap: wrap; gap: 2pt;">
           ${(normalizeBirthdaysString(d.birthdays, d.date) || '').split(/[\n,]|   |🎂/).map(b => b.trim()).filter(Boolean).map(b => `<span class="celebrant-pill">🎂 ${b.replace(/^🎂\s*/, '')}</span>`).join('')}
         </div>
-        ${d.birthday_message ? `<div style="font-size: 7pt; color: #92400e; font-style: italic; background: rgba(255,255,255,0.75); padding: 2pt 4pt; border-radius: 2pt;">${d.birthday_message}</div>` : ''}
+        ${d.birthday_message ? `<div style="font-size: 7pt; color: #92400e; font-style: italic; background: rgba(255,255,255,0.75); padding: 2pt 4pt; border-radius: 2pt;">${formatBulletinTextToHtml(d.birthday_message, { forPrint: true })}</div>` : ''}
       </div>
       ` : ''}
 
@@ -431,17 +440,7 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
               <span class="activity-meta">${item.time} [${item.scope || 'Ward'}]</span>
             </div>
           `).join('')
-          : (d.activities || '').split('\n').filter(Boolean).map((line) => {
-            const colonIdx = line.indexOf(':');
-            const dayPart = colonIdx > -1 ? line.substring(0, colonIdx) : '•';
-            const textPart = colonIdx > -1 ? line.substring(colonIdx + 1) : line;
-            return `
-              <div class="activity-line">
-                <span class="activity-day">${dayPart}</span>
-                <span class="activity-desc">${textPart}</span>
-              </div>
-            `;
-          }).join('')
+          : `<div style="font-size: 7.5pt; color: #334155;">${formatBulletinTextToHtml(d.activities, { forPrint: true })}</div>`
         )}
       </div>
       ` : ''}
@@ -470,7 +469,7 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
         <div class="card-title">Building Cleaning Assignment</div>
         <div class="row"><span class="label">Assigned Group:</span><span class="value">${d.cleaning_group}</span></div>
         <div class="row"><span class="label">Date & Time:</span><span class="value">${safeDateFormat(d.cleaning_date, 'MMM d')} @ ${d.cleaning_time || '8:00 AM'}</span></div>
-        ${d.cleaning_instructions ? `<div style="font-size: 6.5pt; color: #64748b; margin-top: 2pt; font-style: italic;">${d.cleaning_instructions}</div>` : ''}
+        ${d.cleaning_instructions ? `<div style="font-size: 6.5pt; color: #64748b; margin-top: 2pt; font-style: italic;">${formatBulletinTextToHtml(d.cleaning_instructions, { forPrint: true })}</div>` : ''}
       </div>
       ` : ''}
 
@@ -478,7 +477,7 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
       <!-- 7. Missionary Corner -->
       <div class="card">
         <div class="card-title">Full-Time Missionaries</div>
-        <div style="font-size: 7.5pt; color: #334155; white-space: pre-line;">${d.missionaries}</div>
+        <div style="font-size: 7.5pt; color: #334155;">${formatBulletinTextToHtml(d.missionaries, { forPrint: true })}</div>
       </div>
       ` : ''}
 
@@ -724,8 +723,8 @@ export function generateStandard2PageHtml(d: Bulletin): string {
         </div>
         ${d.cfm_theme ? `<p style="font-weight: 700; color: ${theme.primaryColor}; margin: 0 0 3pt; font-size: 9.5pt;">${d.cfm_theme}</p>` : ''}
         ${d.cfm_introduction ? `<p style="font-style: italic; color: #334155; margin: 0 0 5pt; font-size: 8.5pt; line-height: 1.35;">${d.cfm_introduction}</p>` : ''}
-        ${d.cfm_ideas_for_learning ? `<div style="font-size: 8.5pt; color: #334155; margin: 0 0 5pt; white-space: pre-line; line-height: 1.35;"><strong>Ideas for Learning:</strong><br/>${d.cfm_ideas_for_learning}</div>` : ''}
-        ${d.cfm_reflection || d.cfm_discussion_question ? `<div style="color: #92400e; margin: 0 0 5pt; background: #fef9c3; padding: 5pt 8pt; border-radius: 4pt; border-left: 3px solid #ca8a04; font-size: 8.5pt;"><strong>Reflection:</strong> ${d.cfm_reflection || d.cfm_discussion_question}</div>` : ''}
+        ${d.cfm_ideas_for_learning ? `<div style="font-size: 8.5pt; color: #334155; margin: 0 0 5pt; line-height: 1.35;"><strong>Ideas for Learning:</strong><br/>${formatBulletinTextToHtml(d.cfm_ideas_for_learning, { forPrint: true })}</div>` : ''}
+        ${d.cfm_reflection || d.cfm_discussion_question ? `<div style="color: #92400e; margin: 0 0 5pt; background: #fef9c3; padding: 5pt 8pt; border-radius: 4pt; border-left: 3px solid #ca8a04; font-size: 8.5pt;"><strong>Reflection:</strong> ${formatBulletinTextToHtml(d.cfm_reflection || d.cfm_discussion_question, { inlineOnly: true })}</div>` : ''}
         ${d.cfm_url ? `<p style="font-size: 8pt; color: ${theme.secondaryColor}; margin: 3pt 0 0;"><strong>Lesson Link:</strong> <a href="${d.cfm_url}" style="color: ${theme.primaryColor}; text-decoration: underline;">${d.cfm_url}</a></p>` : ''}
       </div>
       ` : ''}
@@ -749,7 +748,7 @@ export function generateStandard2PageHtml(d: Bulletin): string {
         <div style="margin-bottom: 5pt; display: flex; flex-wrap: wrap; gap: 3pt;">
           ${(normalizeBirthdaysString(d.birthdays, d.date) || '').split(/[\n,]|   |🎂/).map(b => b.trim()).filter(Boolean).map(b => `<span class="celebrant-badge">🎂 ${b.replace(/^🎂\s*/, '')}</span>`).join('')}
         </div>
-        ${d.birthday_message ? `<div style="font-style: italic; color: #92400e; background: rgba(255,255,255,0.8); padding: 3pt 6pt; border-radius: 3pt; font-size: 8.5pt;">${d.birthday_message}</div>` : ''}
+        ${d.birthday_message ? `<div style="font-style: italic; color: #92400e; background: rgba(255,255,255,0.8); padding: 3pt 6pt; border-radius: 3pt; font-size: 8.5pt;">${formatBulletinTextToHtml(d.birthday_message, { forPrint: true })}</div>` : ''}
       </div>
       ` : ''}
 
@@ -765,7 +764,7 @@ export function generateStandard2PageHtml(d: Bulletin): string {
               <span style="color: #64748b; font-weight: 600; font-size: 8pt;">${item.time} [${item.scope || 'Ward'}]</span>
             </div>
           `).join('')
-          : `<div style="white-space: pre-line; line-height: 1.5;">${d.activities}</div>`
+          : `<div style="line-height: 1.5;">${formatBulletinTextToHtml(d.activities, { forPrint: true })}</div>`
         )}
       </div>
       ` : ''}
@@ -791,7 +790,14 @@ export function generateStandard2PageHtml(d: Bulletin): string {
       ${isSectionVisible(d.show_bishopric) && d.bishopric_message ? `
       <div class="card">
         <div class="card-title">Message from the Bishopric</div>
-        <p style="margin: 0; line-height: 1.45; color: #334155; white-space: pre-line;">${d.bishopric_message}</p>
+        <div style="margin: 0; line-height: 1.45; color: #334155;">${formatBulletinTextToHtml(d.bishopric_message, { forPrint: true })}</div>
+      </div>
+      ` : ''}
+
+      ${d.announcements ? `
+      <div class="card">
+        <div class="card-title">Ward Announcements</div>
+        <div style="margin: 0; line-height: 1.45; color: #334155;">${formatBulletinTextToHtml(d.announcements, { forPrint: true })}</div>
       </div>
       ` : ''}
 
@@ -801,14 +807,14 @@ export function generateStandard2PageHtml(d: Bulletin): string {
           <div class="card-title">Building Cleaning</div>
           <div class="row"><span class="label">Group:</span><span class="value">${d.cleaning_group}</span></div>
           <div class="row"><span class="label">Date:</span><span class="value">${safeDateFormat(d.cleaning_date, 'MMM d')} @ ${d.cleaning_time || '8:00 AM'}</span></div>
-          ${d.cleaning_instructions ? `<p style="font-size: 7.5pt; color: #64748b; margin: 3pt 0 0; font-style: italic;">${d.cleaning_instructions}</p>` : ''}
+          ${d.cleaning_instructions ? `<div style="font-size: 7.5pt; color: #64748b; margin: 3pt 0 0; font-style: italic;">${formatBulletinTextToHtml(d.cleaning_instructions, { forPrint: true })}</div>` : ''}
         </div>
         ` : '<div></div>'}
 
         ${isSectionVisible(d.show_missionary) && d.missionaries ? `
         <div class="card" style="margin-bottom: 0;">
           <div class="card-title">Full-Time Missionaries</div>
-          <div style="white-space: pre-line; font-size: 8pt; color: #334155;">${d.missionaries}</div>
+          <div style="font-size: 8pt; color: #334155;">${formatBulletinTextToHtml(d.missionaries, { forPrint: true })}</div>
         </div>
         ` : '<div></div>'}
       </div>
@@ -912,7 +918,7 @@ export function generateBiFoldBookletHtml(d: Bulletin): string {
               <span style="color: #334155;">${item.activity} (${item.time})</span>
             </div>
           `).join('')
-          : `<div style="white-space: pre-line; font-size: 7.5pt; margin-bottom: 6pt;">${d.activities}</div>`
+          : `<div style="font-size: 7.5pt; margin-bottom: 6pt;">${formatBulletinTextToHtml(d.activities, { forPrint: true })}</div>`
         )}
         ` : ''}
 
@@ -930,7 +936,7 @@ export function generateBiFoldBookletHtml(d: Bulletin): string {
         <div class="card-title" style="margin-top: 6pt;">Building Cleaning</div>
         <div class="row"><span class="label">Group</span><span class="value">${d.cleaning_group}</span></div>
         <div class="row"><span class="label">Date</span><span class="value">${safeDateFormat(d.cleaning_date, 'MMM d')} @ ${d.cleaning_time || '8:00 AM'}</span></div>
-        ${d.cleaning_instructions ? `<div style="font-size: 6.5pt; color: #64748b; font-style: italic;">${d.cleaning_instructions}</div>` : ''}
+        ${d.cleaning_instructions ? `<div style="font-size: 6.5pt; color: #64748b; font-style: italic;">${formatBulletinTextToHtml(d.cleaning_instructions, { forPrint: true })}</div>` : ''}
         ` : ''}
 
         ${isSectionVisible(d.show_birthdays) && d.birthdays ? `
@@ -938,7 +944,7 @@ export function generateBiFoldBookletHtml(d: Bulletin): string {
         <div style="margin-top: 6pt; background: #fffdf5; border: 1.5px solid #fbbf24; border-radius: 3pt; padding: 4pt 6pt;">
           <div style="font-weight: 700; font-size: 7.5pt; color: #92400e; margin-bottom: 2pt;">🎂 Celebrants This Week</div>
           <div style="font-size: 7.5pt; color: #78350f; font-weight: 600;">${d.birthdays}</div>
-          ${d.birthday_message ? `<div style="font-size: 6.5pt; color: #a16207; font-style: italic; margin-top: 2pt;">${d.birthday_message}</div>` : ''}
+          ${d.birthday_message ? `<div style="font-size: 6.5pt; color: #a16207; font-style: italic; margin-top: 2pt;">${formatBulletinTextToHtml(d.birthday_message, { forPrint: true })}</div>` : ''}
         </div>
         ` : ''}
       </div>
@@ -1052,14 +1058,19 @@ export function generateBiFoldBookletHtml(d: Bulletin): string {
         <div class="card-title">Come, Follow Me Study Guide</div>
         <div style="font-weight: 700; font-size: 8pt; color: ${theme.primaryColor}; margin-bottom: 2pt;">${d.cfm_reading}${d.cfm_theme ? ` — ${d.cfm_theme}` : ''}</div>
         ${d.cfm_introduction ? `<div style="font-size: 7pt; color: #334155; font-style: italic; margin-bottom: 2.5pt; line-height: 1.25;">${d.cfm_introduction}</div>` : ''}
-        ${d.cfm_ideas_for_learning ? `<div style="font-size: 7pt; color: #334155; margin-bottom: 2.5pt; white-space: pre-line; line-height: 1.25;"><strong>Ideas:</strong><br/>${d.cfm_ideas_for_learning}</div>` : ''}
-        ${d.cfm_reflection || d.cfm_discussion_question ? `<div style="font-size: 7pt; color: #92400e; margin-bottom: 3pt; background: #fef9c3; padding: 2pt 4pt; border-radius: 2pt;"><strong>Reflection:</strong> ${d.cfm_reflection || d.cfm_discussion_question}</div>` : ''}
+        ${d.cfm_ideas_for_learning ? `<div style="font-size: 7pt; color: #334155; margin-bottom: 2.5pt; line-height: 1.25;"><strong>Ideas:</strong><br/>${formatBulletinTextToHtml(d.cfm_ideas_for_learning, { forPrint: true })}</div>` : ''}
+        ${d.cfm_reflection || d.cfm_discussion_question ? `<div style="font-size: 7pt; color: #92400e; margin-bottom: 3pt; background: #fef9c3; padding: 2pt 4pt; border-radius: 2pt;"><strong>Reflection:</strong> ${formatBulletinTextToHtml(d.cfm_reflection || d.cfm_discussion_question, { inlineOnly: true })}</div>` : ''}
         ${d.cfm_url ? `<div style="font-size: 6.5pt; color: ${theme.secondaryColor}; margin-bottom: 4pt;"><strong>Link:</strong> <a href="${d.cfm_url}" style="color: ${theme.primaryColor};">${d.cfm_url}</a></div>` : ''}
         ` : ''}
 
         ${isSectionVisible(d.show_bishopric) && d.bishopric_message ? `
         <div class="card-title" style="margin-top: 4pt;">Message from the Bishopric</div>
-        <div style="font-size: 7.5pt; line-height: 1.3; color: #334155; white-space: pre-line;">${d.bishopric_message}</div>
+        <div style="font-size: 7.5pt; line-height: 1.3; color: #334155;">${formatBulletinTextToHtml(d.bishopric_message, { forPrint: true })}</div>
+        ` : ''}
+
+        ${d.announcements ? `
+        <div class="card-title" style="margin-top: 4pt;">Ward Announcements</div>
+        <div style="font-size: 7.5pt; line-height: 1.3; color: #334155;">${formatBulletinTextToHtml(d.announcements, { forPrint: true })}</div>
         ` : ''}
       </div>
       <div class="page-number">Page 3 • Study & Message</div>

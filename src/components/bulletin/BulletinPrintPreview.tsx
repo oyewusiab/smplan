@@ -10,6 +10,7 @@ import {
   isSectionVisible,
 } from '../../utils/bulletinPrintEngine';
 import { formatHonorificName } from '../../utils/memberTitle';
+import { BulletinFormattedText } from '../../utils/bulletinFormatter';
 import { formatHymnDisplay } from '../../data/bundledHymns';
 import { normalizeBirthdaysString } from '../../utils/bulletinBirthdayEngine';
 import type { Bulletin, BulletinLayoutMode, NextActivityItem, SpeakerItem } from '../../types';
@@ -372,14 +373,22 @@ export function BulletinPrintPreview({ bulletin: b }: BulletinPrintPreviewProps)
                       <p className="italic text-slate-700 text-[9px] leading-tight">{b.cfm_introduction}</p>
                     )}
                     {b.cfm_ideas_for_learning && (
-                      <div className="text-slate-800 whitespace-pre-line leading-tight text-[9px]">
-                        <strong>Ideas for Learning:</strong><br />
-                        {b.cfm_ideas_for_learning}
+                      <div className="text-slate-800 leading-tight text-[9px]">
+                        <strong>Ideas for Learning:</strong>
+                        <BulletinFormattedText
+                          text={b.cfm_ideas_for_learning}
+                          className="text-slate-800"
+                        />
                       </div>
                     )}
                     {(b.cfm_reflection || b.cfm_discussion_question) && (
                       <div className="p-1.5 rounded bg-amber-100/70 border-l-2 border-amber-500 text-amber-950 text-[9px]">
-                        <strong>Reflection:</strong> {b.cfm_reflection || b.cfm_discussion_question}
+                        <strong>Reflection:</strong>{' '}
+                        <BulletinFormattedText
+                          text={b.cfm_reflection || b.cfm_discussion_question}
+                          className="inline"
+                          inlineOnly
+                        />
                       </div>
                     )}
                     {b.cfm_url && (
@@ -396,9 +405,23 @@ export function BulletinPrintPreview({ bulletin: b }: BulletinPrintPreviewProps)
                     <h3 className="font-bold uppercase tracking-wider text-[9.5px] text-slate-800 pb-0.5 border-b border-slate-100">
                       Message from the Bishopric
                     </h3>
-                    <p className="text-[9.5px] text-slate-700 leading-relaxed whitespace-pre-line">
-                      {b.bishopric_message}
-                    </p>
+                    <BulletinFormattedText
+                      text={b.bishopric_message}
+                      className="text-[9.5px] text-slate-700 leading-relaxed"
+                    />
+                  </div>
+                )}
+
+                {/* 6b. Ward Announcements */}
+                {b.announcements && (
+                  <div className="p-2.5 rounded-lg border border-slate-200 space-y-1">
+                    <h3 className="font-bold uppercase tracking-wider text-[9.5px] text-slate-800 pb-0.5 border-b border-slate-100">
+                      Ward Announcements
+                    </h3>
+                    <BulletinFormattedText
+                      text={b.announcements}
+                      className="text-[9.5px] text-slate-700 leading-relaxed"
+                    />
                   </div>
                 )}
 
@@ -422,7 +445,10 @@ export function BulletinPrintPreview({ bulletin: b }: BulletinPrintPreviewProps)
                 {isSectionVisible(b.show_self_reliance) && b.self_reliance_classes && (
                   <div className="p-2.5 rounded-lg bg-emerald-50/70 border border-emerald-200 space-y-1 text-[9.5px]">
                     <h3 className="font-bold text-emerald-900 text-[10px]">Self-Reliance Services</h3>
-                    <p className="text-emerald-800 text-[9px] whitespace-pre-line">{b.self_reliance_classes}</p>
+                    <BulletinFormattedText
+                      text={b.self_reliance_classes}
+                      className="text-emerald-800 text-[9px]"
+                    />
                   </div>
                 )}
 
@@ -430,7 +456,10 @@ export function BulletinPrintPreview({ bulletin: b }: BulletinPrintPreviewProps)
                 {isSectionVisible(b.show_welfare) && b.welfare_reminders && (
                   <div className="p-2.5 rounded-lg bg-yellow-50/70 border border-yellow-200 space-y-1 text-[9.5px]">
                     <h3 className="font-bold text-yellow-900 text-[10px]">Welfare & Fast Offering</h3>
-                    <p className="text-yellow-800 text-[9px] whitespace-pre-line">{b.welfare_reminders}</p>
+                    <BulletinFormattedText
+                      text={b.welfare_reminders}
+                      className="text-yellow-800 text-[9px]"
+                    />
                   </div>
                 )}
               </div>
@@ -450,9 +479,10 @@ export function BulletinPrintPreview({ bulletin: b }: BulletinPrintPreviewProps)
                     </div>
                     <p className="text-amber-900 font-bold text-[10px] leading-tight">{normalizeBirthdaysString(b.birthdays, b.date)}</p>
                     {b.birthday_message && (
-                      <p className="text-[9px] text-amber-800 italic bg-white/70 p-1 rounded">
-                        {b.birthday_message}
-                      </p>
+                      <BulletinFormattedText
+                        text={b.birthday_message}
+                        className="text-[9px] text-amber-800 italic bg-white/70 p-1 rounded"
+                      />
                     )}
                   </div>
                 )}
@@ -477,9 +507,10 @@ export function BulletinPrintPreview({ bulletin: b }: BulletinPrintPreviewProps)
                         ))}
                       </div>
                     ) : (
-                      <div className="text-[9.5px] text-slate-700 whitespace-pre-line leading-relaxed">
-                        {b.activities}
-                      </div>
+                      <BulletinFormattedText
+                        text={b.activities}
+                        className="text-[9.5px] text-slate-700 leading-relaxed"
+                      />
                     )}
                   </div>
                 )}
@@ -526,7 +557,10 @@ export function BulletinPrintPreview({ bulletin: b }: BulletinPrintPreviewProps)
                       </div>
                     )}
                     {b.cleaning_instructions && (
-                      <p className="text-[8.5px] text-slate-500 italic pt-0.5">{b.cleaning_instructions}</p>
+                      <BulletinFormattedText
+                        text={b.cleaning_instructions}
+                        className="text-[8.5px] text-slate-500 italic pt-0.5"
+                      />
                     )}
                   </div>
                 )}
@@ -537,7 +571,10 @@ export function BulletinPrintPreview({ bulletin: b }: BulletinPrintPreviewProps)
                     <span className="font-bold text-slate-800 block text-[9px] uppercase tracking-wider">
                       Full-Time Missionaries
                     </span>
-                    <p className="text-slate-700 whitespace-pre-line text-[9px] leading-tight">{b.missionaries}</p>
+                    <BulletinFormattedText
+                      text={b.missionaries}
+                      className="text-slate-700 text-[9px] leading-tight"
+                    />
                   </div>
                 )}
 

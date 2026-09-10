@@ -13,6 +13,7 @@ import { BirthdayWishModal, type BirthdayChannel } from './BirthdayWishModal';
 import { getWeekDateRange, isSectionVisible } from '../../utils/bulletinPrintEngine';
 import { resolveHymnLink, formatHymnDisplay } from '../../data/bundledHymns';
 import { formatHonorificName } from '../../utils/memberTitle';
+import { BulletinFormattedText } from '../../utils/bulletinFormatter';
 import { bulletinsApi } from '../../services/api';
 import type { Bulletin, BulletinCelebrant } from '../../types';
 import toast from 'react-hot-toast';
@@ -448,18 +449,20 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp, onOpenFeedbackMo
 
             {/* Introduction */}
             {b.cfm_introduction && (
-              <p className="text-xs text-amber-900/90 leading-relaxed italic bg-white/60 p-2.5 rounded-xl border border-amber-200/50">
-                {b.cfm_introduction}
-              </p>
+              <BulletinFormattedText
+                text={b.cfm_introduction}
+                className="text-xs text-amber-900/90 leading-relaxed italic bg-white/60 p-2.5 rounded-xl border border-amber-200/50"
+              />
             )}
 
             {/* Ideas for Learning */}
             {b.cfm_ideas_for_learning && (
               <div className="space-y-1 bg-white/70 p-2.5 rounded-xl border border-amber-200/60 text-xs">
                 <span className="font-bold text-amber-900 block mb-1">Ideas for Learning:</span>
-                <div className="space-y-1 text-slate-700 leading-relaxed whitespace-pre-line text-[11px]">
-                  {b.cfm_ideas_for_learning}
-                </div>
+                <BulletinFormattedText
+                  text={b.cfm_ideas_for_learning}
+                  className="text-slate-700 leading-relaxed text-[11px]"
+                />
               </div>
             )}
 
@@ -467,9 +470,10 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp, onOpenFeedbackMo
             {(b.cfm_reflection || b.cfm_discussion_question) && (
               <div className="bg-white/80 p-2.5 rounded-xl border border-amber-300 text-xs shadow-2xs">
                 <span className="font-bold text-amber-950 block mb-0.5">Reflection:</span>
-                <p className="text-slate-800 font-medium">
-                  {b.cfm_reflection || b.cfm_discussion_question}
-                </p>
+                <BulletinFormattedText
+                  text={b.cfm_reflection || b.cfm_discussion_question}
+                  className="text-slate-800 font-medium"
+                />
               </div>
             )}
 
@@ -536,7 +540,10 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp, onOpenFeedbackMo
               ) : null}
 
               {b.birthday_message && (
-                <p className="text-[11px] text-yellow-800 italic">{b.birthday_message}</p>
+                <BulletinFormattedText
+                  text={b.birthday_message}
+                  className="text-[11px] text-yellow-800 italic"
+                />
               )}
             </div>
           );
@@ -570,9 +577,10 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp, onOpenFeedbackMo
                 ))}
               </div>
             ) : b.activities ? (
-              <div className="space-y-1 text-xs text-slate-700 leading-relaxed whitespace-pre-line">
-                {b.activities}
-              </div>
+              <BulletinFormattedText
+                text={b.activities}
+                className="text-xs text-slate-700 leading-relaxed"
+              />
             ) : null}
           </div>
         )}
@@ -624,7 +632,10 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp, onOpenFeedbackMo
               </div>
             )}
             {b.cleaning_instructions && (
-              <p className="text-[11px] text-slate-500 italic pt-1">{b.cleaning_instructions}</p>
+              <BulletinFormattedText
+                text={b.cleaning_instructions}
+                className="text-[11px] text-slate-500 italic pt-1"
+              />
             )}
           </div>
         )}
@@ -635,9 +646,23 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp, onOpenFeedbackMo
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1">
               Message from the Bishopric
             </span>
-            <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">
-              {b.bishopric_message}
-            </p>
+            <BulletinFormattedText
+              text={b.bishopric_message}
+              className="text-xs text-slate-700 leading-relaxed"
+            />
+          </div>
+        )}
+
+        {/* 6b. Ward Announcements */}
+        {b.announcements && (
+          <div className="rounded-2xl p-4 bg-white border border-slate-200 shadow-2xs space-y-1.5">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1">
+              Ward Announcements
+            </span>
+            <BulletinFormattedText
+              text={b.announcements}
+              className="text-xs text-slate-700 leading-relaxed"
+            />
           </div>
         )}
 
@@ -647,9 +672,10 @@ export function BulletinWebView({ bulletin: b, onShareWhatsApp, onOpenFeedbackMo
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1">
               Full-Time Missionaries
             </span>
-            <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">
-              {b.missionaries}
-            </p>
+            <BulletinFormattedText
+              text={b.missionaries}
+              className="text-xs text-slate-700 leading-relaxed"
+            />
           </div>
         )}
 

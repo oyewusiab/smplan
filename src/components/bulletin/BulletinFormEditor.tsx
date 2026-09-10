@@ -15,6 +15,7 @@ import { formatActivitiesToText } from '../../utils/bulletinActivityHarvester';
 import { isSectionVisible } from '../../utils/bulletinPrintEngine';
 import { resolveHymnLink, formatHymnDisplay } from '../../data/bundledHymns';
 import { formatHonorificName } from '../../utils/memberTitle';
+import { BULLETIN_FORMATTING_HINT } from '../../utils/bulletinFormatter';
 import type { Bulletin, Planner, Hymn, WeeklyActivityItem, NextActivityItem, BulletinClassLesson, BulletinCustomLink, BulletinCelebrant } from '../../types';
 import toast from 'react-hot-toast';
 
@@ -777,14 +778,16 @@ export function BulletinFormEditor({
                   onChange={(e) => setForm((prev) => ({ ...prev, cfm_introduction: e.target.value }))}
                   className="sm:col-span-2"
                 />
-                <Textarea
-                  label="Ideas for Learning"
-                  rows={4}
-                  placeholder="Numbered ideas for scripture study and discussion…"
-                  value={f.cfm_ideas_for_learning || ''}
-                  onChange={(e) => setForm((prev) => ({ ...prev, cfm_ideas_for_learning: e.target.value }))}
-                  className="sm:col-span-2"
-                />
+                <div className="sm:col-span-2 space-y-1">
+                  <Textarea
+                    label="Ideas for Learning"
+                    rows={4}
+                    placeholder="Numbered ideas for scripture study and discussion…"
+                    value={f.cfm_ideas_for_learning || ''}
+                    onChange={(e) => setForm((prev) => ({ ...prev, cfm_ideas_for_learning: e.target.value }))}
+                  />
+                  <p className="text-[10.5px] text-slate-400 italic">{BULLETIN_FORMATTING_HINT}</p>
+                </div>
 
                 {/* 3 Interactive Recommended Reflection Prompts */}
                 <div className="sm:col-span-2 space-y-2.5 pt-2 border-t border-slate-100">
@@ -1218,35 +1221,54 @@ export function BulletinFormEditor({
               <h3 className="text-sm font-bold text-slate-900">Self-Reliance & Welfare Notices</h3>
             </CardHeader>
             <CardBody className="space-y-3">
-              <Textarea
-                label="Self-Reliance Courses / Skills Training"
-                rows={2}
-                placeholder="Personal Finances Class: Wednesdays @ 4:00 PM"
-                value={f.self_reliance_classes || ''}
-                onChange={(e) => setForm((prev) => ({ ...prev, self_reliance_classes: e.target.value }))}
-              />
-              <Textarea
-                label="Welfare & Fast Offering Reminders"
-                rows={2}
-                placeholder="Fast Offering assistance can be given directly via the clerk or bishopric."
-                value={f.welfare_reminders || ''}
-                onChange={(e) => setForm((prev) => ({ ...prev, welfare_reminders: e.target.value }))}
-              />
+              <div className="space-y-1">
+                <Textarea
+                  label="Self-Reliance Courses / Skills Training"
+                  rows={2}
+                  placeholder="Personal Finances Class: Wednesdays @ 4:00 PM"
+                  value={f.self_reliance_classes || ''}
+                  onChange={(e) => setForm((prev) => ({ ...prev, self_reliance_classes: e.target.value }))}
+                />
+                <p className="text-[10.5px] text-slate-400 italic">{BULLETIN_FORMATTING_HINT}</p>
+              </div>
+              <div className="space-y-1">
+                <Textarea
+                  label="Welfare & Fast Offering Reminders"
+                  rows={2}
+                  placeholder="Fast Offering assistance can be given directly via the clerk or bishopric."
+                  value={f.welfare_reminders || ''}
+                  onChange={(e) => setForm((prev) => ({ ...prev, welfare_reminders: e.target.value }))}
+                />
+                <p className="text-[10.5px] text-slate-400 italic">{BULLETIN_FORMATTING_HINT}</p>
+              </div>
             </CardBody>
           </Card>
 
           <Card>
             <CardHeader>
-              <h3 className="text-sm font-bold text-slate-900">Bishopric Message & Digital Links</h3>
+              <h3 className="text-sm font-bold text-slate-900">Bishopric Message, Announcements & Digital Links</h3>
             </CardHeader>
             <CardBody className="space-y-3">
-              <Textarea
-                label="Message from the Bishopric"
-                rows={3}
-                placeholder="Welcome to our Sacrament Service. May the Spirit of the Lord fill your heart as we partake of the Sacrament…"
-                value={f.bishopric_message || ''}
-                onChange={(e) => setForm((prev) => ({ ...prev, bishopric_message: e.target.value }))}
-              />
+              <div className="space-y-1">
+                <Textarea
+                  label="Message from the Bishopric"
+                  rows={3}
+                  placeholder="Welcome to our Sacrament Service. May the Spirit of the Lord fill your heart as we partake of the Sacrament…"
+                  value={f.bishopric_message || ''}
+                  onChange={(e) => setForm((prev) => ({ ...prev, bishopric_message: e.target.value }))}
+                />
+                <p className="text-[10.5px] text-slate-400 italic">{BULLETIN_FORMATTING_HINT}</p>
+              </div>
+              <div className="space-y-1">
+                <Textarea
+                  label="Ward Announcements"
+                  rows={3}
+                  placeholder={`- Stake Conference next Sunday\n- Ward cleaning on Saturday\n*Fast Sunday* on the first Sunday of next month`}
+                  value={f.announcements || ''}
+                  onChange={(e) => setForm((prev) => ({ ...prev, announcements: e.target.value }))}
+                />
+                <p className="text-[10.5px] text-slate-400 italic">{BULLETIN_FORMATTING_HINT}</p>
+              </div>
               <div className="grid sm:grid-cols-2 gap-4">
                 <Input
                   label="FamilySearch Link (For QR Code)"
