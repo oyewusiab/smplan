@@ -932,13 +932,22 @@ function handleExtractPlannerAssignments(body) {
   const planner = dbFindOne('PLANNERS', 'planner_id', plannerId);
   if (!planner) throw new Error('Planner not found');
 
-  const agendas = dbFind('AGENDAS', a => a.planner_id === plannerId);
+  let agendas = dbFind('AGENDAS', a => a.planner_id === plannerId);
+  if ((!agendas || agendas.length === 0) && planner.weeks) {
+    try {
+      const parsedWeeks = typeof planner.weeks === 'string' ? JSON.parse(planner.weeks) : planner.weeks;
+      if (Array.isArray(parsedWeeks)) agendas = parsedWeeks;
+    } catch(e) {}
+  }
+  
   const existingAssignments = dbFind('ASSIGNMENTS', a => a.planner_id === plannerId);
   
   const members = dbReadAll('MEMBERS_LIST');
   const memberMap = {};
   members.forEach(m => {
     if (m && m.name) {
+      const raw = m.name.replace(/^(Brother|Sister|Bro\.|Sis\.|Elder|Bishop|President)\s+/i, '').trim().toLowerCase();
+      memberMap[raw] = m;
       memberMap[m.name.trim().toLowerCase()] = m;
     }
   });
@@ -953,21 +962,29 @@ function handleExtractPlannerAssignments(body) {
     };
   };
 
+  let sacAdminMap = null;
+  if (planner.sacrament_administration) {
+    try {
+      sacAdminMap = typeof planner.sacrament_administration === 'string' ? JSON.parse(planner.sacrament_administration) : planner.sacrament_administration;
+    } catch(e) {}
+  }
+
   const extractedItems = [];
 
-  agendas.forEach(ag => {
+  agendas.forEach((ag, idx) => {
     const meetingDate = ag.date;
-    const meetingTime = ag.meeting_time_override || ag.start_time || '10:00';
+    const meetingTime = ag.meeting_time_override || ag.start_time || '10:00 AM';
     const venue = ag.venue_override || ag.ward_branch || planner.unit_name || 'Main Chapel';
+    const weekId = ag.week_id || `week_${idx + 1}`;
 
     // 1. Invocation (Opening Prayer)
-    if (ag.opening_prayer && ag.opening_prayer.trim()) {
+    if (ag.opening_prayer && String(ag.opening_prayer).trim()) {
       const contact = getMemberContact(ag.opening_prayer);
       extractedItems.push({
         planner_id: plannerId,
-        week_id: ag.week_id || '',
+        week_id: weekId,
         date: meetingDate,
-        person: ag.opening_prayer.trim(),
+        person: String(ag.opening_prayer).trim(),
         role: 'OPENING_PRAYER',
         topic: 'Opening Prayer',
         minutes: 2,
@@ -981,13 +998,13 @@ function handleExtractPlannerAssignments(body) {
     }
 
     // 2. Benediction (Closing Prayer)
-    if (ag.closing_prayer && ag.closing_prayer.trim()) {
+    if (ag.closing_prayer && String(ag.closing_prayer).trim()) {
       const contact = getMemberContact(ag.closing_prayer);
       extractedItems.push({
         planner_id: plannerId,
-        week_id: ag.week_id || '',
+        week_id: weekId,
         date: meetingDate,
-        person: ag.closing_prayer.trim(),
+        person: String(ag.closing_prayer).trim(),
         role: 'CLOSING_PRAYER',
         topic: 'Closing Prayer',
         minutes: 2,
@@ -1004,31 +1021,37 @@ function handleExtractPlannerAssignments(body) {
     let speakersList = [];
     if (ag.speakers) {
       if (typeof ag.speakers === 'string') {
-        try { speakersList = JSON.parse(ag.speakers); } catch(e) {}
+        try {
+          const parsed = JSON.parse(ag.speakers);
+          if (Array.isArray(parsed)) speakersList = parsed;
+        } catch(e) {
+          speakersList = ag.speakers.split('\n').filter(Boolean).map(l => ({ name: l }));
+        }
       } else if (Array.isArray(ag.speakers)) {
         speakersList = ag.speakers;
       }
     }
 
     if (Array.isArray(speakersList)) {
-      speakersList.forEach((sp, idx) => {
-        if (sp && sp.name && sp.name.trim()) {
-          const contact = getMemberContact(sp.name);
-          const roleLabel = idx === 0 ? 'SPEAKER_1' : idx === 1 ? 'SPEAKER_2' : idx === 2 ? 'SPEAKER_3' : 'SPEAKER';
+      speakersList.forEach((sp, sIdx) => {
+        const spName = typeof sp === 'object' && sp !== null ? sp.name : String(sp);
+        if (spName && String(spName).trim()) {
+          const contact = getMemberContact(spName);
+          const roleLabel = sIdx === 0 ? 'SPEAKER_1' : sIdx === 1 ? 'SPEAKER_2' : sIdx === 2 ? 'SPEAKER_3' : 'SPEAKER';
           extractedItems.push({
             planner_id: plannerId,
-            week_id: ag.week_id || '',
+            week_id: weekId,
             date: meetingDate,
-            person: sp.name.trim(),
+            person: String(spName).trim(),
             role: roleLabel,
-            topic: sp.topic || 'Sacrament Talk',
-            minutes: sp.minutes || (idx === 0 ? 10 : idx === 1 ? 10 : 15),
+            topic: (typeof sp === 'object' && sp?.topic) || 'Sacrament Talk',
+            minutes: (typeof sp === 'object' && Number(sp?.minutes)) || (sIdx === 0 ? 10 : sIdx === 1 ? 10 : 15),
             venue: venue,
             meeting_time: meetingTime,
             phone: contact.phone,
             email: contact.email,
-            scripture_ref: sp.scripture_ref || '',
-            talk_link: sp.talk_link || '',
+            scripture_ref: (typeof sp === 'object' && sp?.scripture_ref) || '',
+            talk_link: (typeof sp === 'object' && sp?.talk_link) || '',
           });
         }
       });
@@ -1043,19 +1066,36 @@ function handleExtractPlannerAssignments(body) {
         duties = ag.sacrament_duties;
       }
     }
+    if (!duties && ag.sacrament) {
+      if (typeof ag.sacrament === 'string') {
+        try { duties = JSON.parse(ag.sacrament); } catch(e) {}
+      } else if (typeof ag.sacrament === 'object') {
+        duties = ag.sacrament;
+      }
+    }
+    if (!duties && sacAdminMap) {
+      const fromMap = sacAdminMap[weekId] || sacAdminMap[`week_${idx + 1}`] || sacAdminMap[meetingDate] || (Array.isArray(sacAdminMap) ? sacAdminMap[idx] : null);
+      if (fromMap) {
+        if (typeof fromMap === 'string') {
+          try { duties = JSON.parse(fromMap); } catch(e) {}
+        } else if (typeof fromMap === 'object') {
+          duties = fromMap;
+        }
+      }
+    }
 
-    if (duties) {
+    if (duties && typeof duties === 'object') {
       ['preparing', 'blessing', 'passing'].forEach(dutyType => {
         const list = duties[dutyType];
         if (Array.isArray(list)) {
           list.forEach(name => {
-            if (name && name.trim()) {
+            if (name && String(name).trim()) {
               const contact = getMemberContact(name);
               extractedItems.push({
                 planner_id: plannerId,
-                week_id: ag.week_id || '',
+                week_id: weekId,
                 date: meetingDate,
-                person: name.trim(),
+                person: String(name).trim(),
                 role: `SACRAMENT_${dutyType.toUpperCase()}`,
                 topic: `Sacrament ${dutyType.charAt(0).toUpperCase() + dutyType.slice(1)}`,
                 minutes: 5,
@@ -1073,18 +1113,28 @@ function handleExtractPlannerAssignments(body) {
     }
   });
 
+  // Remove obsolete assignments for this planner that are no longer in the planner
+  existingAssignments.forEach(ea => {
+    const stillExists = extractedItems.some(item =>
+      item.date === ea.date &&
+      item.person.toLowerCase() === (ea.person || '').toLowerCase() &&
+      item.role === ea.role
+    );
+    if (!stillExists) {
+      dbDelete('ASSIGNMENTS', 'assignment_id', ea.assignment_id);
+    }
+  });
+
   // Upsert extracted assignments into database
   const createdOrUpdated = [];
   extractedItems.forEach(item => {
     const existing = existingAssignments.find(ea =>
-      ea.planner_id === item.planner_id &&
       ea.date === item.date &&
-      ea.person.toLowerCase() === item.person.toLowerCase() &&
+      (ea.person || '').toLowerCase() === item.person.toLowerCase() &&
       ea.role === item.role
     );
 
     if (existing) {
-      // Keep existing ID and statuses, update missing metadata
       const updates = {
         topic: item.topic || existing.topic,
         minutes: existing.minutes || item.minutes,
@@ -1099,23 +1149,10 @@ function handleExtractPlannerAssignments(body) {
       const res = dbUpdate('ASSIGNMENTS', 'assignment_id', existing.assignment_id, updates);
       createdOrUpdated.push(res.updated || { ...existing, ...updates });
     } else {
-      // Create new assignment
       const newAsn = {
+        ...item,
         assignment_id: generateId('ASN'),
-        planner_id: item.planner_id,
-        week_id: item.week_id,
-        date: item.date,
-        person: item.person,
-        role: item.role,
-        topic: item.topic,
-        minutes: item.minutes,
-        venue: item.venue,
-        meeting_time: item.meeting_time,
         status: 'PENDING',
-        phone: item.phone,
-        email: item.email,
-        scripture_ref: item.scripture_ref,
-        talk_link: item.talk_link,
         rsvp_status: 'PENDING',
         notes: '',
         created_date: now(),
@@ -1126,7 +1163,7 @@ function handleExtractPlannerAssignments(body) {
     }
   });
 
-  auditLog(session.user_id, 'EXTRACT', 'ASSIGNMENTS', plannerId, null, `${createdOrUpdated.length} items extracted`, 'OK');
+  auditLog(session.user_id, 'EXTRACT_ASSIGNMENTS', 'ASSIGNMENTS', `${createdOrUpdated.length} duties extracted`, null, { count: createdOrUpdated.length }, 'OK');
   return { ok: true, data: createdOrUpdated, count: createdOrUpdated.length };
 }
 

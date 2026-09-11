@@ -15,6 +15,7 @@ import type { Assignment, Member, Planner, User, AssignmentStatus, AssignmentRsv
 import { format, parseISO, isValid } from 'date-fns';
 import toast from 'react-hot-toast';
 import { formatTime12h, formatDateDisplay, isPastDate } from '../utils/formatters';
+import { parseSpeakersList } from '../utils/AgendaPrintEngine';
 import { AssignmentSlipPrintModal } from '../components/assignments/AssignmentSlipPrintModal';
 import { WhatsAppInviteModal } from '../components/assignments/WhatsAppInviteModal';
 import { EmailInviteModal } from '../components/assignments/EmailInviteModal';
@@ -71,6 +72,266 @@ export function AssignmentsPage() {
   const [activeEmailModal, setActiveEmailModal] = useState(false);
   const [modalAssignment, setModalAssignment] = useState<Assignment | null>(null);
 
+function parseSacramentDuties(val: unknown): { preparing: string[]; blessing: string[]; passing: string[] } | null {
+  if (!val) return null;
+  let obj = val;
+  if (typeof obj === 'string' && obj.trim() && obj.trim() !== '{}') {
+    try { obj = JSON.parse(obj); } catch { return null; }
+  }
+  if (typeof obj === 'object' && obj !== null) {
+    const rec = obj as Record<string, unknown>;
+    const prep = Array.isArray(rec.preparing) ? rec.preparing.map(String).filter(Boolean) : [];
+    const bles = Array.isArray(rec.blessing) ? rec.blessing.map(String).filter(Boolean) : [];
+    const pass = Array.isArray(rec.passing) ? rec.passing.map(String).filter(Boolean) : [];
+    if (prep.length > 0 || bles.length > 0 || pass.length > 0) {
+      return {
+        preparing: prep,
+        blessing: bles,
+        passing: pass,
+      };
+    }
+  }
+  return null;
+}
+
+const buildAssignmentsFromPlanner = (
+  planner: Planner,
+  rawAgendas: any[],
+  existingList: Assignment[],
+  memberList: Member[]
+): Assignment[] => {
+  let agendas = Array.isArray(rawAgendas) && rawAgendas.length > 0 ? rawAgendas : [];
+  if (agendas.length === 0 && planner.weeks) {
+    try {
+      const parsed = typeof planner.weeks === 'string' ? JSON.parse(planner.weeks) : planner.weeks;
+      if (Array.isArray(parsed)) agendas = parsed;
+    } catch {}
+  }
+
+  const memberMap: Record<string, Member> = {};
+  memberList.forEach(m => {
+    if (m && m.name) {
+      const raw = m.name.replace(/^(Brother|Sister|Bro\.|Sis\.|Elder|Bishop|President)\s+/i, '').trim().toLowerCase();
+      memberMap[raw] = m;
+      memberMap[m.name.trim().toLowerCase()] = m;
+    }
+  });
+
+  const getContact = (name: string) => {
+    if (!name) return { phone: '', email: '' };
+    const raw = name.replace(/^(Brother|Sister|Bro\.|Sis\.|Elder|Bishop|President)\s+/i, '').trim().toLowerCase();
+    const m = memberMap[raw] || memberMap[name.trim().toLowerCase()];
+    return {
+      phone: m ? m.phone : '',
+      email: m ? m.email : '',
+    };
+  };
+
+  let sacAdminMap: Record<string, any> | null = null;
+  if (planner.sacrament_administration) {
+    try {
+      sacAdminMap = typeof planner.sacrament_administration === 'string'
+        ? JSON.parse(planner.sacrament_administration)
+        : planner.sacrament_administration;
+    } catch {}
+  }
+
+  const unitName = planner.unit_name || 'Obantoko Ward';
+  const result: Assignment[] = [];
+
+  agendas.forEach((ag, idx) => {
+    const meetingDate = ag.date;
+    const meetingTime = ag.meeting_time_override || ag.start_time || '10:00 AM';
+    const venue = ag.venue_override || ag.ward_branch || unitName;
+    const weekId = ag.week_id || `week_${idx + 1}`;
+
+    // 1. Invocation (Opening Prayer)
+    if (ag.opening_prayer && ag.opening_prayer.trim()) {
+      const pName = ag.opening_prayer.trim();
+      const contact = getContact(pName);
+      const existing = existingList.find(ea =>
+        ea.date === meetingDate &&
+        (ea.person || '').trim().toLowerCase() === pName.toLowerCase() &&
+        ea.role === 'OPENING_PRAYER'
+      );
+
+      result.push({
+        assignment_id: existing?.assignment_id || `ASN_OP_${planner.planner_id}_${idx}`,
+        planner_id: planner.planner_id,
+        week_id: weekId,
+        date: meetingDate,
+        person: pName,
+        role: 'OPENING_PRAYER',
+        topic: 'Opening Prayer',
+        minutes: 2,
+        venue: venue,
+        meeting_time: meetingTime,
+        phone: existing?.phone || contact.phone,
+        email: existing?.email || contact.email,
+        status: existing?.status || 'PENDING',
+        rsvp_status: existing?.rsvp_status || 'PENDING',
+        scripture_ref: '',
+        talk_link: '',
+        notes: existing?.notes || '',
+        created_date: existing?.created_date,
+        updated_date: existing?.updated_date,
+      });
+    }
+
+    // 2. Benediction (Closing Prayer)
+    if (ag.closing_prayer && ag.closing_prayer.trim()) {
+      const pName = ag.closing_prayer.trim();
+      const contact = getContact(pName);
+      const existing = existingList.find(ea =>
+        ea.date === meetingDate &&
+        (ea.person || '').trim().toLowerCase() === pName.toLowerCase() &&
+        ea.role === 'CLOSING_PRAYER'
+      );
+
+      result.push({
+        assignment_id: existing?.assignment_id || `ASN_CP_${planner.planner_id}_${idx}`,
+        planner_id: planner.planner_id,
+        week_id: weekId,
+        date: meetingDate,
+        person: pName,
+        role: 'CLOSING_PRAYER',
+        topic: 'Closing Prayer',
+        minutes: 2,
+        venue: venue,
+        meeting_time: meetingTime,
+        phone: existing?.phone || contact.phone,
+        email: existing?.email || contact.email,
+        status: existing?.status || 'PENDING',
+        rsvp_status: existing?.rsvp_status || 'PENDING',
+        scripture_ref: '',
+        talk_link: '',
+        notes: existing?.notes || '',
+        created_date: existing?.created_date,
+        updated_date: existing?.updated_date,
+      });
+    }
+
+    // 3. Speakers
+    const speakersList = parseSpeakersList(ag.speakers);
+    speakersList.forEach((sp, sIdx) => {
+      if (sp && sp.name && sp.name.trim()) {
+        const pName = sp.name.trim();
+        const contact = getContact(pName);
+        const roleLabel = sIdx === 0 ? 'SPEAKER_1' : sIdx === 1 ? 'SPEAKER_2' : sIdx === 2 ? 'SPEAKER_3' : 'SPEAKER';
+        const existing = existingList.find(ea =>
+          ea.date === meetingDate &&
+          (ea.person || '').trim().toLowerCase() === pName.toLowerCase() &&
+          (ea.role === roleLabel || ea.role?.includes('SPEAKER'))
+        );
+
+        result.push({
+          assignment_id: existing?.assignment_id || `ASN_SP_${planner.planner_id}_${idx}_${sIdx}`,
+          planner_id: planner.planner_id,
+          week_id: weekId,
+          date: meetingDate,
+          person: pName,
+          role: roleLabel,
+          topic: sp.topic || 'Sacrament Talk',
+          minutes: Number(sp.minutes) || (sIdx === 0 ? 10 : sIdx === 1 ? 10 : 15),
+          venue: venue,
+          meeting_time: meetingTime,
+          phone: existing?.phone || contact.phone,
+          email: existing?.email || contact.email,
+          scripture_ref: sp.scripture_ref || existing?.scripture_ref || '',
+          talk_link: sp.talk_link || existing?.talk_link || '',
+          status: existing?.status || 'PENDING',
+          rsvp_status: existing?.rsvp_status || 'PENDING',
+          notes: existing?.notes || '',
+          created_date: existing?.created_date,
+          updated_date: existing?.updated_date,
+        });
+      }
+    });
+
+    // 4. Sacrament Duties
+    let duties = parseSacramentDuties(ag.sacrament_duties) || parseSacramentDuties(ag.sacrament);
+    if (!duties && sacAdminMap) {
+      const fromMap = sacAdminMap[weekId] || sacAdminMap[`week_${idx + 1}`] || sacAdminMap[meetingDate] || (Array.isArray(sacAdminMap) ? sacAdminMap[idx] : null);
+      if (fromMap) {
+        duties = parseSacramentDuties((fromMap as any)?.duties || (fromMap as any)?.sacrament_duties || (fromMap as any)?.sacrament || fromMap);
+      }
+    }
+
+    if (duties) {
+      (['preparing', 'blessing', 'passing'] as const).forEach(dutyType => {
+        const list = duties![dutyType];
+        if (Array.isArray(list)) {
+          list.forEach((name, dIdx) => {
+            if (name && name.trim()) {
+              const pName = name.trim();
+              const contact = getContact(pName);
+              const roleName = `SACRAMENT_${dutyType.toUpperCase()}`;
+              const existing = existingList.find(ea =>
+                ea.date === meetingDate &&
+                (ea.person || '').trim().toLowerCase() === pName.toLowerCase() &&
+                ea.role === roleName
+              );
+
+              result.push({
+                assignment_id: existing?.assignment_id || `ASN_SAC_${planner.planner_id}_${idx}_${dutyType}_${dIdx}`,
+                planner_id: planner.planner_id,
+                week_id: weekId,
+                date: meetingDate,
+                person: pName,
+                role: roleName,
+                topic: `Sacrament ${dutyType.charAt(0).toUpperCase() + dutyType.slice(1)}`,
+                minutes: 5,
+                venue: venue,
+                meeting_time: meetingTime,
+                phone: existing?.phone || contact.phone,
+                email: existing?.email || contact.email,
+                status: existing?.status || 'PENDING',
+                rsvp_status: existing?.rsvp_status || 'PENDING',
+                scripture_ref: '',
+                talk_link: '',
+                notes: existing?.notes || '',
+                created_date: existing?.created_date,
+                updated_date: existing?.updated_date,
+              });
+            }
+          });
+        }
+      });
+    }
+  });
+
+  return result;
+};
+
+  // Load and reconcile assignments for a specific planner
+  const loadPlannerAssignments = async (plannerId: string, availablePlanners?: Planner[], availableMembers?: Member[]) => {
+    if (!session || !plannerId) return;
+    const allPlanners = availablePlanners || planners;
+    const allMembers = availableMembers || members;
+    const currentPl = allPlanners.find(p => p.planner_id === plannerId);
+
+    try {
+      const [agRes, asRes] = await Promise.allSettled([
+        agendasApi.list(session.token, plannerId) as Promise<{ ok: boolean; data: any[] }>,
+        assignmentsApi.list(session.token, plannerId) as Promise<{ ok: boolean; data: Assignment[] }>,
+      ]);
+
+      const rawAgendas = (agRes.status === 'fulfilled' && agRes.value.ok && Array.isArray(agRes.value.data)) ? agRes.value.data : [];
+      const existingList = (asRes.status === 'fulfilled' && asRes.value.ok && Array.isArray(asRes.value.data)) ? asRes.value.data : [];
+
+      if (currentPl) {
+        const reconciled = buildAssignmentsFromPlanner(currentPl, rawAgendas, existingList, allMembers);
+        setAssignments(reconciled);
+        setSelectedIds(new Set());
+      } else {
+        setAssignments(existingList);
+        setSelectedIds(new Set());
+      }
+    } catch {
+      toast.error('Failed to load duties for selected planner');
+    }
+  };
+
   // Load all initial data
   const load = async () => {
     if (!session) return;
@@ -82,21 +343,28 @@ export function AssignmentsPage() {
         assignmentsApi.getSecretaryInfo(session.token) as Promise<{ ok: boolean; data: any }>,
       ]);
 
+      let loadedPlanners: Planner[] = [];
+      let loadedMembers: Member[] = [];
       let initialPlId = selectedPlannerId;
+
       if (pRes.status === 'fulfilled' && pRes.value.ok) {
-        const plList = pRes.value.data || [];
-        setPlanners(plList);
-        const submitted = plList.filter(p => p.state === 'SUBMITTED');
+        loadedPlanners = pRes.value.data || [];
+        setPlanners(loadedPlanners);
+        const submitted = loadedPlanners.filter(p => p.state === 'SUBMITTED');
         if (!initialPlId && submitted.length > 0) {
           initialPlId = submitted[0].planner_id;
           setSelectedPlannerId(initialPlId);
-        } else if (!initialPlId && plList.length > 0) {
-          initialPlId = plList[0].planner_id;
+        } else if (!initialPlId && loadedPlanners.length > 0) {
+          initialPlId = loadedPlanners[0].planner_id;
           setSelectedPlannerId(initialPlId);
         }
       }
 
-      if (mRes.status === 'fulfilled' && mRes.value.ok) setMembers(mRes.value.data || []);
+      if (mRes.status === 'fulfilled' && mRes.value.ok) {
+        loadedMembers = mRes.value.data || [];
+        setMembers(loadedMembers);
+      }
+
       if (sRes.status === 'fulfilled' && sRes.value.ok && sRes.value.data) {
         const defaultName = session?.role === 'SECRETARY' ? (session.name || session.preferred_name) : sRes.value.data.name;
         setSecretaryInfo({
@@ -113,10 +381,8 @@ export function AssignmentsPage() {
         }));
       }
 
-      // Fetch assignments specifically for the selected planner (or all)
-      const aRes = await assignmentsApi.list(session.token, initialPlId || undefined) as { ok: boolean; data: Assignment[] };
-      if (aRes && aRes.ok) {
-        setAssignments(aRes.data || []);
+      if (initialPlId) {
+        await loadPlannerAssignments(initialPlId, loadedPlanners, loadedMembers);
       }
     } catch {
       toast.error('Failed to load assignments');
@@ -133,225 +399,67 @@ export function AssignmentsPage() {
     if (!session) return;
     setLoading(true);
     try {
-      const res = await assignmentsApi.list(session.token, newPlannerId || undefined) as { ok: boolean; data: Assignment[] };
-      if (res.ok) {
-        setAssignments(res.data || []);
-        setSelectedIds(new Set());
-      }
-    } catch {
-      toast.error('Failed to load assignments for selected planner');
+      await loadPlannerAssignments(newPlannerId);
     } finally {
       setLoading(false);
     }
   };
 
-  // Helper to extract duty items from agendas directly on frontend if backend action is not yet deployed
-  const extractFromAgendasLocally = async (plannerId: string) => {
-    if (!session) return;
-    const agRes = await agendasApi.list(session.token, plannerId) as { ok: boolean; data: any[] };
-    const agendas = agRes.ok && Array.isArray(agRes.data) ? agRes.data : [];
-    if (agendas.length === 0) {
-      toast.error('No agendas found for this planner. Create agendas first in the Planner.');
-      return;
-    }
-
-    const currentPl = planners.find(p => p.planner_id === plannerId);
-    const unitName = currentPl?.unit_name || secretaryInfo.unit_name || 'Obantoko Ward';
-
-    const memberMap: Record<string, Member> = {};
-    members.forEach(m => {
-      if (m && m.name) {
-        memberMap[m.name.trim().toLowerCase()] = m;
-      }
-    });
-
-    const getContact = (name: string) => {
-      if (!name) return { phone: '', email: '' };
-      const raw = name.replace(/^(Brother|Sister|Bro\.|Sis\.|Elder|Bishop|President)\s+/i, '').trim().toLowerCase();
-      const m = memberMap[raw] || memberMap[name.trim().toLowerCase()];
-      return {
-        phone: m ? m.phone : '',
-        email: m ? m.email : '',
-      };
-    };
-
-    const newExtracted: Partial<Assignment>[] = [];
-
-    agendas.forEach(ag => {
-      const meetingDate = ag.date;
-      const meetingTime = ag.meeting_time_override || ag.start_time || '10:00';
-      const venue = ag.venue_override || ag.ward_branch || unitName;
-
-      // 1. Invocation (Opening Prayer)
-      if (ag.opening_prayer && ag.opening_prayer.trim()) {
-        const contact = getContact(ag.opening_prayer);
-        newExtracted.push({
-          planner_id: plannerId,
-          week_id: ag.week_id || '',
-          date: meetingDate,
-          person: ag.opening_prayer.trim(),
-          role: 'OPENING_PRAYER',
-          topic: 'Opening Prayer',
-          minutes: 2,
-          venue: venue,
-          meeting_time: meetingTime,
-          phone: contact.phone,
-          email: contact.email,
-          status: 'PENDING',
-          rsvp_status: 'PENDING',
-        });
-      }
-
-      // 2. Benediction (Closing Prayer)
-      if (ag.closing_prayer && ag.closing_prayer.trim()) {
-        const contact = getContact(ag.closing_prayer);
-        newExtracted.push({
-          planner_id: plannerId,
-          week_id: ag.week_id || '',
-          date: meetingDate,
-          person: ag.closing_prayer.trim(),
-          role: 'CLOSING_PRAYER',
-          topic: 'Closing Prayer',
-          minutes: 2,
-          venue: venue,
-          meeting_time: meetingTime,
-          phone: contact.phone,
-          email: contact.email,
-          status: 'PENDING',
-          rsvp_status: 'PENDING',
-        });
-      }
-
-      // 3. Speakers
-      let speakersList: any[] = [];
-      if (ag.speakers) {
-        if (typeof ag.speakers === 'string') {
-          try { speakersList = JSON.parse(ag.speakers); } catch(e) {}
-        } else if (Array.isArray(ag.speakers)) {
-          speakersList = ag.speakers;
-        }
-      }
-
-      if (Array.isArray(speakersList)) {
-        speakersList.forEach((sp, idx) => {
-          if (sp && sp.name && sp.name.trim()) {
-            const contact = getContact(sp.name);
-            const roleLabel = idx === 0 ? 'SPEAKER_1' : idx === 1 ? 'SPEAKER_2' : idx === 2 ? 'SPEAKER_3' : 'SPEAKER';
-            newExtracted.push({
-              planner_id: plannerId,
-              week_id: ag.week_id || '',
-              date: meetingDate,
-              person: sp.name.trim(),
-              role: roleLabel,
-              topic: sp.topic || 'Sacrament Talk',
-              minutes: sp.minutes || (idx === 0 ? 10 : idx === 1 ? 10 : 15),
-              venue: venue,
-              meeting_time: meetingTime,
-              phone: contact.phone,
-              email: contact.email,
-              scripture_ref: sp.scripture_ref || '',
-              talk_link: sp.talk_link || '',
-              status: 'PENDING',
-              rsvp_status: 'PENDING',
-            });
-          }
-        });
-      }
-
-      // 4. Sacrament Duties
-      let duties: any = null;
-      if (ag.sacrament_duties) {
-        if (typeof ag.sacrament_duties === 'string') {
-          try { duties = JSON.parse(ag.sacrament_duties); } catch(e) {}
-        } else if (typeof ag.sacrament_duties === 'object') {
-          duties = ag.sacrament_duties;
-        }
-      }
-
-      if (duties) {
-        (['preparing', 'blessing', 'passing'] as const).forEach(dutyType => {
-          const list = duties[dutyType];
-          if (Array.isArray(list)) {
-            list.forEach((name: string) => {
-              if (name && name.trim()) {
-                const contact = getContact(name);
-                newExtracted.push({
-                  planner_id: plannerId,
-                  week_id: ag.week_id || '',
-                  date: meetingDate,
-                  person: name.trim(),
-                  role: `SACRAMENT_${dutyType.toUpperCase()}`,
-                  topic: `Sacrament ${dutyType.charAt(0).toUpperCase() + dutyType.slice(1)}`,
-                  minutes: 5,
-                  venue: venue,
-                  meeting_time: meetingTime,
-                  phone: contact.phone,
-                  email: contact.email,
-                  status: 'PENDING',
-                  rsvp_status: 'PENDING',
-                });
-              }
-            });
-          }
-        });
-      }
-    });
-
-    if (newExtracted.length === 0) {
-      toast.error('No speaker, prayer, or sacrament assignments found in the weekly agendas.');
-      return;
-    }
-
-    // Save newly extracted assignments to the backend
-    const savedList: Assignment[] = [];
-    for (const item of newExtracted) {
-      const existing = assignments.find(ea =>
-        ea.planner_id === item.planner_id &&
-        ea.date === item.date &&
-        (ea.person || '').toLowerCase() === (item.person || '').toLowerCase() &&
-        ea.role === item.role
-      );
-
-      if (existing) {
-        const updated = { ...existing, ...item, assignment_id: existing.assignment_id };
-        assignmentsApi.update(session.token, updated).catch(() => {});
-        savedList.push(updated as Assignment);
-      } else {
-        try {
-          const res = await assignmentsApi.create(session.token, item) as { ok: boolean; data: Assignment };
-          if (res && res.ok && res.data) {
-            savedList.push(res.data);
-          } else {
-            savedList.push({ ...item, assignment_id: `ASN_${Date.now()}_${Math.random().toString(36).substring(2, 6)}` } as Assignment);
-          }
-        } catch {
-          savedList.push({ ...item, assignment_id: `ASN_${Date.now()}_${Math.random().toString(36).substring(2, 6)}` } as Assignment);
-        }
-      }
-    }
-
-    setAssignments(savedList);
-    toast.success(`Extracted ${savedList.length} duties from planner agendas!`);
-  };
-
-  // Auto-Extract assignments from selected planner
+  // Auto-Extract and Sync assignments from selected planner to database
   const handleExtractFromPlanner = async () => {
     if (!session || !selectedPlannerId) {
       toast.error('Please select a planner first to extract duties');
       return;
     }
+    const currentPl = planners.find(p => p.planner_id === selectedPlannerId);
+    if (!currentPl) return;
+
     setExtracting(true);
     try {
       const res = await assignmentsApi.extractFromPlanner(session.token, selectedPlannerId) as { ok: boolean; data: Assignment[]; count?: number };
       if (res && res.ok && res.data && res.data.length > 0) {
-        setAssignments(res.data || []);
-        toast.success(`Extracted ${res.count || res.data.length} duties from planner agendas!`);
+        setAssignments(res.data);
+        toast.success(`Extracted & synced ${res.count || res.data.length} duties from planner agendas!`);
       } else {
-        await extractFromAgendasLocally(selectedPlannerId);
+        const agRes = await agendasApi.list(session.token, selectedPlannerId) as { ok: boolean; data: any[] };
+        const rawAgendas = agRes.ok && Array.isArray(agRes.data) ? agRes.data : [];
+        const asRes = await assignmentsApi.list(session.token, selectedPlannerId) as { ok: boolean; data: Assignment[] };
+        const existingList = asRes.ok && Array.isArray(asRes.data) ? asRes.data : [];
+
+        const reconciled = buildAssignmentsFromPlanner(currentPl, rawAgendas, existingList, members);
+
+        for (const item of reconciled) {
+          const alreadyInDb = existingList.find(e => e.assignment_id === item.assignment_id);
+          if (alreadyInDb) {
+            assignmentsApi.update(session.token, item).catch(() => {});
+          } else {
+            assignmentsApi.create(session.token, item).catch(() => {});
+          }
+        }
+
+        setAssignments(reconciled);
+        toast.success(`Extracted & synced ${reconciled.length} duties from planner agendas!`);
       }
     } catch {
       try {
-        await extractFromAgendasLocally(selectedPlannerId);
+        const agRes = await agendasApi.list(session.token, selectedPlannerId) as { ok: boolean; data: any[] };
+        const rawAgendas = agRes.ok && Array.isArray(agRes.data) ? agRes.data : [];
+        const asRes = await assignmentsApi.list(session.token, selectedPlannerId) as { ok: boolean; data: Assignment[] };
+        const existingList = asRes.ok && Array.isArray(asRes.data) ? asRes.data : [];
+
+        const reconciled = buildAssignmentsFromPlanner(currentPl, rawAgendas, existingList, members);
+
+        for (const item of reconciled) {
+          const alreadyInDb = existingList.find(e => e.assignment_id === item.assignment_id);
+          if (alreadyInDb) {
+            assignmentsApi.update(session.token, item).catch(() => {});
+          } else {
+            assignmentsApi.create(session.token, item).catch(() => {});
+          }
+        }
+
+        setAssignments(reconciled);
+        toast.success(`Extracted & synced ${reconciled.length} duties from planner agendas!`);
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Extraction error');
       }
@@ -375,38 +483,7 @@ export function AssignmentsPage() {
 
   // Filtered list
   const filteredAssignments = useMemo(() => {
-    const currentPl = planners.find(p => p.planner_id === selectedPlannerId);
-
     return assignments.filter((a) => {
-      // Planner filter: If a planner is selected, ensure assignment belongs to this planner
-      if (selectedPlannerId) {
-        const matchesId = a.planner_id === selectedPlannerId;
-        
-        let matchesMonthYear = false;
-        if (currentPl && a.date) {
-          try {
-            const d = parseISO(a.date);
-            if (isValid(d)) {
-              matchesMonthYear = d.getFullYear() === Number(currentPl.year) && (d.getMonth() + 1) === Number(currentPl.month);
-            }
-          } catch { /* fallback */ }
-        }
-
-        let matchesPlannerWeeks = false;
-        if (currentPl && currentPl.weeks && a.date) {
-          try {
-            const weeks = typeof currentPl.weeks === 'string' ? JSON.parse(currentPl.weeks) : currentPl.weeks;
-            if (Array.isArray(weeks)) {
-              matchesPlannerWeeks = weeks.some((w: any) => w && (w.date === a.date || w.week_id === a.week_id));
-            }
-          } catch { /* fallback */ }
-        }
-
-        if (!matchesId && !matchesMonthYear && !matchesPlannerWeeks) {
-          return false;
-        }
-      }
-
       // Search filter
       const q = search.toLowerCase().trim();
       const matchSearch = !q ||
@@ -444,7 +521,7 @@ export function AssignmentsPage() {
 
       return true;
     });
-  }, [assignments, search, roleFilter, statusFilter, showPastAssignments, selectedPlannerId, planners]);
+  }, [assignments, search, roleFilter, statusFilter, showPastAssignments]);
 
   // Selection handlers
   const toggleSelectAll = () => {
