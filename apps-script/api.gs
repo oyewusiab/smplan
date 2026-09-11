@@ -4861,3 +4861,41 @@ function testSendOtherAgendaEmail() {
   Logger.log(JSON.stringify(result, null, 2));
   return result;
 }
+
+// ─── Bulletin Push Notifications ─────────────────────────────────────────────
+
+function handleSaveBulletinPushSubscription(body) {
+  validateRequired(body, ['endpoint']);
+  const endpoint = body.endpoint;
+  const subscription = body.subscription || '';
+  const preferences = body.preferences || '{}';
+  const device = body.device || 'Unknown';
+  
+  const existing = dbFindOne('BULLETIN_PUSH_SUBSCRIPTIONS', 'endpoint', endpoint);
+  if (existing) {
+    dbUpdate('BULLETIN_PUSH_SUBSCRIPTIONS', 'endpoint', endpoint, {
+      subscription: subscription,
+      preferences: preferences,
+      device: device,
+      updated_at: now(),
+    });
+  } else {
+    dbInsert('BULLETIN_PUSH_SUBSCRIPTIONS', {
+      sub_id: generateId('SUB'),
+      endpoint: endpoint,
+      subscription: subscription,
+      preferences: preferences,
+      device: device,
+      created_at: now(),
+      updated_at: now(),
+    });
+  }
+
+  return { ok: true, message: 'Subscription saved successfully' };
+}
+
+function handleGetBulletinPushSettings(params) {
+  if (!params.endpoint) return { ok: true, data: null };
+  const sub = dbFindOne('BULLETIN_PUSH_SUBSCRIPTIONS', 'endpoint', params.endpoint);
+  return { ok: true, data: sub };
+}

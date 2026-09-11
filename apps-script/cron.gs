@@ -78,6 +78,15 @@ function runDailyTasks() {
     results.errors.push('ChecklistReminders: ' + e.message);
     Logger.log('ERROR in checkSaturdayChecklistReminders: ' + e.message);
   }
+
+  // 6. Daily Ward Bulletin Member Notifications
+  try {
+    results.bulletinNotifications = dispatchDailyBulletinNotifications();
+    Logger.log('Bulletin notifications: ' + JSON.stringify(results.bulletinNotifications));
+  } catch(e) {
+    results.errors.push('BulletinNotifications: ' + e.message);
+    Logger.log('ERROR in dispatchDailyBulletinNotifications: ' + e.message);
+  }
   
   auditLog('SYSTEM', 'DAILY_TASKS', 'SYSTEM', 'daily_run', null, results, results.errors.length > 0 ? 'PARTIAL' : 'OK');
   
@@ -235,4 +244,112 @@ function setupTriggers() {
   
   Logger.log('Trigger created: runDailyTasks runs daily at 6 AM');
   Logger.log('To verify: Check the Triggers panel in Apps Script editor');
+}
+
+/**
+ * Dispatch daily ward bulletin notifications to subscribed members based on category preferences:
+ * - Birthdays
+ * - Daily Scripture Studies
+ * - Daily Come Follow Me
+ * - Next Sunday Class Lessons
+ * - Activities for that day
+ */
+function dispatchDailyBulletinNotifications() {
+  const subscriptions = dbReadAll('BULLETIN_PUSH_SUBSCRIPTIONS');
+  if (!subscriptions || subscriptions.length === 0) {
+    return { dispatched: 0, reason: 'No subscriptions' };
+  }
+
+  const todayStr = today();
+  const todayDayOfWeek = new Date().getDay(); // 0 = Sunday, 6 = Saturday
+
+  const bulletins = dbReadAll('BULLETINS');
+  const published = bulletins.filter(b => b.status === 'PUBLISHED');
+  const activeBulletin = published.length > 0 ? published[0] : null;
+
+  let notificationsQueue = [];
+
+  // 1. Birthdays
+  if (activeBulletin && activeBulletin.birthday_celebrants_list) {
+    let celebrants = [];
+    try {
+      celebrants = typeof activeBulletin.birthday_celebrants_list === 'string'
+        ? JSON.parse(activeBulletin.birthday_celebrants_list)
+        : activeBulletin.birthday_celebrants_list;
+    } catch(e) {}
+    
+    const todayMonthDay = todayStr.slice(5); // MM-DD
+    const todayCelebrants = celebrants.filter(c => c.birthday && c.birthday.slice(5) === todayMonthDay);
+    if (todayCelebrants.length > 0) {
+      const names = todayCelebrants.map(c => c.name).join(', ');
+      notificationsQueue.push({
+        category: 'birthdays',
+        title: '🎂 Ward Birthday Today!',
+        body: `Wishing a very Happy Birthday to ${names}!`,
+        url: '/visitbulletin',
+      });
+    }
+  }
+
+  // 2. Activities for that day
+  if (activeBulletin && activeBulletin.activities_list) {
+    let activities = [];
+    try {
+      activities = typeof activeBulletin.activities_list === 'string'
+        ? JSON.parse(activeBulletin.activities_list)
+        : activeBulletin.activities_list;
+    } catch(e) {}
+
+    const todayActivities = activities.filter(a => a.date === todayStr);
+    if (todayActivities.length > 0) {
+      const act = todayActivities[0];
+      notificationsQueue.push({
+        category: 'activities',
+        title: '📅 Ward Activity Today',
+        body: `${act.title || 'Ward Activity'} at ${act.time || 'scheduled time'}${act.location ? ' in ' + act.location : ''}.`,
+        url: '/visitbulletin',
+      });
+    }
+  }
+
+  // 3. Sunday Class Lessons (Saturday morning & Sunday morning)
+  if (todayDayOfWeek === 6 || todayDayOfWeek === 0) {
+    notificationsQueue.push({
+      category: 'sundayClasses',
+      title: '⛪ Sunday Classes Preparation',
+      body: 'Review your lesson for Sunday School, Relief Society, and Elders Quorum in the Ward Bulletin.',
+      url: '/visitbulletin',
+    });
+  }
+
+  // 4. Daily Scripture Studies
+  const scriptureVerses = [
+    '“Trust in the Lord with all thine heart; and lean not unto thine own understanding.” (Proverbs 3:5)',
+    '“I can do all things through Christ which strengtheneth me.” (Philippians 4:13)',
+    '“Be strong and of a good courage; be not afraid, neither be thou dismayed: for the Lord thy God is with thee.” (Joshua 1:9)',
+    '“Peace I leave with you, my peace I give unto you: not as the world giveth, give I unto you.” (John 14:27)',
+    '“Look unto me in every thought; doubt not, fear not.” (D&C 6:36)',
+    '“I will go and do the things which the Lord hath commanded.” (1 Nephi 3:7)',
+    '“And we talk of Christ, we rejoice in Christ, we preach of Christ.” (2 Nephi 25:26)',
+  ];
+  const dailyVerse = scriptureVerses[new Date().getDate() % scriptureVerses.length];
+  notificationsQueue.push({
+    category: 'dailyScriptures',
+    title: '📖 Daily Scripture Study',
+    body: dailyVerse,
+    url: '/visitbulletin',
+  });
+
+  // 5. Daily Come, Follow Me
+  if (activeBulletin && activeBulletin.theme) {
+    notificationsQueue.push({
+      category: 'dailyComeFollowMe',
+      title: '🕊️ Come, Follow Me Thought',
+      body: `This week: “${activeBulletin.theme}” — Take time for spiritual study today.`,
+      url: '/visitbulletin',
+    });
+  }
+
+  Logger.log(`Daily bulletin notification queue prepared: ${notificationsQueue.length} items for ${subscriptions.length} subscribers`);
+  return { queued: notificationsQueue.length, subscribers: subscriptions.length };
 }

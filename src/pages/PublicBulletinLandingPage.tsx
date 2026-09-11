@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Calendar, Music, Sparkles, MessageSquare, Users, Globe, ExternalLink,
   Share2, Check, ArrowRight, Heart, MapPin, Clock, BookOpen, Send,
-  Bookmark, ChevronRight, Phone, Mail, AlertCircle, RefreshCw, Download, Smartphone, X, AlertTriangle
+  Bookmark, ChevronRight, Phone, Mail, AlertCircle, RefreshCw, Download, Smartphone, X, AlertTriangle, Bell
 } from 'lucide-react';
 import { bulletinsApi } from '../services/api';
 import { getBulletinTheme } from '../utils/bulletinThemes';
@@ -12,6 +12,7 @@ import { formatBirthdayLabel, getOrdinalSuffix, normalizeBirthdaysString, parseC
 import { formatHonorificName } from '../utils/memberTitle';
 import { BulletinFormattedText } from '../utils/bulletinFormatter';
 import { BirthdayWishModal, type BirthdayChannel } from '../components/bulletin/BirthdayWishModal';
+import { BulletinNotificationModal } from '../components/bulletin/BulletinNotificationModal';
 import {
   initializeBulletinPwa,
   subscribePwaState,
@@ -85,6 +86,9 @@ export function PublicBulletinLandingPage() {
   const [selectedCelebrant, setSelectedCelebrant] = useState<BulletinCelebrant | null>(null);
   const [selectedChannel, setSelectedChannel] = useState<BirthdayChannel>('WHATSAPP');
   const [birthdayModalOpen, setBirthdayModalOpen] = useState(false);
+
+  // Notification Settings Modal state
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
 
   const normalizeLandingBulletin = (b: any): Bulletin => {
     if (!b) return b;
@@ -246,6 +250,16 @@ export function PublicBulletinLandingPage() {
               Check for Updates
             </button>
 
+            <button
+              type="button"
+              onClick={() => setShowNotificationModal(true)}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-sm border border-slate-200 shadow-xs transition-all"
+              title="Configure user notification preferences"
+            >
+              <Bell className="w-4 h-4 text-blue-600" />
+              Notifications
+            </button>
+
             {!pwaState.isInstalled && (
               <button
                 type="button"
@@ -313,6 +327,17 @@ export function PublicBulletinLandingPage() {
               >
                 {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Share2 className="w-3.5 h-3.5" />}
                 <span>{copied ? 'Link Copied!' : 'Share Bulletin'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowNotificationModal(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-slate-700 text-xs font-bold transition-all shadow-2xs hover:opacity-90 border"
+                style={{ background: theme.bgLight, borderColor: theme.borderLight, color: theme.primaryColor }}
+                title="Configure user notification preferences"
+              >
+                <Bell className="w-3.5 h-3.5 text-blue-600" />
+                <span>Notifications</span>
               </button>
 
               {!pwaState.isInstalled && (
@@ -997,6 +1022,13 @@ export function PublicBulletinLandingPage() {
           initialChannel={selectedChannel}
         />
       )}
+
+      {/* User Notification Settings Modal */}
+      <BulletinNotificationModal
+        isOpen={showNotificationModal}
+        onClose={() => setShowNotificationModal(false)}
+        primaryColor={theme ? theme.primaryColor : '#1e3a8a'}
+      />
     </div>
   );
 }

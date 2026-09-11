@@ -87,3 +87,69 @@ self.addEventListener('fetch', (event) => {
 
   // Pass through any other requests
 });
+
+// ─── Push & Notification Handlers ─────────────────────────────────────────────
+
+// Push Event: Triggered by Web Push Notifications even when app is closed
+self.addEventListener('push', (event) => {
+  let data = {
+    title: 'Ward Bulletin',
+    body: 'New update from your ward',
+    icon: '/visitbulletin/icons/icon-192.png',
+    badge: '/visitbulletin/icons/icon-192.png',
+    url: '/visitbulletin',
+    tag: 'ward-bulletin-notification',
+  };
+
+  if (event.data) {
+    try {
+      const parsed = event.data.json();
+      data = Object.assign(data, parsed);
+    } catch (e) {
+      data.body = event.data.text();
+    }
+  }
+
+  const notificationOptions = {
+    body: data.body,
+    icon: data.icon || '/visitbulletin/icons/icon-192.png',
+    badge: data.badge || '/visitbulletin/icons/icon-192.png',
+    data: {
+      url: data.url || '/visitbulletin',
+      dateOfArrival: Date.now(),
+      category: data.category || 'general',
+    },
+    vibrate: [100, 50, 100, 50, 100],
+    tag: data.tag || 'ward-bulletin-notification',
+    renotify: true,
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, notificationOptions)
+  );
+});
+
+// Notification Click Event: Focus existing window or open bulletin
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const urlToOpen = (event.notification.data && event.notification.data.url) || '/visitbulletin';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      // If a window is already open, focus it
+      for (const client of windowClients) {
+        if (client.url && client.url.includes('/visitbulletin') && 'focus' in client) {
+          if ('navigate' in client && urlToOpen !== '/visitbulletin') {
+            client.navigate(urlToOpen);
+          }
+          return client.focus();
+        }
+      }
+      // Otherwise open a new window
+      if (clients.openWindow) {
+        return clients.openWindow(urlToOpen);
+      }
+    })
+  );
+});
