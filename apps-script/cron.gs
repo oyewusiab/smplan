@@ -362,6 +362,28 @@ function dispatchDailyBulletinNotifications(targetHour) {
 }
 
 /**
+ * Setup an automated hourly trigger so notifications are delivered
+ * at each member's chosen time of day (6 AM, 7 AM, 8 AM, 12 PM, etc.).
+ * Run this function once from the Apps Script editor!
+ */
+function setupHourlyNotificationTrigger() {
+  const triggers = ScriptApp.getProjectTriggers();
+  for (const trigger of triggers) {
+    if (trigger.getHandlerFunction() === 'runHourlyBulletinNotifications') {
+      ScriptApp.deleteTrigger(trigger);
+    }
+  }
+
+  ScriptApp.newTrigger('runHourlyBulletinNotifications')
+    .timeBased()
+    .everyHours(1)
+    .create();
+
+  Logger.log('Hourly trigger successfully created for runHourlyBulletinNotifications!');
+  return 'Hourly trigger created successfully!';
+}
+
+/**
  * Hourly trigger entry point for Ward Bulletin notifications.
  * Can be configured as an hourly time-driven trigger in Google Apps Script.
  */
@@ -385,25 +407,24 @@ function sendOneSignalPush(title, message, category, url, targetHour) {
 
   const targetUrl = 'https://www.smplans.online' + (url || '/visitbulletin');
 
-  // Filter for users with notifications enabled and this category not explicitly disabled
-  let filters = [
-    { field: 'tag', key: 'notifications_enabled', relation: '=', value: 'true' },
-    { field: 'tag', key: category, relation: '!=', value: 'false' }
-  ];
+  let filters = [];
+  const hourNum = (targetHour !== undefined && targetHour !== null) ? Number(targetHour) : 7;
+  const hourStr = String(hourNum);
 
-  // Delivery hour filtering
-  if (targetHour !== undefined && targetHour !== null) {
-    const hourStr = String(targetHour);
-    if (Number(targetHour) === 7) {
-      // 7 AM is default: include those explicitly set to 7 OR those who haven't set delivery_hour yet
-      filters.push({ field: 'tag', key: 'delivery_hour', relation: '=', value: '7' });
-      filters.push({ operator: 'OR' });
-      filters.push({ field: 'tag', key: 'notifications_enabled', relation: '=', value: 'true' });
-      filters.push({ field: 'tag', key: category, relation: '!=', value: 'false' });
-      filters.push({ field: 'tag', key: 'delivery_hour', relation: 'not_exists' });
-    } else {
-      filters.push({ field: 'tag', key: 'delivery_hour', relation: '=', value: hourStr });
-    }
+  if (hourNum === 7) {
+    // 7 AM is default: include those explicitly set to 7 OR those who haven't set delivery_hour yet
+    filters = [
+      { field: 'tag', key: category, relation: '!=', value: 'false' },
+      { field: 'tag', key: 'delivery_hour', relation: '=', value: '7' },
+      { operator: 'OR' },
+      { field: 'tag', key: category, relation: '!=', value: 'false' },
+      { field: 'tag', key: 'delivery_hour', relation: 'not_exists' },
+    ];
+  } else {
+    filters = [
+      { field: 'tag', key: category, relation: '!=', value: 'false' },
+      { field: 'tag', key: 'delivery_hour', relation: '=', value: hourStr },
+    ];
   }
 
   const payload = {

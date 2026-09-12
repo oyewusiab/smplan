@@ -50,20 +50,24 @@ export function initOneSignal(): void {
 
       if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
         try {
-          await OneSignal.User?.PushSubscription?.optIn();
+          if (prefs.enabled) {
+            await OneSignal.User?.PushSubscription?.optIn();
+          } else {
+            await OneSignal.User?.PushSubscription?.optOut();
+          }
         } catch (optErr) {}
       }
 
       const prefs = getNotificationPreferences();
-      if (prefs.enabled && OneSignal.User) {
+      if (OneSignal.User) {
         await OneSignal.User.addTags({
-          notifications_enabled: 'true',
+          notifications_enabled: '', // Purge old tag to remain within 6-tag limit
           birthdays: prefs.birthdays ? 'true' : 'false',
           dailyScriptures: prefs.dailyScriptures ? 'true' : 'false',
           dailyComeFollowMe: prefs.dailyComeFollowMe ? 'true' : 'false',
           sundayClasses: prefs.sundayClasses ? 'true' : 'false',
           activities: prefs.activities ? 'true' : 'false',
-          delivery_hour: String(prefs.deliveryHour || 7),
+          delivery_hour: String(prefs.deliveryHour ?? 7),
         });
       }
     } catch (e) {
@@ -80,15 +84,23 @@ export function syncOneSignalTags(prefs: BulletinNotificationPreferences): void 
   window.OneSignalDeferred = window.OneSignalDeferred || [];
   window.OneSignalDeferred.push(async function (OneSignal: any) {
     try {
+      if (OneSignal.User?.PushSubscription) {
+        if (prefs.enabled) {
+          await OneSignal.User.PushSubscription.optIn();
+        } else {
+          await OneSignal.User.PushSubscription.optOut();
+        }
+      }
+
       if (OneSignal.User) {
         await OneSignal.User.addTags({
-          notifications_enabled: prefs.enabled ? 'true' : 'false',
+          notifications_enabled: '', // Purge old tag to remain within 6-tag limit
           birthdays: prefs.birthdays ? 'true' : 'false',
           dailyScriptures: prefs.dailyScriptures ? 'true' : 'false',
           dailyComeFollowMe: prefs.dailyComeFollowMe ? 'true' : 'false',
           sundayClasses: prefs.sundayClasses ? 'true' : 'false',
           activities: prefs.activities ? 'true' : 'false',
-          delivery_hour: String(prefs.deliveryHour || 7),
+          delivery_hour: String(prefs.deliveryHour ?? 7),
         });
       }
     } catch (e) {
@@ -157,13 +169,13 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
         const prefs = getNotificationPreferences();
         if (OneSignal.User) {
           await OneSignal.User.addTags({
-            notifications_enabled: 'true',
+            notifications_enabled: '',
             birthdays: prefs.birthdays ? 'true' : 'false',
             dailyScriptures: prefs.dailyScriptures ? 'true' : 'false',
             dailyComeFollowMe: prefs.dailyComeFollowMe ? 'true' : 'false',
             sundayClasses: prefs.sundayClasses ? 'true' : 'false',
             activities: prefs.activities ? 'true' : 'false',
-            delivery_hour: String(prefs.deliveryHour || 7),
+            delivery_hour: String(prefs.deliveryHour ?? 7),
           });
         }
       } catch (e) {
