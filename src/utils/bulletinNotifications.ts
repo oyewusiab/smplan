@@ -12,6 +12,47 @@ declare global {
 
 export const ONESIGNAL_APP_ID = '10734c27-8114-4094-b21a-d803104ed3ff';
 
+export interface TimeSlotOption {
+  value: string;
+  label: string;
+}
+
+export const NOTIFICATION_TIME_SLOTS: TimeSlotOption[] = [
+  { value: '05:00', label: '5:00 AM' },
+  { value: '05:30', label: '5:30 AM' },
+  { value: '06:00', label: '6:00 AM' },
+  { value: '06:30', label: '6:30 AM' },
+  { value: '07:00', label: '7:00 AM (Recommended)' },
+  { value: '07:30', label: '7:30 AM' },
+  { value: '08:00', label: '8:00 AM' },
+  { value: '08:30', label: '8:30 AM' },
+  { value: '09:00', label: '9:00 AM' },
+  { value: '09:30', label: '9:30 AM' },
+  { value: '10:00', label: '10:00 AM' },
+  { value: '10:30', label: '10:30 AM' },
+  { value: '11:00', label: '11:00 AM' },
+  { value: '11:30', label: '11:30 AM' },
+  { value: '12:00', label: '12:00 PM (Noon)' },
+  { value: '12:30', label: '12:30 PM' },
+  { value: '13:00', label: '1:00 PM' },
+  { value: '13:30', label: '1:30 PM' },
+  { value: '14:00', label: '2:00 PM' },
+  { value: '14:30', label: '2:30 PM' },
+  { value: '15:00', label: '3:00 PM' },
+  { value: '15:30', label: '3:30 PM' },
+  { value: '16:00', label: '4:00 PM' },
+  { value: '16:30', label: '4:30 PM' },
+  { value: '17:00', label: '5:00 PM' },
+  { value: '17:30', label: '5:30 PM' },
+  { value: '18:00', label: '6:00 PM' },
+  { value: '18:30', label: '6:30 PM' },
+  { value: '19:00', label: '7:00 PM' },
+  { value: '19:30', label: '7:30 PM' },
+  { value: '20:00', label: '8:00 PM' },
+  { value: '20:30', label: '8:30 PM' },
+  { value: '21:00', label: '9:00 PM' },
+];
+
 export interface BulletinNotificationPreferences {
   enabled: boolean;
   birthdays: boolean;
@@ -19,7 +60,8 @@ export interface BulletinNotificationPreferences {
   dailyComeFollowMe: boolean;
   sundayClasses: boolean;
   activities: boolean;
-  deliveryHour: number; // 0-23 (e.g. 7 = 7:00 AM)
+  deliveryTime: string; // e.g. "07:00", "07:30", "12:00"
+  deliveryHour?: number; // legacy compatibility
 }
 
 export const DEFAULT_NOTIFICATION_PREFERENCES: BulletinNotificationPreferences = {
@@ -29,6 +71,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: BulletinNotificationPreferences =
   dailyComeFollowMe: true,
   sundayClasses: true,
   activities: true,
+  deliveryTime: '07:00',
   deliveryHour: 7,
 };
 
@@ -48,6 +91,8 @@ export function initOneSignal(): void {
         allowLocalhostAsSecureOrigin: true,
       });
 
+      const prefs = getNotificationPreferences();
+
       if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
         try {
           if (prefs.enabled) {
@@ -58,16 +103,16 @@ export function initOneSignal(): void {
         } catch (optErr) {}
       }
 
-      const prefs = getNotificationPreferences();
       if (OneSignal.User) {
         await OneSignal.User.addTags({
           notifications_enabled: '', // Purge old tag to remain within 6-tag limit
+          delivery_hour: '', // Purge old hour tag
           birthdays: prefs.birthdays ? 'true' : 'false',
           dailyScriptures: prefs.dailyScriptures ? 'true' : 'false',
           dailyComeFollowMe: prefs.dailyComeFollowMe ? 'true' : 'false',
           sundayClasses: prefs.sundayClasses ? 'true' : 'false',
           activities: prefs.activities ? 'true' : 'false',
-          delivery_hour: String(prefs.deliveryHour ?? 7),
+          delivery_time: prefs.deliveryTime || '07:00',
         });
       }
     } catch (e) {
@@ -95,12 +140,13 @@ export function syncOneSignalTags(prefs: BulletinNotificationPreferences): void 
       if (OneSignal.User) {
         await OneSignal.User.addTags({
           notifications_enabled: '', // Purge old tag to remain within 6-tag limit
+          delivery_hour: '', // Purge old hour tag
           birthdays: prefs.birthdays ? 'true' : 'false',
           dailyScriptures: prefs.dailyScriptures ? 'true' : 'false',
           dailyComeFollowMe: prefs.dailyComeFollowMe ? 'true' : 'false',
           sundayClasses: prefs.sundayClasses ? 'true' : 'false',
           activities: prefs.activities ? 'true' : 'false',
-          delivery_hour: String(prefs.deliveryHour ?? 7),
+          delivery_time: prefs.deliveryTime || '07:00',
         });
       }
     } catch (e) {
@@ -135,7 +181,8 @@ export function getNotificationPreferences(): BulletinNotificationPreferences {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) return DEFAULT_NOTIFICATION_PREFERENCES;
     const parsed = JSON.parse(stored);
-    return { ...DEFAULT_NOTIFICATION_PREFERENCES, ...parsed };
+    const deliveryTime = parsed.deliveryTime || (parsed.deliveryHour !== undefined ? `${String(parsed.deliveryHour).padStart(2, '0')}:00` : '07:00');
+    return { ...DEFAULT_NOTIFICATION_PREFERENCES, ...parsed, deliveryTime };
   } catch {
     return DEFAULT_NOTIFICATION_PREFERENCES;
   }
@@ -170,12 +217,13 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
         if (OneSignal.User) {
           await OneSignal.User.addTags({
             notifications_enabled: '',
+            delivery_hour: '',
             birthdays: prefs.birthdays ? 'true' : 'false',
             dailyScriptures: prefs.dailyScriptures ? 'true' : 'false',
             dailyComeFollowMe: prefs.dailyComeFollowMe ? 'true' : 'false',
             sundayClasses: prefs.sundayClasses ? 'true' : 'false',
             activities: prefs.activities ? 'true' : 'false',
-            delivery_hour: String(prefs.deliveryHour ?? 7),
+            delivery_time: prefs.deliveryTime || '07:00',
           });
         }
       } catch (e) {
@@ -217,7 +265,7 @@ export async function sendTestNotification(categoryTitle = 'Ward Bulletin'): Pro
     },
     sundayClasses: {
       title: '⛪ Sunday Class Preparation',
-      body: 'Elders Quorum & Relief Society: Remember to review this Sunday’s lesson.',
+      body: 'Review your lesson for Sunday School, Relief Society, and Elders Quorum.',
     },
     activities: {
       title: '📅 Ward Activity Today',
@@ -234,6 +282,7 @@ export async function sendTestNotification(categoryTitle = 'Ward Bulletin'): Pro
     if ('serviceWorker' in navigator) {
       const registration = await navigator.serviceWorker.ready;
       if (registration && registration.showNotification) {
+        const testId = 'test-' + Date.now();
         await registration.showNotification(selected.title, {
           body: selected.body,
           icon: '/visitbulletin/icons/icon-192.png',
@@ -241,7 +290,10 @@ export async function sendTestNotification(categoryTitle = 'Ward Bulletin'): Pro
           vibrate: [100, 50, 100],
           data: {
             url: '/visitbulletin',
-            notificationId: 'test-' + Date.now(),
+            notificationId: testId,
+            onesignal: {
+              notificationId: testId,
+            },
           },
           tag: 'test-bulletin-notification',
           renotify: true,

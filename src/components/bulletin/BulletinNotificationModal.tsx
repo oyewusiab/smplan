@@ -12,6 +12,7 @@ import {
   requestNotificationPermission,
   sendTestNotification,
   isNotificationSupported,
+  NOTIFICATION_TIME_SLOTS,
 } from '../../utils/bulletinNotifications';
 import toast from 'react-hot-toast';
 
@@ -47,12 +48,12 @@ export function BulletinNotificationModal({
     saveNotificationPreferences(updated);
   };
 
-  const handleDeliveryHourChange = (hour: number) => {
-    const updated = { ...prefs, deliveryHour: hour };
+  const handleDeliveryTimeChange = (time: string) => {
+    const updated = { ...prefs, deliveryTime: time };
     setPrefs(updated);
     saveNotificationPreferences(updated);
-    const label = hour === 12 ? '12:00 PM' : hour > 12 ? `${hour - 12}:00 PM` : `${hour}:00 AM`;
-    toast.success(`Daily notification time set to ${label}`);
+    const selectedSlot = NOTIFICATION_TIME_SLOTS.find(s => s.value === time);
+    toast.success(`Daily notification time set to ${selectedSlot?.label || time}`);
   };
 
   const handleEnablePermission = async () => {
@@ -245,23 +246,16 @@ export function BulletinNotificationModal({
             <div className="relative">
               <select
                 disabled={!prefs.enabled}
-                value={prefs.deliveryHour ?? 7}
-                onChange={(e) => handleDeliveryHourChange(Number(e.target.value))}
+                value={prefs.deliveryTime || '07:00'}
+                onChange={(e) => handleDeliveryTimeChange(e.target.value)}
                 aria-label="Daily Notification Time"
                 className="w-full bg-white border border-slate-300 text-slate-800 text-xs font-semibold rounded-xl px-3 py-2.5 outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:opacity-40 disabled:bg-slate-100 transition-all cursor-pointer"
               >
-                <option value={5}>5:00 AM (Early Morning)</option>
-                <option value={6}>6:00 AM (Early Morning)</option>
-                <option value={7}>7:00 AM (Morning — Recommended)</option>
-                <option value={8}>8:00 AM (Morning)</option>
-                <option value={9}>9:00 AM (Mid Morning)</option>
-                <option value={10}>10:00 AM (Mid Morning)</option>
-                <option value={12}>12:00 PM (Noon)</option>
-                <option value={13}>1:00 PM (Afternoon)</option>
-                <option value={17}>5:00 PM (Late Afternoon)</option>
-                <option value={18}>6:00 PM (Evening)</option>
-                <option value={19}>7:00 PM (Evening)</option>
-                <option value={20}>8:00 PM (Night)</option>
+                {NOTIFICATION_TIME_SLOTS.map((slot) => (
+                  <option key={slot.value} value={slot.value}>
+                    {slot.label}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

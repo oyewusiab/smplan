@@ -254,10 +254,18 @@ function setupTriggers() {
  * - Next Sunday Class Lessons
  * - Activities for that day
  */
-function dispatchDailyBulletinNotifications(targetHour) {
-  const currentHour = (targetHour !== undefined && targetHour !== null)
-    ? Number(targetHour)
-    : new Date().getHours();
+function dispatchDailyBulletinNotifications(targetTime) {
+  let currentTimeSlot = '07:00';
+  if (typeof targetTime === 'string' && targetTime.includes(':')) {
+    currentTimeSlot = targetTime;
+  } else if (targetTime !== undefined && targetTime !== null) {
+    currentTimeSlot = String(targetTime).padStart(2, '0') + ':00';
+  } else {
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = now.getMinutes() < 15 || now.getMinutes() >= 45 ? '00' : '30';
+    currentTimeSlot = hours + ':' + minutes;
+  }
 
   const todayStr = today();
   const todayDayOfWeek = new Date().getDay(); // 0 = Sunday, 6 = Saturday
@@ -349,54 +357,68 @@ function dispatchDailyBulletinNotifications(targetHour) {
     });
   }
 
-  Logger.log(`Daily bulletin notification queue prepared: ${notificationsQueue.length} items for hour ${currentHour}:00`);
+  Logger.log(`Daily bulletin notification queue prepared: ${notificationsQueue.length} items for time slot ${currentTimeSlot}`);
 
   let dispatchedCount = 0;
   for (const item of notificationsQueue) {
-    const res = sendOneSignalPush(item.title, item.body, item.category, item.url, currentHour);
+    const res = sendOneSignalPush(item.title, item.body, item.category, item.url, currentTimeSlot);
     if (res && res.success) dispatchedCount++;
   }
 
-  Logger.log(`Daily bulletin notifications dispatched via OneSignal for hour ${currentHour}: ${dispatchedCount}/${notificationsQueue.length}`);
-  return { queued: notificationsQueue.length, dispatched: dispatchedCount, hour: currentHour };
+  Logger.log(`Daily bulletin notifications dispatched via OneSignal for ${currentTimeSlot}: ${dispatchedCount}/${notificationsQueue.length}`);
+  return { queued: notificationsQueue.length, dispatched: dispatchedCount, timeSlot: currentTimeSlot };
 }
 
 /**
- * Setup an automated hourly trigger so notifications are delivered
- * at each member's chosen time of day (6 AM, 7 AM, 8 AM, 12 PM, etc.).
+ * Setup an automated 30-minute trigger so notifications are delivered
+ * at each member's chosen time of day (5:00 AM, 5:30 AM, 6:00 AM ... 9:00 PM).
  * Run this function once from the Apps Script editor!
  */
-function setupHourlyNotificationTrigger() {
+function setupIntervalNotificationTrigger() {
   const triggers = ScriptApp.getProjectTriggers();
   for (const trigger of triggers) {
-    if (trigger.getHandlerFunction() === 'runHourlyBulletinNotifications') {
+    const fn = trigger.getHandlerFunction();
+    if (fn === 'runIntervalBulletinNotifications' || fn === 'runHourlyBulletinNotifications') {
       ScriptApp.deleteTrigger(trigger);
     }
   }
 
-  ScriptApp.newTrigger('runHourlyBulletinNotifications')
+  ScriptApp.newTrigger('runIntervalBulletinNotifications')
     .timeBased()
-    .everyHours(1)
+    .everyMinutes(30)
     .create();
 
-  Logger.log('Hourly trigger successfully created for runHourlyBulletinNotifications!');
-  return 'Hourly trigger created successfully!';
+  Logger.log('30-minute trigger successfully created for runIntervalBulletinNotifications!');
+  return '30-minute trigger created successfully!';
+}
+
+// Alias so running setupHourlyNotificationTrigger also installs the 30-minute trigger
+function setupHourlyNotificationTrigger() {
+  return setupIntervalNotificationTrigger();
 }
 
 /**
- * Hourly trigger entry point for Ward Bulletin notifications.
- * Can be configured as an hourly time-driven trigger in Google Apps Script.
+ * 30-minute interval trigger entry point for Ward Bulletin notifications.
+ * Configured as an everyMinutes(30) time-driven trigger in Google Apps Script.
  */
+function runIntervalBulletinNotifications() {
+  const now = new Date();
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = now.getMinutes() < 15 || now.getMinutes() >= 45 ? '00' : '30';
+  const timeSlot = hours + ':' + minutes;
+  Logger.log('Running 30-minute bulletin notifications check for time slot: ' + timeSlot);
+  return dispatchDailyBulletinNotifications(timeSlot);
+}
+
+// Alias for backwards compatibility if already configured
 function runHourlyBulletinNotifications() {
-  const currentHour = new Date().getHours();
-  Logger.log('Running hourly bulletin notifications check for hour: ' + currentHour);
-  return dispatchDailyBulletinNotifications(currentHour);
+  return runIntervalBulletinNotifications();
 }
 
 /**
- * Send a notification via OneSignal REST API to all devices subscribed to that category and delivery hour
+ * Send a notification via OneSignal REST API to all devices subscribed to that category and delivery time slot
  */
-function sendOneSignalPush(title, message, category, url, targetHour) {
+function sendOneSignalPush(title, message, category, url, targetTime) {
   const appId = getProperty('ONESIGNAL_APP_ID') || '10734c27-8114-4094-b21a-d803104ed3ff';
   const apiKey = getProperty('ONESIGNAL_REST_API_KEY');
 
@@ -408,22 +430,34 @@ function sendOneSignalPush(title, message, category, url, targetHour) {
   const targetUrl = 'https://www.smplans.online' + (url || '/visitbulletin');
 
   let filters = [];
-  const hourNum = (targetHour !== undefined && targetHour !== null) ? Number(targetHour) : 7;
+  const slot = (typeof targetTime === 'string') ? targetTime : '07:00';
+  const hourNum = parseInt(slot.split(':')[0], 10);
   const hourStr = String(hourNum);
 
-  if (hourNum === 7) {
-    // 7 AM is default: include those explicitly set to 7 OR those who haven't set delivery_hour yet
+  if (slot === '07:00') {
+    // 7:00 AM is default: include those explicitly set to "07:00", OR legacy delivery_hour "7", OR no delivery_time set yet
     filters = [
+      { field: 'tag', key: category, relation: '!=', value: 'false' },
+      { field: 'tag', key: 'delivery_time', relation: '=', value: '07:00' },
+      { operator: 'OR' },
       { field: 'tag', key: category, relation: '!=', value: 'false' },
       { field: 'tag', key: 'delivery_hour', relation: '=', value: '7' },
       { operator: 'OR' },
       { field: 'tag', key: category, relation: '!=', value: 'false' },
-      { field: 'tag', key: 'delivery_hour', relation: 'not_exists' },
+      { field: 'tag', key: 'delivery_time', relation: 'not_exists' },
+    ];
+  } else if (slot.endsWith(':00')) {
+    filters = [
+      { field: 'tag', key: category, relation: '!=', value: 'false' },
+      { field: 'tag', key: 'delivery_time', relation: '=', value: slot },
+      { operator: 'OR' },
+      { field: 'tag', key: category, relation: '!=', value: 'false' },
+      { field: 'tag', key: 'delivery_hour', relation: '=', value: hourStr },
     ];
   } else {
     filters = [
       { field: 'tag', key: category, relation: '!=', value: 'false' },
-      { field: 'tag', key: 'delivery_hour', relation: '=', value: hourStr },
+      { field: 'tag', key: 'delivery_time', relation: '=', value: slot },
     ];
   }
 
@@ -453,7 +487,7 @@ function sendOneSignalPush(title, message, category, url, targetHour) {
 
     const code = response.getResponseCode();
     const respText = response.getContentText();
-    Logger.log(`[OneSignal] Sent "${title}" (${category}, hour ${targetHour}): HTTP ${code} - ${respText}`);
+    Logger.log(`[OneSignal] Sent "${title}" (${category}, slot ${slot}): HTTP ${code} - ${respText}`);
     return { success: code >= 200 && code < 300, response: respText };
   } catch (err) {
     Logger.log(`[OneSignal] Error sending push "${title}": ` + err.message);
