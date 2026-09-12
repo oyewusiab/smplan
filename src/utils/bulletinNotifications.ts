@@ -239,7 +239,10 @@ export async function sendTestNotification(categoryTitle = 'Ward Bulletin'): Pro
           icon: '/visitbulletin/icons/icon-192.png',
           badge: '/visitbulletin/icons/icon-192.png',
           vibrate: [100, 50, 100],
-          data: { url: '/visitbulletin' },
+          data: {
+            url: '/visitbulletin',
+            notificationId: 'test-' + Date.now(),
+          },
           tag: 'test-bulletin-notification',
           renotify: true,
         });
