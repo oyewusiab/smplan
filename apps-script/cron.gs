@@ -386,12 +386,16 @@ function sendOneSignalPush(title, message, category, url) {
     filters: filters,
   };
 
+  const authHeader = apiKey.trim().startsWith('os_v2_')
+    ? ('Key ' + apiKey.trim())
+    : ('Basic ' + apiKey.trim());
+
   try {
     const response = UrlFetchApp.fetch('https://onesignal.com/api/v1/notifications', {
       method: 'post',
       contentType: 'application/json; charset=utf-8',
       headers: {
-        'Authorization': 'Basic ' + apiKey.trim(),
+        'Authorization': authHeader,
       },
       payload: JSON.stringify(payload),
       muteHttpExceptions: true,
