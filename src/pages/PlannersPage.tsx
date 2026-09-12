@@ -219,13 +219,40 @@ export function PlannersPage() {
   const openPrintModal = async (planner: Planner) => {
     if (!session) return;
     try {
-      const res = await agendasApi.list(session.token, planner.planner_id) as { ok: boolean; data: Agenda[] };
-      if (res.ok) {
-        setPrintModalAgendas(res.data || []);
-        setPrintModalPlanner(planner);
+      let embeddedWeeks: Agenda[] = [];
+      if (planner.weeks) {
+        try {
+          const parsed = typeof planner.weeks === 'string' ? JSON.parse(planner.weeks) : planner.weeks;
+          if (Array.isArray(parsed) && parsed.length > 0) embeddedWeeks = parsed;
+        } catch {}
       }
+      const res = await agendasApi.list(session.token, planner.planner_id) as { ok: boolean; data: Agenda[] };
+      const cloudAgendas = (res && res.ok && Array.isArray(res.data)) ? res.data : [];
+      let finalAgendas = embeddedWeeks;
+      if (embeddedWeeks.length > 0) {
+        finalAgendas = embeddedWeeks.map((ew, idx) => {
+          const match = cloudAgendas.find(ca => (ca.date && ew.date && ca.date === ew.date) || (ca.week_id && ew.week_id && ca.week_id === ew.week_id) || (ca.week_id === `week_${idx + 1}`));
+          return { ...ew, ...(match || {}) };
+        });
+      } else if (cloudAgendas.length > 0) {
+        finalAgendas = cloudAgendas;
+      }
+      setPrintModalAgendas(finalAgendas);
+      setPrintModalPlanner(planner);
     } catch {
-      toast.error('Failed to fetch agendas for preview');
+      let embeddedWeeks: Agenda[] = [];
+      if (planner.weeks) {
+        try {
+          const parsed = typeof planner.weeks === 'string' ? JSON.parse(planner.weeks) : planner.weeks;
+          if (Array.isArray(parsed) && parsed.length > 0) embeddedWeeks = parsed;
+        } catch {}
+      }
+      if (embeddedWeeks.length > 0) {
+        setPrintModalAgendas(embeddedWeeks);
+        setPrintModalPlanner(planner);
+      } else {
+        toast.error('Failed to fetch agendas for preview');
+      }
     }
   };
 

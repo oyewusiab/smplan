@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useMemo } from 'react';
 import { X, Printer, Download } from 'lucide-react';
 import { Button } from '../ui/Button';
 import type { Planner, Agenda, SpeakerItem, SacramentDuties } from '../../types';
@@ -13,6 +13,36 @@ interface PlannerPrintModalProps {
 
 export function PlannerPrintModal({ open, onClose, planner, agendas }: PlannerPrintModalProps) {
   const printRef = useRef<HTMLDivElement>(null);
+
+  const resolvedAgendas = useMemo(() => {
+    let embeddedWeeks: Agenda[] = [];
+    if (planner.weeks) {
+      try {
+        const parsed = typeof planner.weeks === 'string' ? JSON.parse(planner.weeks) : planner.weeks;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          embeddedWeeks = parsed;
+        }
+      } catch {}
+    }
+
+    if (embeddedWeeks.length > 0 && (!agendas || agendas.length === 0 || agendas.length < embeddedWeeks.length)) {
+      return embeddedWeeks.map((ew, idx) => {
+        const targetDate = ew.date;
+        const targetWeekId = ew.week_id || `week_${idx + 1}`;
+        const match = agendas?.find((a) => (targetDate && a.date === targetDate) || a.week_id === targetWeekId);
+        return {
+          ...ew,
+          ...(match || {}),
+        };
+      });
+    }
+
+    if (agendas && agendas.length > 0) {
+      return agendas;
+    }
+
+    return embeddedWeeks;
+  }, [planner, agendas]);
 
   if (!open) return null;
 
@@ -136,7 +166,7 @@ export function PlannerPrintModal({ open, onClose, planner, agendas }: PlannerPr
                   {unitTitle}
                 </h1>
                 <p className="text-xs text-slate-600 font-medium">
-                  {monthYearLabel} &nbsp;|&nbsp; Venue: {agendas[0]?.venue_override || 'Chapel'} &nbsp;|&nbsp; Time: {agendas[0]?.start_time || 'Not set'} &nbsp;|&nbsp; Conducting: {planner.conducting_officer || 'Obaji, Solomon Emmanuel'}
+                  {monthYearLabel} &nbsp;|&nbsp; Venue: {resolvedAgendas[0]?.venue_override || 'Chapel'} &nbsp;|&nbsp; Time: {resolvedAgendas[0]?.start_time || 'Not set'} &nbsp;|&nbsp; Conducting: {planner.conducting_officer || 'Obaji, Solomon Emmanuel'}
                 </p>
               </div>
 
@@ -162,7 +192,7 @@ export function PlannerPrintModal({ open, onClose, planner, agendas }: PlannerPr
                   </tr>
                 </thead>
                 <tbody>
-                  {agendas.map((ag, idx) => {
+                  {resolvedAgendas.map((ag, idx) => {
                     let speakers: SpeakerItem[] = [];
                     try {
                       speakers = typeof ag.speakers === 'string' ? JSON.parse(ag.speakers) : (ag.speakers || []);
@@ -216,7 +246,7 @@ export function PlannerPrintModal({ open, onClose, planner, agendas }: PlannerPr
                       </tr>
                     );
                   })}
-                  {agendas.length === 0 && (
+                  {resolvedAgendas.length === 0 && (
                     <tr>
                       <td colSpan={5} className="text-center py-6 text-slate-400">No scheduled weeks configured</td>
                     </tr>
@@ -233,7 +263,7 @@ export function PlannerPrintModal({ open, onClose, planner, agendas }: PlannerPr
                   {unitTitle}
                 </h1>
                 <p className="text-xs text-slate-600 font-medium">
-                  {monthYearLabel} &nbsp;|&nbsp; Venue: {agendas[0]?.venue_override || 'Chapel'} &nbsp;|&nbsp; Time: {agendas[0]?.start_time || 'Not set'} &nbsp;|&nbsp; Conducting: {planner.conducting_officer || 'Obaji, Solomon Emmanuel'}
+                  {monthYearLabel} &nbsp;|&nbsp; Venue: {resolvedAgendas[0]?.venue_override || 'Chapel'} &nbsp;|&nbsp; Time: {resolvedAgendas[0]?.start_time || 'Not set'} &nbsp;|&nbsp; Conducting: {planner.conducting_officer || 'Obaji, Solomon Emmanuel'}
                 </p>
               </div>
 
@@ -259,7 +289,7 @@ export function PlannerPrintModal({ open, onClose, planner, agendas }: PlannerPr
                   </tr>
                 </thead>
                 <tbody>
-                  {agendas.map((ag, idx) => {
+                  {resolvedAgendas.map((ag, idx) => {
                     let duties: SacramentDuties = { preparing: [], blessing: [], passing: [] };
                     try {
                       duties = typeof ag.sacrament_duties === 'string' ? JSON.parse(ag.sacrament_duties) : (ag.sacrament_duties || duties);
@@ -319,7 +349,7 @@ export function PlannerPrintModal({ open, onClose, planner, agendas }: PlannerPr
                       </tr>
                     );
                   })}
-                  {agendas.length === 0 && (
+                  {resolvedAgendas.length === 0 && (
                     <tr>
                       <td colSpan={5} className="text-center py-6 text-slate-400">No scheduled weeks configured</td>
                     </tr>
