@@ -914,6 +914,53 @@ export function AgendasPage() {
     setDiffModalOpen(true);
   };
 
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Delete Saved Agenda
+  const handleDeleteAgenda = async (agenda: Agenda | Partial<Agenda>) => {
+    if (!session) return;
+    const agendaId = agenda.agenda_id;
+    if (!agendaId) {
+      toast.error('Cannot delete: agenda ID not found');
+      return;
+    }
+
+    const dateDisplay = agenda.date ? format(new Date(agenda.date), 'EEEE, MMMM d, yyyy') : 'this meeting';
+    const wardDisplay = agenda.ward_branch || 'Ward';
+    const confirmMsg = `Are you sure you want to delete the saved Sacrament Meeting agenda for ${dateDisplay} (${wardDisplay})? This action cannot be undone.`;
+
+    if (!window.confirm(confirmMsg)) {
+      return;
+    }
+
+    setDeletingId(agendaId);
+    try {
+      const res = (await agendasApi.delete(session.token, agendaId)) as { ok: boolean; error?: string };
+      if (!res.ok) {
+        throw new Error(res.error || 'Failed to delete agenda');
+      }
+
+      toast.success('Agenda deleted successfully');
+
+      // If the currently active agenda in the workspace is the one deleted, reset it
+      if (activeAgenda.agenda_id === agendaId) {
+        setActiveAgenda({
+          ...emptyAgenda,
+          date: selectedDate,
+          planner_id: selectedPlanner?.planner_id || '',
+          ward_branch: selectedPlanner?.unit_name || '',
+        });
+        setIsDraftCreated(false);
+      }
+
+      await loadAll();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete agenda');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const handleApplyDiffPatch = (patch: Partial<Agenda>) => {
     setActiveAgenda((prev) => ({ ...prev, ...patch }));
     if (patch.speakers) {
@@ -1074,39 +1121,54 @@ export function AgendasPage() {
                         </div>
                       </dl>
 
-                      <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          icon={<Edit3 className="h-3.5 w-3.5" />}
-                          onClick={() => {
-                            setSelectedDate(a.date);
-                            loadAgendaIntoWorkspace(a);
-                            setIsDraftCreated(true);
-                            setViewMode('workspace');
-                          }}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          size="xs"
-                          variant="secondary"
-                          icon={<Tablet className="h-3.5 w-3.5" />}
-                          onClick={() => {
-                            loadAgendaIntoWorkspace(a);
-                            setPodiumModalOpen(true);
-                          }}
-                        >
-                          Podium
-                        </Button>
-                        <Button
-                          size="xs"
-                          variant="ghost"
-                          icon={<Printer className="h-3.5 w-3.5" />}
-                          onClick={() => handlePrintStandAgenda(a)}
-                        >
-                          Print
-                        </Button>
+                      <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-1.5 flex-wrap">
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            icon={<Edit3 className="h-3.5 w-3.5" />}
+                            onClick={() => {
+                              setSelectedDate(a.date);
+                              loadAgendaIntoWorkspace(a);
+                              setIsDraftCreated(true);
+                              setViewMode('workspace');
+                            }}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            size="xs"
+                            variant="secondary"
+                            icon={<Tablet className="h-3.5 w-3.5" />}
+                            onClick={() => {
+                              loadAgendaIntoWorkspace(a);
+                              setPodiumModalOpen(true);
+                            }}
+                          >
+                            Podium
+                          </Button>
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            icon={<Printer className="h-3.5 w-3.5" />}
+                            onClick={() => handlePrintStandAgenda(a)}
+                          >
+                            Print
+                          </Button>
+                        </div>
+                        {(canEditAgenda || isBishopric || session?.role === 'ADMIN') && (
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 border border-transparent hover:border-red-200"
+                            icon={<Trash2 className="h-3.5 w-3.5" />}
+                            onClick={() => handleDeleteAgenda(a)}
+                            loading={deletingId === a.agenda_id}
+                            title="Delete this saved agenda"
+                          >
+                            Delete
+                          </Button>
+                        )}
                       </div>
                     </CardBody>
                   </Card>
@@ -1208,6 +1270,19 @@ export function AgendasPage() {
                           title="Send Email Reminder to Page 1 Assignees"
                         >
                           Send Reminder
+                        </Button>
+                      )}
+                      {(canEditAgenda || isBishopric || session?.role === 'ADMIN') && activeAgenda.agenda_id && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="bg-red-950/40 border-red-800/80 text-red-200 hover:bg-red-900/60 hover:text-white"
+                          icon={<Trash2 className="h-4 w-4 text-red-400" />}
+                          onClick={() => handleDeleteAgenda(activeAgenda)}
+                          loading={deletingId === activeAgenda.agenda_id}
+                          title="Delete Saved Agenda"
+                        >
+                          Delete
                         </Button>
                       )}
                       <Button
