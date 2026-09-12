@@ -46,9 +46,15 @@ export function initOneSignal(): void {
         allowLocalhostAsSecureOrigin: true,
       });
 
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        try {
+          await OneSignal.User?.PushSubscription?.optIn();
+        } catch (optErr) {}
+      }
+
       const prefs = getNotificationPreferences();
       if (prefs.enabled && OneSignal.User) {
-        OneSignal.User.addTags({
+        await OneSignal.User.addTags({
           notifications_enabled: 'true',
           birthdays: prefs.birthdays ? 'true' : 'false',
           dailyScriptures: prefs.dailyScriptures ? 'true' : 'false',
@@ -137,21 +143,28 @@ export function saveNotificationPreferences(prefs: BulletinNotificationPreferenc
  */
 export async function requestNotificationPermission(): Promise<NotificationPermission> {
   if (typeof window !== 'undefined') {
-    if (window.OneSignal?.Notifications) {
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    window.OneSignalDeferred.push(async function (OneSignal: any) {
       try {
-        await window.OneSignal.Notifications.requestPermission();
+        await OneSignal.Notifications?.requestPermission();
+        try {
+          await OneSignal.User?.PushSubscription?.optIn();
+        } catch {}
+        const prefs = getNotificationPreferences();
+        if (OneSignal.User) {
+          await OneSignal.User.addTags({
+            notifications_enabled: 'true',
+            birthdays: prefs.birthdays ? 'true' : 'false',
+            dailyScriptures: prefs.dailyScriptures ? 'true' : 'false',
+            dailyComeFollowMe: prefs.dailyComeFollowMe ? 'true' : 'false',
+            sundayClasses: prefs.sundayClasses ? 'true' : 'false',
+            activities: prefs.activities ? 'true' : 'false',
+          });
+        }
       } catch (e) {
         console.warn('[OneSignal] requestPermission notice:', e);
       }
-    } else if (window.OneSignalDeferred) {
-      window.OneSignalDeferred.push(async function (OneSignal: any) {
-        try {
-          await OneSignal.Notifications?.requestPermission();
-        } catch (e) {
-          console.warn('[OneSignal] requestPermission notice:', e);
-        }
-      });
-    }
+    });
   }
 
   if (!isNotificationSupported()) return 'denied';
