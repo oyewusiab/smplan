@@ -45,29 +45,74 @@ export function DigitalPodiumModal({ open, onClose, agenda }: DigitalPodiumModal
   const formattedDate = agenda.date ? format(new Date(agenda.date), 'EEEE, MMMM d, yyyy') : 'Sunday Service';
   const speakers = parseSpeakersList(agenda.speakers);
   
-  const announcements = parseStructuredOrLines<string>(agenda.announcements, (l) => l);
+  const announcements = parseStructuredOrLines<string>(agenda.announcements, (l) => {
+    if (typeof l === 'object' && l !== null) {
+      return String(l.text || l.announcement || l.title || l.name || '');
+    }
+    return String(l || '');
+  });
   const releases = parseStructuredOrLines<ReleaseItem>(agenda.releases, (l) => {
-    const parts = l.split(/released as/i);
-    return { name: parts[0]?.trim() || l, calling: parts[1]?.trim() || '' };
+    if (typeof l === 'object' && l !== null) {
+      return { name: String(l.name || ''), calling: String(l.calling || '') };
+    }
+    const str = String(l || '');
+    const parts = str.split(/released as/i);
+    return { name: parts[0]?.trim() || str, calling: parts[1]?.trim() || '' };
   });
   const calls = parseStructuredOrLines<SustainingItem>(agenda.calls, (l) => {
-    const parts = l.split(/called as/i);
-    return { name: parts[0]?.trim() || l, calling: parts[1]?.trim() || '' };
+    if (typeof l === 'object' && l !== null) {
+      return { name: String(l.name || ''), calling: String(l.calling || '') };
+    }
+    const str = String(l || '');
+    const parts = str.split(/called as/i);
+    return { name: parts[0]?.trim() || str, calling: parts[1]?.trim() || '' };
   });
   const ordinations = parseStructuredOrLines<OrdinationItem>(agenda.aaronic_ordinations || agenda.aaronic_advancements, (l) => {
-    return { name: l, office: '', ordained_by: '', ordained_by_office: '' };
+    if (typeof l === 'object' && l !== null) {
+      return {
+        name: String(l.name || ''),
+        office: String(l.office || l.to_office || ''),
+        ordained_by: String(l.ordained_by || ''),
+        ordained_by_office: String(l.ordained_by_office || '')
+      };
+    }
+    return { name: String(l || ''), office: '', ordained_by: '', ordained_by_office: '' };
   });
   const babies = parseStructuredOrLines<BabyBlessingItem>(agenda.babies || agenda.naming_blessing, (l) => {
-    return { baby_name: l, family: '', blessed_by: '', blessed_by_office: '' };
+    if (typeof l === 'object' && l !== null) {
+      return {
+        baby_name: String(l.baby_name || l.name || ''),
+        family: String(l.family || ''),
+        blessed_by: String(l.blessed_by || ''),
+        blessed_by_office: String(l.blessed_by_office || '')
+      };
+    }
+    return { baby_name: String(l || ''), family: '', blessed_by: '', blessed_by_office: '' };
   });
   const baptisms = parseStructuredOrLines<BaptismItem>(agenda.baptized_children, (l) => {
-    return { name: l, baptized_by: '', confirmed_by: '' };
+    if (typeof l === 'object' && l !== null) {
+      return {
+        name: String(l.name || ''),
+        baptized_by: String(l.baptized_by || ''),
+        confirmed_by: String(l.confirmed_by || '')
+      };
+    }
+    return { name: String(l || ''), baptized_by: '', confirmed_by: '' };
   });
   const confirmations = parseStructuredOrLines<ConfirmationItem>(agenda.confirmations || agenda.confirmation_bestowal, (l) => {
-    return { name: l, confirmed_by: '' };
+    if (typeof l === 'object' && l !== null) {
+      return {
+        name: String(l.name || ''),
+        confirmed_by: String(l.confirmed_by || '')
+      };
+    }
+    return { name: String(l || ''), confirmed_by: '' };
   });
   const fellowships = parseStructuredOrLines<FellowshipItem>(agenda.fellowships, (l) => {
-    return { name: l };
+    if (typeof l === 'object' && l !== null) {
+      return { name: String(l.name || ''), note: String(l.note || '') };
+    }
+    return { name: String(l || ''), note: '' };
   });
 
   const formatElapsed = (sec: number) => {

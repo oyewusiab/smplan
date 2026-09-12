@@ -157,29 +157,35 @@ function extractUnifiedAgendaData(
   const musicDirector = (
     safeTrim(savedAgenda?.music_director) ||
     safeTrim(plannerWeek?.music_director) ||
+    safeTrim(plannerWeek?.chorister) ||
     safeTrim(plannerWeek?.music?.director) ||
-    safeTrim(plannerWeek?.chorister)
+    safeTrim(plannerWeek?.music?.chorister) ||
+    safeTrim(selectedPlanner?.music_director)
   );
   const choirDirector = (
     safeTrim(savedAgenda?.choir_director) ||
-    safeTrim(plannerWeek?.choir_director)
+    safeTrim(plannerWeek?.choir_director) ||
+    safeTrim(plannerWeek?.music?.choir_director)
   );
   const organist = (
     safeTrim(savedAgenda?.organist) ||
     safeTrim(plannerWeek?.organist) ||
-    safeTrim(plannerWeek?.music?.accompanist) ||
     safeTrim(plannerWeek?.pianist) ||
-    safeTrim(plannerWeek?.accompanist)
+    safeTrim(plannerWeek?.accompanist) ||
+    safeTrim(plannerWeek?.music?.accompanist) ||
+    safeTrim(plannerWeek?.music?.organist) ||
+    safeTrim(plannerWeek?.music?.pianist)
   );
 
   // 4. Music Selections (Hymns)
   const resolveHymnInfo = (
-    rawHymn: unknown,
-    rawNum: unknown,
-    fallbackNested?: unknown
+    savedHymn: unknown,
+    savedNum: unknown,
+    plannerHymn: unknown,
+    plannerNum?: unknown
   ) => {
-    const raw = safeTrim(rawHymn) || safeTrim(fallbackNested);
-    const numIn = safeTrim(rawNum);
+    const raw = safeTrim(savedHymn) || safeTrim(plannerHymn);
+    const numIn = safeTrim(savedNum) || safeTrim(plannerNum);
     const parsed = parseHymn(raw);
 
     let finalNum = numIn || parsed.number;
@@ -202,22 +208,27 @@ function extractUnifiedAgendaData(
   const openHymn = resolveHymnInfo(
     savedAgenda?.opening_hymn,
     savedAgenda?.opening_hymn_number,
-    plannerWeek?.opening_hymn || plannerWeek?.hymns?.opening
+    plannerWeek?.opening_hymn || plannerWeek?.hymns?.opening,
+    plannerWeek?.opening_hymn_number || plannerWeek?.hymns?.opening_number
   );
   const sacHymn = resolveHymnInfo(
     savedAgenda?.sacrament_hymn,
     savedAgenda?.sacrament_hymn_number,
-    plannerWeek?.sacrament_hymn || plannerWeek?.hymns?.sacrament
+    plannerWeek?.sacrament_hymn || plannerWeek?.hymns?.sacrament,
+    plannerWeek?.sacrament_hymn_number || plannerWeek?.hymns?.sacrament_number
   );
   const closeHymn = resolveHymnInfo(
     savedAgenda?.closing_hymn,
     savedAgenda?.closing_hymn_number,
-    plannerWeek?.closing_hymn || plannerWeek?.hymns?.closing
+    plannerWeek?.closing_hymn || plannerWeek?.hymns?.closing,
+    plannerWeek?.closing_hymn_number || plannerWeek?.hymns?.closing_number
   );
   const specialMusic = (
     safeTrim(savedAgenda?.special_music) ||
     safeTrim(plannerWeek?.special_music) ||
-    safeTrim(plannerWeek?.hymns?.special)
+    safeTrim(plannerWeek?.intermediate_hymn) ||
+    safeTrim(plannerWeek?.hymns?.special) ||
+    safeTrim(plannerWeek?.hymns?.intermediate)
   );
   const preludeMusic = safeTrim(savedAgenda?.prelude_music) || safeTrim(plannerWeek?.prelude_music);
   const postludeMusic = safeTrim(savedAgenda?.postlude_music) || safeTrim(plannerWeek?.postlude_music);
@@ -235,45 +246,86 @@ function extractUnifiedAgendaData(
 
   const openingPrayer = resolvePrayer(
     savedAgenda?.opening_prayer,
-    plannerWeek?.opening_prayer || plannerWeek?.prayers?.opening,
+    plannerWeek?.opening_prayer || plannerWeek?.prayers?.opening || plannerWeek?.invocation,
     plannerWeek?.opening_prayer_gender
   );
   const closingPrayer = resolvePrayer(
     savedAgenda?.closing_prayer,
-    plannerWeek?.closing_prayer || plannerWeek?.prayers?.closing,
+    plannerWeek?.closing_prayer || plannerWeek?.prayers?.closing || plannerWeek?.benediction,
     plannerWeek?.closing_prayer_gender
   );
 
-  // 6. Speakers
-  let finalSpeakers: SpeakerItem[] = [];
+  // 6. Speakers, Topics & Scripture References (Slot-by-Slot Merge)
   const savedSpeakers = parseSpeakersList(savedAgenda?.speakers);
   const plannerSpeakers = parseSpeakersList(plannerWeek?.speakers);
 
-  if (savedSpeakers.some((s) => safeTrim(s.name) || safeTrim(s.topic))) {
-    finalSpeakers = savedSpeakers;
-  } else if (plannerSpeakers.some((s) => safeTrim(s.name) || safeTrim(s.topic))) {
-    finalSpeakers = plannerSpeakers.map((sp) => ({
-      ...sp,
-      name: formatPersonWithTitle(sp.name, (sp.gender || '') as 'M' | 'F' | ''),
-    }));
-  } else if (Array.isArray(plannerWeek?.topics) && plannerWeek.topics.length > 0) {
-    finalSpeakers = plannerWeek.topics.map((top: unknown, idx: number) => ({
-      name: '',
-      topic: safeTrim(top),
-      scripture_ref: '',
-      minutes: idx === 0 ? 10 : idx === 1 ? 15 : 20,
-      gender: '',
-    }));
+  // Extract any topics from plannerWeek (array, json, or comma-separated)
+  let plannerTopics: string[] = [];
+  if (Array.isArray(plannerWeek?.topics)) {
+    plannerTopics = plannerWeek.topics.map((t: unknown) => safeTrim(t));
+  } else if (typeof plannerWeek?.topics === 'string' && plannerWeek.topics.trim().length > 0) {
+    try {
+      const parsed = JSON.parse(plannerWeek.topics);
+      if (Array.isArray(parsed)) {
+        plannerTopics = parsed.map((t: unknown) => safeTrim(t));
+      } else {
+        plannerTopics = plannerWeek.topics.split(/[\n,;]/).map((t: string) => safeTrim(t)).filter(Boolean);
+      }
+    } catch {
+      plannerTopics = plannerWeek.topics.split(/[\n,;]/).map((t: string) => safeTrim(t)).filter(Boolean);
+    }
+  } else if (Array.isArray(plannerWeek?.speaker_topics)) {
+    plannerTopics = plannerWeek.speaker_topics.map((t: unknown) => safeTrim(t));
   }
 
-  while (finalSpeakers.length < 3) {
-    const idx = finalSpeakers.length;
+  // Also check individual speaker fields on plannerWeek
+  const plannerExtraSpeakers: SpeakerItem[] = [];
+  ['speaker_1', 'speaker_2', 'speaker_3', 'youth_speaker'].forEach((key, idx) => {
+    if (plannerWeek?.[key]) {
+      plannerExtraSpeakers.push({
+        name: safeTrim(plannerWeek[key]),
+        topic: safeTrim(plannerWeek[`${key}_topic`] || plannerTopics[idx]),
+        scripture_ref: safeTrim(plannerWeek[`${key}_scripture`] || plannerWeek[`${key}_ref`]),
+        minutes: idx === 0 ? 10 : idx === 1 ? 15 : 20,
+        gender: '',
+      });
+    }
+  });
+
+  const mergedSlotCount = Math.max(
+    3,
+    savedSpeakers.length,
+    plannerSpeakers.length,
+    plannerTopics.length,
+    plannerExtraSpeakers.length
+  );
+
+  const finalSpeakers: SpeakerItem[] = [];
+  for (let i = 0; i < mergedSlotCount; i++) {
+    const savedSp = savedSpeakers[i];
+    const planSp = plannerSpeakers[i] || plannerExtraSpeakers[i];
+    const planTopic = plannerTopics[i] || (i === 0 ? safeTrim(plannerWeek?.topic) : '');
+    const planRef = (i === 0 ? safeTrim(plannerWeek?.scripture_ref) : '');
+
+    const name = safeTrim(savedSp?.name) || safeTrim(planSp?.name);
+    const gender = (savedSp?.gender || planSp?.gender || '') as 'M' | 'F' | '';
+    const prefix = savedSp?.prefix || planSp?.prefix;
+    const topic = safeTrim(savedSp?.topic) || safeTrim(planSp?.topic) || planTopic;
+    const scripture_ref = safeTrim(savedSp?.scripture_ref) || safeTrim(planSp?.scripture_ref) || planRef;
+    const talk_link = safeTrim(savedSp?.talk_link) || safeTrim(planSp?.talk_link) || '';
+    const defaultMins = i === 0 ? 10 : i === 1 ? 15 : 20;
+    const minutes = Number(savedSp?.minutes) || Number(planSp?.minutes) || defaultMins;
+
+    const formattedName = name ? formatPersonWithTitle(name, gender, prefix) : '';
+
     finalSpeakers.push({
-      name: '',
-      topic: '',
-      scripture_ref: '',
-      minutes: idx === 0 ? 10 : idx === 1 ? 15 : 20,
-      gender: '',
+      name: formattedName,
+      gender,
+      prefix,
+      topic,
+      scripture_ref,
+      talk_link,
+      minutes,
     });
   }
 
