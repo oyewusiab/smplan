@@ -255,11 +255,6 @@ function setupTriggers() {
  * - Activities for that day
  */
 function dispatchDailyBulletinNotifications() {
-  const subscriptions = dbReadAll('BULLETIN_PUSH_SUBSCRIPTIONS');
-  if (!subscriptions || subscriptions.length === 0) {
-    return { dispatched: 0, reason: 'No subscriptions' };
-  }
-
   const todayStr = today();
   const todayDayOfWeek = new Date().getDay(); // 0 = Sunday, 6 = Saturday
 
@@ -350,6 +345,64 @@ function dispatchDailyBulletinNotifications() {
     });
   }
 
-  Logger.log(`Daily bulletin notification queue prepared: ${notificationsQueue.length} items for ${subscriptions.length} subscribers`);
-  return { queued: notificationsQueue.length, subscribers: subscriptions.length };
+  Logger.log(`Daily bulletin notification queue prepared: ${notificationsQueue.length} items`);
+
+  let dispatchedCount = 0;
+  for (const item of notificationsQueue) {
+    const res = sendOneSignalPush(item.title, item.body, item.category, item.url);
+    if (res && res.success) dispatchedCount++;
+  }
+
+  Logger.log(`Daily bulletin notifications dispatched via OneSignal: ${dispatchedCount}/${notificationsQueue.length}`);
+  return { queued: notificationsQueue.length, dispatched: dispatchedCount };
+}
+
+/**
+ * Send a notification via OneSignal REST API to all devices subscribed to that category
+ */
+function sendOneSignalPush(title, message, category, url) {
+  const appId = getProperty('ONESIGNAL_APP_ID') || '10734c27-8114-4094-b21a-d803104ed3ff';
+  const apiKey = getProperty('ONESIGNAL_REST_API_KEY');
+
+  if (!apiKey) {
+    Logger.log('[OneSignal] Note: ONESIGNAL_REST_API_KEY not configured in Script Properties yet. Skipping automated push dispatch.');
+    return { success: false, reason: 'REST API Key missing' };
+  }
+
+  const targetUrl = 'https://smplans.online' + (url || '/visitbulletin');
+
+  // Filter for users with notifications enabled and this category not explicitly disabled
+  const filters = [
+    { field: 'tag', key: 'notifications_enabled', relation: '=', value: 'true' },
+    { field: 'tag', key: category, relation: '!=', value: 'false' }
+  ];
+
+  const payload = {
+    app_id: appId,
+    headings: { en: title },
+    contents: { en: message },
+    url: targetUrl,
+    web_url: targetUrl,
+    filters: filters,
+  };
+
+  try {
+    const response = UrlFetchApp.fetch('https://onesignal.com/api/v1/notifications', {
+      method: 'post',
+      contentType: 'application/json; charset=utf-8',
+      headers: {
+        'Authorization': 'Basic ' + apiKey.trim(),
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true,
+    });
+
+    const code = response.getResponseCode();
+    const respText = response.getContentText();
+    Logger.log(`[OneSignal] Sent "${title}" (${category}): HTTP ${code} - ${respText}`);
+    return { success: code >= 200 && code < 300, response: respText };
+  } catch (err) {
+    Logger.log(`[OneSignal] Error sending push "${title}": ` + err.message);
+    return { success: false, error: err.message };
+  }
 }

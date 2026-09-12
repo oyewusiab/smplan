@@ -1,6 +1,14 @@
 {
   "headers": [
     {
+      "source": "/OneSignalSDKWorker.js",
+      "headers": [
+        { "key": "Content-Type", "value": "application/javascript; charset=utf-8" },
+        { "key": "Service-Worker-Allowed", "value": "/" },
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+      ]
+    },
+    {
       "source": "/bulletin-sw.js",
       "headers": [
         { "key": "Content-Type", "value": "application/javascript; charset=utf-8" },
@@ -25,6 +33,10 @@
     }
   ],
   "rewrites": [
+    {
+      "source": "/OneSignalSDKWorker.js",
+      "destination": "/OneSignalSDKWorker.js"
+    },
     {
       "source": "/bulletin-sw.js",
       "destination": "/bulletin-sw.js"

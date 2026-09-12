@@ -13,6 +13,7 @@ import { formatHonorificName } from '../utils/memberTitle';
 import { BulletinFormattedText } from '../utils/bulletinFormatter';
 import { BirthdayWishModal, type BirthdayChannel } from '../components/bulletin/BirthdayWishModal';
 import { BulletinNotificationModal } from '../components/bulletin/BulletinNotificationModal';
+import { initOneSignal } from '../utils/bulletinNotifications';
 import {
   initializeBulletinPwa,
   subscribePwaState,
@@ -138,6 +139,7 @@ export function PublicBulletinLandingPage() {
 
   useEffect(() => {
     loadLiveBulletin();
+    initOneSignal();
 
     const cleanupPwa = initializeBulletinPwa();
     const unsubscribe = subscribePwaState((state) => {

@@ -1,7 +1,16 @@
 /**
  * Ward Bulletin PWA - Notifications & Push Manager
- * Manages user preferences, browser permissions, and device notifications.
+ * Manages user preferences, browser permissions, device notifications, and OneSignal Web Push.
  */
+
+declare global {
+  interface Window {
+    OneSignalDeferred?: any[];
+    OneSignal?: any;
+  }
+}
+
+export const ONESIGNAL_APP_ID = '10734c27-8114-4094-b21a-d803104ed3ff';
 
 export interface BulletinNotificationPreferences {
   enabled: boolean;
@@ -22,6 +31,61 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: BulletinNotificationPreferences =
 };
 
 const STORAGE_KEY = 'SM_BULLETIN_NOTIFICATION_PREFS';
+
+/**
+ * Initialize OneSignal Web SDK
+ */
+export function initOneSignal(): void {
+  if (typeof window === 'undefined') return;
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  window.OneSignalDeferred.push(async function (OneSignal: any) {
+    try {
+      await OneSignal.init({
+        appId: ONESIGNAL_APP_ID,
+        notifyButton: { enable: false },
+        allowLocalhostAsSecureOrigin: true,
+      });
+
+      const prefs = getNotificationPreferences();
+      if (prefs.enabled && OneSignal.User) {
+        OneSignal.User.addTags({
+          notifications_enabled: 'true',
+          birthdays: prefs.birthdays ? 'true' : 'false',
+          dailyScriptures: prefs.dailyScriptures ? 'true' : 'false',
+          dailyComeFollowMe: prefs.dailyComeFollowMe ? 'true' : 'false',
+          sundayClasses: prefs.sundayClasses ? 'true' : 'false',
+          activities: prefs.activities ? 'true' : 'false',
+        });
+      }
+    } catch (e) {
+      console.warn('[OneSignal] Initialization notice:', e);
+    }
+  });
+}
+
+/**
+ * Sync user preference tags to OneSignal
+ */
+export function syncOneSignalTags(prefs: BulletinNotificationPreferences): void {
+  if (typeof window === 'undefined') return;
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  window.OneSignalDeferred.push(async function (OneSignal: any) {
+    try {
+      if (OneSignal.User) {
+        OneSignal.User.addTags({
+          notifications_enabled: prefs.enabled ? 'true' : 'false',
+          birthdays: prefs.birthdays ? 'true' : 'false',
+          dailyScriptures: prefs.dailyScriptures ? 'true' : 'false',
+          dailyComeFollowMe: prefs.dailyComeFollowMe ? 'true' : 'false',
+          sundayClasses: prefs.sundayClasses ? 'true' : 'false',
+          activities: prefs.activities ? 'true' : 'false',
+        });
+      }
+    } catch (e) {
+      console.warn('[OneSignal] Tag sync notice:', e);
+    }
+  });
+}
 
 /**
  * Check if the current browser/device supports notifications
@@ -56,21 +120,40 @@ export function getNotificationPreferences(): BulletinNotificationPreferences {
 }
 
 /**
- * Save user notification preferences to localStorage
+ * Save user notification preferences to localStorage and sync tags
  */
 export function saveNotificationPreferences(prefs: BulletinNotificationPreferences): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
+    syncOneSignalTags(prefs);
   } catch (err) {
     console.warn('[Bulletin Notification] Failed to persist preferences:', err);
   }
 }
 
 /**
- * Request notification permission from browser
+ * Request notification permission from browser & OneSignal
  */
 export async function requestNotificationPermission(): Promise<NotificationPermission> {
+  if (typeof window !== 'undefined') {
+    if (window.OneSignal?.Notifications) {
+      try {
+        await window.OneSignal.Notifications.requestPermission();
+      } catch (e) {
+        console.warn('[OneSignal] requestPermission notice:', e);
+      }
+    } else if (window.OneSignalDeferred) {
+      window.OneSignalDeferred.push(async function (OneSignal: any) {
+        try {
+          await OneSignal.Notifications?.requestPermission();
+        } catch (e) {
+          console.warn('[OneSignal] requestPermission notice:', e);
+        }
+      });
+    }
+  }
+
   if (!isNotificationSupported()) return 'denied';
   try {
     const permission = await Notification.requestPermission();
