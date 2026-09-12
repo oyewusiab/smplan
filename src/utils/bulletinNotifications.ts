@@ -19,6 +19,7 @@ export interface BulletinNotificationPreferences {
   dailyComeFollowMe: boolean;
   sundayClasses: boolean;
   activities: boolean;
+  deliveryHour: number; // 0-23 (e.g. 7 = 7:00 AM)
 }
 
 export const DEFAULT_NOTIFICATION_PREFERENCES: BulletinNotificationPreferences = {
@@ -28,6 +29,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: BulletinNotificationPreferences =
   dailyComeFollowMe: true,
   sundayClasses: true,
   activities: true,
+  deliveryHour: 7,
 };
 
 const STORAGE_KEY = 'SM_BULLETIN_NOTIFICATION_PREFS';
@@ -61,6 +63,7 @@ export function initOneSignal(): void {
           dailyComeFollowMe: prefs.dailyComeFollowMe ? 'true' : 'false',
           sundayClasses: prefs.sundayClasses ? 'true' : 'false',
           activities: prefs.activities ? 'true' : 'false',
+          delivery_hour: String(prefs.deliveryHour || 7),
         });
       }
     } catch (e) {
@@ -78,13 +81,14 @@ export function syncOneSignalTags(prefs: BulletinNotificationPreferences): void 
   window.OneSignalDeferred.push(async function (OneSignal: any) {
     try {
       if (OneSignal.User) {
-        OneSignal.User.addTags({
+        await OneSignal.User.addTags({
           notifications_enabled: prefs.enabled ? 'true' : 'false',
           birthdays: prefs.birthdays ? 'true' : 'false',
           dailyScriptures: prefs.dailyScriptures ? 'true' : 'false',
           dailyComeFollowMe: prefs.dailyComeFollowMe ? 'true' : 'false',
           sundayClasses: prefs.sundayClasses ? 'true' : 'false',
           activities: prefs.activities ? 'true' : 'false',
+          delivery_hour: String(prefs.deliveryHour || 7),
         });
       }
     } catch (e) {
@@ -159,6 +163,7 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
             dailyComeFollowMe: prefs.dailyComeFollowMe ? 'true' : 'false',
             sundayClasses: prefs.sundayClasses ? 'true' : 'false',
             activities: prefs.activities ? 'true' : 'false',
+            delivery_hour: String(prefs.deliveryHour || 7),
           });
         }
       } catch (e) {

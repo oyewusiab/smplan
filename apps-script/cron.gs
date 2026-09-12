@@ -254,7 +254,11 @@ function setupTriggers() {
  * - Next Sunday Class Lessons
  * - Activities for that day
  */
-function dispatchDailyBulletinNotifications() {
+function dispatchDailyBulletinNotifications(targetHour) {
+  const currentHour = (targetHour !== undefined && targetHour !== null)
+    ? Number(targetHour)
+    : new Date().getHours();
+
   const todayStr = today();
   const todayDayOfWeek = new Date().getDay(); // 0 = Sunday, 6 = Saturday
 
@@ -345,22 +349,32 @@ function dispatchDailyBulletinNotifications() {
     });
   }
 
-  Logger.log(`Daily bulletin notification queue prepared: ${notificationsQueue.length} items`);
+  Logger.log(`Daily bulletin notification queue prepared: ${notificationsQueue.length} items for hour ${currentHour}:00`);
 
   let dispatchedCount = 0;
   for (const item of notificationsQueue) {
-    const res = sendOneSignalPush(item.title, item.body, item.category, item.url);
+    const res = sendOneSignalPush(item.title, item.body, item.category, item.url, currentHour);
     if (res && res.success) dispatchedCount++;
   }
 
-  Logger.log(`Daily bulletin notifications dispatched via OneSignal: ${dispatchedCount}/${notificationsQueue.length}`);
-  return { queued: notificationsQueue.length, dispatched: dispatchedCount };
+  Logger.log(`Daily bulletin notifications dispatched via OneSignal for hour ${currentHour}: ${dispatchedCount}/${notificationsQueue.length}`);
+  return { queued: notificationsQueue.length, dispatched: dispatchedCount, hour: currentHour };
 }
 
 /**
- * Send a notification via OneSignal REST API to all devices subscribed to that category
+ * Hourly trigger entry point for Ward Bulletin notifications.
+ * Can be configured as an hourly time-driven trigger in Google Apps Script.
  */
-function sendOneSignalPush(title, message, category, url) {
+function runHourlyBulletinNotifications() {
+  const currentHour = new Date().getHours();
+  Logger.log('Running hourly bulletin notifications check for hour: ' + currentHour);
+  return dispatchDailyBulletinNotifications(currentHour);
+}
+
+/**
+ * Send a notification via OneSignal REST API to all devices subscribed to that category and delivery hour
+ */
+function sendOneSignalPush(title, message, category, url, targetHour) {
   const appId = getProperty('ONESIGNAL_APP_ID') || '10734c27-8114-4094-b21a-d803104ed3ff';
   const apiKey = getProperty('ONESIGNAL_REST_API_KEY');
 
@@ -369,13 +383,28 @@ function sendOneSignalPush(title, message, category, url) {
     return { success: false, reason: 'REST API Key missing' };
   }
 
-  const targetUrl = 'https://smplans.online' + (url || '/visitbulletin');
+  const targetUrl = 'https://www.smplans.online' + (url || '/visitbulletin');
 
   // Filter for users with notifications enabled and this category not explicitly disabled
-  const filters = [
+  let filters = [
     { field: 'tag', key: 'notifications_enabled', relation: '=', value: 'true' },
     { field: 'tag', key: category, relation: '!=', value: 'false' }
   ];
+
+  // Delivery hour filtering
+  if (targetHour !== undefined && targetHour !== null) {
+    const hourStr = String(targetHour);
+    if (Number(targetHour) === 7) {
+      // 7 AM is default: include those explicitly set to 7 OR those who haven't set delivery_hour yet
+      filters.push({ field: 'tag', key: 'delivery_hour', relation: '=', value: '7' });
+      filters.push({ operator: 'OR' });
+      filters.push({ field: 'tag', key: 'notifications_enabled', relation: '=', value: 'true' });
+      filters.push({ field: 'tag', key: category, relation: '!=', value: 'false' });
+      filters.push({ field: 'tag', key: 'delivery_hour', relation: 'not_exists' });
+    } else {
+      filters.push({ field: 'tag', key: 'delivery_hour', relation: '=', value: hourStr });
+    }
+  }
 
   const payload = {
     app_id: appId,
@@ -403,7 +432,7 @@ function sendOneSignalPush(title, message, category, url) {
 
     const code = response.getResponseCode();
     const respText = response.getContentText();
-    Logger.log(`[OneSignal] Sent "${title}" (${category}): HTTP ${code} - ${respText}`);
+    Logger.log(`[OneSignal] Sent "${title}" (${category}, hour ${targetHour}): HTTP ${code} - ${respText}`);
     return { success: code >= 200 && code < 300, response: respText };
   } catch (err) {
     Logger.log(`[OneSignal] Error sending push "${title}": ` + err.message);

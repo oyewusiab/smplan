@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Bell, X, Sparkles, BookOpen, Calendar,
-  Users, Heart, Send, Smartphone, ShieldCheck, AlertCircle
+  Users, Heart, Send, Smartphone, ShieldCheck, AlertCircle, Clock
 } from 'lucide-react';
 import {
   BulletinNotificationPreferences,
@@ -45,6 +45,14 @@ export function BulletinNotificationModal({
     const updated = { ...prefs, [key]: !prefs[key] };
     setPrefs(updated);
     saveNotificationPreferences(updated);
+  };
+
+  const handleDeliveryHourChange = (hour: number) => {
+    const updated = { ...prefs, deliveryHour: hour };
+    setPrefs(updated);
+    saveNotificationPreferences(updated);
+    const label = hour === 12 ? '12:00 PM' : hour > 12 ? `${hour - 12}:00 PM` : `${hour}:00 AM`;
+    toast.success(`Daily notification time set to ${label}`);
   };
 
   const handleEnablePermission = async () => {
@@ -218,6 +226,44 @@ export function BulletinNotificationModal({
                 }`}
               />
             </button>
+          </div>
+
+          {/* Preferred Delivery Time */}
+          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col gap-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100">
+                  <Clock className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="font-bold text-xs sm:text-sm text-slate-900">Daily Notification Time</div>
+                  <div className="text-[11px] text-slate-500">Choose when you want to receive daily alerts</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="relative">
+              <select
+                disabled={!prefs.enabled}
+                value={prefs.deliveryHour ?? 7}
+                onChange={(e) => handleDeliveryHourChange(Number(e.target.value))}
+                aria-label="Daily Notification Time"
+                className="w-full bg-white border border-slate-300 text-slate-800 text-xs font-semibold rounded-xl px-3 py-2.5 outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:opacity-40 disabled:bg-slate-100 transition-all cursor-pointer"
+              >
+                <option value={5}>5:00 AM (Early Morning)</option>
+                <option value={6}>6:00 AM (Early Morning)</option>
+                <option value={7}>7:00 AM (Morning — Recommended)</option>
+                <option value={8}>8:00 AM (Morning)</option>
+                <option value={9}>9:00 AM (Mid Morning)</option>
+                <option value={10}>10:00 AM (Mid Morning)</option>
+                <option value={12}>12:00 PM (Noon)</option>
+                <option value={13}>1:00 PM (Afternoon)</option>
+                <option value={17}>5:00 PM (Late Afternoon)</option>
+                <option value={18}>6:00 PM (Evening)</option>
+                <option value={19}>7:00 PM (Evening)</option>
+                <option value={20}>8:00 PM (Night)</option>
+              </select>
+            </div>
           </div>
 
           {/* Categories List */}
