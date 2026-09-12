@@ -649,14 +649,29 @@ export function AgendasPage() {
     return planners.find((p) => p.planner_id === selectedPlannerId) || null;
   }, [planners, selectedPlannerId]);
 
-  // Sundays in selected planner
+  // Sundays in selected planner or current month (guarantees all calendar Sundays are always selectable)
   const plannerSundays = useMemo(() => {
-    if (!selectedPlanner) return [];
     try {
       const datesSet = new Set<string>();
 
-      // 1. From selectedPlanner.weeks
-      if (selectedPlanner.weeks) {
+      // 1. Calculate all calendar Sundays for the selected planner's month/year
+      if (selectedPlanner && selectedPlanner.year && selectedPlanner.month) {
+        const start = startOfMonth(new Date(selectedPlanner.year, selectedPlanner.month - 1, 1));
+        const end = endOfMonth(start);
+        eachDayOfInterval({ start, end })
+          .filter((d) => isSunday(d))
+          .forEach((d) => datesSet.add(format(d, 'yyyy-MM-dd')));
+      } else {
+        const now = new Date();
+        const start = startOfMonth(now);
+        const end = endOfMonth(now);
+        eachDayOfInterval({ start, end })
+          .filter((d) => isSunday(d))
+          .forEach((d) => datesSet.add(format(d, 'yyyy-MM-dd')));
+      }
+
+      // 2. From selectedPlanner.weeks (if any custom / 5th Sunday dates exist)
+      if (selectedPlanner && selectedPlanner.weeks) {
         const weeksArr: Partial<Agenda>[] = typeof selectedPlanner.weeks === 'string'
           ? JSON.parse(selectedPlanner.weeks)
           : selectedPlanner.weeks || [];
@@ -666,24 +681,15 @@ export function AgendasPage() {
         });
       }
 
-      // 2. From agendas matching planner_id
+      // 3. From agendas matching planner_id
       agendas
-        .filter((a) => a.planner_id === selectedPlannerId)
+        .filter((a) => (selectedPlannerId ? a.planner_id === selectedPlannerId : true))
         .forEach((a) => {
           const nd = normalizeDateStr(a.date);
           if (nd) datesSet.add(nd);
         });
 
-      if (datesSet.size > 0) {
-        return Array.from(datesSet).sort();
-      }
-
-      // 3. Fallback to calculating sundays for month
-      const start = startOfMonth(new Date(selectedPlanner.year, selectedPlanner.month - 1, 1));
-      const end = endOfMonth(start);
-      return eachDayOfInterval({ start, end })
-        .filter((d) => isSunday(d))
-        .map((d) => format(d, 'yyyy-MM-dd'));
+      return Array.from(datesSet).sort();
     } catch {
       return [];
     }
@@ -796,9 +802,12 @@ export function AgendasPage() {
       members,
       activities
     );
+    if (!savedAgendaForDate) {
+      unified.agenda.agenda_id = undefined;
+    }
     applyUnifiedData(unified);
     setIsDraftCreated(true);
-    toast.success(`Extracted real week plan & generated agenda for ${format(new Date(selectedDate), 'MMM d, yyyy')}`);
+    toast.success(`Generated agenda workspace for Sunday, ${format(new Date(selectedDate), 'MMM d, yyyy')}`);
   };
 
   // Hymn parsing on input change
@@ -1263,11 +1272,20 @@ export function AgendasPage() {
                         onChange={(e) => setSelectedDate(e.target.value)}
                         className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium"
                       >
-                        {plannerSundays.map((sun) => (
-                          <option key={sun} value={sun}>
-                            Sunday, {format(new Date(sun), 'MMMM d, yyyy')}
-                          </option>
-                        ))}
+                        {plannerSundays.map((sun) => {
+                          const norm = normalizeDateStr(sun);
+                          const matchingSaved = agendas.find(
+                            (a) => (selectedPlannerId ? a.planner_id === selectedPlannerId : true) && normalizeDateStr(a.date) === norm
+                          ) || agendas.find((a) => normalizeDateStr(a.date) === norm);
+                          const statusSuffix = matchingSaved
+                            ? `(${matchingSaved.state === 'FINAL' ? 'Saved - Final' : 'Saved - Draft'})`
+                            : '(Unsaved / Recreate)';
+                          return (
+                            <option key={sun} value={sun}>
+                              Sunday, {format(new Date(sun), 'MMMM d, yyyy')} {statusSuffix}
+                            </option>
+                          );
+                        })}
                       </select>
                     </div>
                   </div>
