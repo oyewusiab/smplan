@@ -113,6 +113,20 @@ function normalizeDateStr(d: unknown): string {
       return `${y}-${m}-${day}`;
     }
 
+    // Check DD-MMM-YYYY (e.g. 13-Sep-2026, 06-Sep-2026)
+    const monthNames: Record<string, string> = {
+      jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+      jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
+    };
+    const namedMatch = s.match(/^(\d{1,2})[-/\s]+([A-Za-z]{3,9})[-/\s]+(\d{4})/);
+    if (namedMatch) {
+      const day = namedMatch[1].padStart(2, '0');
+      const monStr = namedMatch[2].substring(0, 3).toLowerCase();
+      const m = monthNames[monStr] || '01';
+      const y = namedMatch[3];
+      return `${y}-${m}-${day}`;
+    }
+
     try {
       const parsed = new Date(s);
       if (!isNaN(parsed.getTime())) return format(parsed, 'yyyy-MM-dd');
@@ -719,6 +733,7 @@ export function AgendasPage() {
   const weekPlanFromPlanner = useMemo(() => {
     if (!selectedDate) return null;
     const targetNorm = normalizeDateStr(selectedDate);
+    const sunIndex = plannerSundays.findIndex((s) => normalizeDateStr(s) === targetNorm);
 
     // 1. Look in selectedPlanner.weeks
     if (selectedPlanner && selectedPlanner.weeks) {
@@ -726,19 +741,55 @@ export function AgendasPage() {
         const weeksArr: Partial<Agenda>[] = typeof selectedPlanner.weeks === 'string'
           ? JSON.parse(selectedPlanner.weeks)
           : selectedPlanner.weeks || [];
-        const found = weeksArr.find((w) => normalizeDateStr(w.date) === targetNorm);
+
+        // Exact or timezone-shifted match
+        const found = weeksArr.find((w) => {
+          const wNorm = normalizeDateStr(w.date);
+          if (wNorm === targetNorm) return true;
+          if (wNorm && targetNorm) {
+            const [y, m, d] = wNorm.split('-').map(Number);
+            const dt = new Date(y, m - 1, d);
+            if (dt.getDay() === 6) { // Saturday
+              dt.setDate(dt.getDate() + 1);
+              if (format(dt, 'yyyy-MM-dd') === targetNorm) return true;
+            }
+          }
+          return false;
+        });
         if (found) return found;
+
+        // Week ID match (e.g. week_1, week_2, week_3, week_4) or Sunday index fallback
+        if (sunIndex >= 0) {
+          const byId = weeksArr.find((w) => w.week_id === `week_${sunIndex + 1}` || w.week_id === `week${sunIndex + 1}`);
+          if (byId) return byId;
+          if (weeksArr[sunIndex]) return weeksArr[sunIndex];
+        }
       } catch {}
     }
 
-    // 2. Look in agendas table for matching planner & date
+    // 2. Look in local storage backup for this planner if present
+    if (selectedPlannerId) {
+      try {
+        const localRaw = localStorage.getItem(`SM_DRAFT_PLANNER_${selectedPlannerId}`);
+        if (localRaw) {
+          const localParsed = JSON.parse(localRaw);
+          if (localParsed && Array.isArray(localParsed.agendas)) {
+            const lFound = localParsed.agendas.find((w: Partial<Agenda>) => normalizeDateStr(w.date) === targetNorm) ||
+                          (sunIndex >= 0 ? localParsed.agendas[sunIndex] : null);
+            if (lFound) return lFound;
+          }
+        }
+      } catch {}
+    }
+
+    // 3. Look in agendas table for matching planner & date
     const fromAgendas = agendas.find(
-      (a) => a.planner_id === selectedPlannerId && normalizeDateStr(a.date) === targetNorm
+      (a) => (selectedPlannerId ? a.planner_id === selectedPlannerId : true) && normalizeDateStr(a.date) === targetNorm
     ) || agendas.find((a) => normalizeDateStr(a.date) === targetNorm);
     if (fromAgendas) return fromAgendas;
 
     return null;
-  }, [selectedPlanner, selectedDate, selectedPlannerId, agendas]);
+  }, [selectedPlanner, selectedDate, selectedPlannerId, agendas, plannerSundays]);
 
   const applyUnifiedData = (unified: ReturnType<typeof extractUnifiedAgendaData>) => {
     setActiveAgenda(unified.agenda);
