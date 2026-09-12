@@ -122,6 +122,12 @@ function normalizeDateStr(d: unknown): string {
   return String(d);
 }
 
+const safeTrim = (val: unknown): string => {
+  if (val === null || val === undefined) return '';
+  if (typeof val === 'string') return val.trim();
+  return String(val).trim();
+};
+
 function extractUnifiedAgendaData(
   targetDate: string,
   selectedPlanner: Planner | null,
@@ -134,49 +140,46 @@ function extractUnifiedAgendaData(
   const normDate = normalizeDateStr(targetDate);
 
   // 1. Basic Meeting Info
-  const wardBranch = (savedAgenda?.ward_branch?.trim() || plannerWeek?.ward_branch?.trim() || selectedPlanner?.unit_name?.trim() || '');
-  const stakeDistrict = (savedAgenda?.stake_district?.trim() || plannerWeek?.stake_district?.trim() || '');
+  const wardBranch = safeTrim(savedAgenda?.ward_branch) || safeTrim(plannerWeek?.ward_branch) || safeTrim(selectedPlanner?.unit_name);
+  const stakeDistrict = safeTrim(savedAgenda?.stake_district) || safeTrim(plannerWeek?.stake_district);
   const meetingType = (savedAgenda?.type_of_meeting || plannerWeek?.type_of_meeting || plannerWeek?.meeting_type || 'SACRAMENT') as MeetingType;
-  const otherSpecify = (savedAgenda?.other_meeting_specify?.trim() || plannerWeek?.other_meeting_specify?.trim() || '');
-  const startTime = (savedAgenda?.start_time?.trim() || plannerWeek?.start_time?.trim() || '9:00 AM');
-  const greetings = (savedAgenda?.greetings_welcome?.trim() || plannerWeek?.greetings_welcome?.trim() || 'We warmly welcome everyone, stake officers, friends of the church and those worshipping with us for the first time.');
+  const otherSpecify = safeTrim(savedAgenda?.other_meeting_specify) || safeTrim(plannerWeek?.other_meeting_specify);
+  const startTime = safeTrim(savedAgenda?.start_time) || safeTrim(plannerWeek?.start_time) || '9:00 AM';
+  const greetings = safeTrim(savedAgenda?.greetings_welcome) || safeTrim(plannerWeek?.greetings_welcome) || 'We warmly welcome everyone, stake officers, friends of the church and those worshipping with us for the first time.';
 
   // 2. Leadership
-  const presiding = (savedAgenda?.presiding?.trim() || plannerWeek?.presiding?.trim() || 'Bishop');
-  const presidingPos = (savedAgenda?.presiding_position?.trim() || plannerWeek?.presiding_position?.trim() || 'Bishop');
-  const conducting = (savedAgenda?.conducting?.trim() || plannerWeek?.conducting?.trim() || selectedPlanner?.conducting_officer?.trim() || '');
-  const conductingPos = (savedAgenda?.conducting_position?.trim() || plannerWeek?.conducting_position?.trim() || '1st Counsellor');
+  const presiding = safeTrim(savedAgenda?.presiding) || safeTrim(plannerWeek?.presiding) || 'Bishop';
+  const presidingPos = safeTrim(savedAgenda?.presiding_position) || safeTrim(plannerWeek?.presiding_position) || 'Bishop';
+  const conducting = safeTrim(savedAgenda?.conducting) || safeTrim(plannerWeek?.conducting) || safeTrim(selectedPlanner?.conducting_officer);
+  const conductingPos = safeTrim(savedAgenda?.conducting_position) || safeTrim(plannerWeek?.conducting_position) || '1st Counsellor';
 
   // 3. Music Leaders
   const musicDirector = (
-    savedAgenda?.music_director?.trim() ||
-    plannerWeek?.music_director?.trim() ||
-    plannerWeek?.music?.director?.trim() ||
-    plannerWeek?.chorister?.trim() ||
-    ''
+    safeTrim(savedAgenda?.music_director) ||
+    safeTrim(plannerWeek?.music_director) ||
+    safeTrim(plannerWeek?.music?.director) ||
+    safeTrim(plannerWeek?.chorister)
   );
   const choirDirector = (
-    savedAgenda?.choir_director?.trim() ||
-    plannerWeek?.choir_director?.trim() ||
-    ''
+    safeTrim(savedAgenda?.choir_director) ||
+    safeTrim(plannerWeek?.choir_director)
   );
   const organist = (
-    savedAgenda?.organist?.trim() ||
-    plannerWeek?.organist?.trim() ||
-    plannerWeek?.music?.accompanist?.trim() ||
-    plannerWeek?.pianist?.trim() ||
-    plannerWeek?.accompanist?.trim() ||
-    ''
+    safeTrim(savedAgenda?.organist) ||
+    safeTrim(plannerWeek?.organist) ||
+    safeTrim(plannerWeek?.music?.accompanist) ||
+    safeTrim(plannerWeek?.pianist) ||
+    safeTrim(plannerWeek?.accompanist)
   );
 
   // 4. Music Selections (Hymns)
   const resolveHymnInfo = (
-    rawHymn: string | undefined,
-    rawNum: string | undefined,
-    fallbackNested?: string
+    rawHymn: unknown,
+    rawNum: unknown,
+    fallbackNested?: unknown
   ) => {
-    const raw = (rawHymn?.trim() || fallbackNested?.trim() || '');
-    const numIn = (rawNum?.trim() || '');
+    const raw = safeTrim(rawHymn) || safeTrim(fallbackNested);
+    const numIn = safeTrim(rawNum);
     const parsed = parseHymn(raw);
 
     let finalNum = numIn || parsed.number;
@@ -185,12 +188,12 @@ function extractUnifiedAgendaData(
     // If we have number but no title, look up title in hymn list
     if (finalNum && !finalTitle && Array.isArray(hymnsList)) {
       const match = hymnsList.find((h) => String(h.number).trim() === String(finalNum).trim() || parseInt(String(h.number), 10) === parseInt(finalNum, 10));
-      if (match) finalTitle = match.title;
+      if (match) finalTitle = String(match.title || '');
     }
     // If we have title but no number, look up number in hymn list
     if (finalTitle && !finalNum && Array.isArray(hymnsList)) {
       const match = hymnsList.find((h) => String(h.title || '').trim().toLowerCase() === finalTitle.trim().toLowerCase());
-      if (match) finalNum = String(match.number);
+      if (match) finalNum = String(match.number || '');
     }
 
     return { number: finalNum, title: finalTitle };
@@ -212,23 +215,22 @@ function extractUnifiedAgendaData(
     plannerWeek?.closing_hymn || plannerWeek?.hymns?.closing
   );
   const specialMusic = (
-    savedAgenda?.special_music?.trim() ||
-    plannerWeek?.special_music?.trim() ||
-    plannerWeek?.hymns?.special?.trim() ||
-    ''
+    safeTrim(savedAgenda?.special_music) ||
+    safeTrim(plannerWeek?.special_music) ||
+    safeTrim(plannerWeek?.hymns?.special)
   );
-  const preludeMusic = (savedAgenda?.prelude_music?.trim() || plannerWeek?.prelude_music?.trim() || '');
-  const postludeMusic = (savedAgenda?.postlude_music?.trim() || plannerWeek?.postlude_music?.trim() || '');
+  const preludeMusic = safeTrim(savedAgenda?.prelude_music) || safeTrim(plannerWeek?.prelude_music);
+  const postludeMusic = safeTrim(savedAgenda?.postlude_music) || safeTrim(plannerWeek?.postlude_music);
 
   // 5. Prayers with Titles
   const resolvePrayer = (
-    rawPrayer: string | undefined,
-    fallbackPrayer: string | undefined,
-    genderHint?: string
+    rawPrayer: unknown,
+    fallbackPrayer: unknown,
+    genderHint?: unknown
   ) => {
-    const raw = (rawPrayer?.trim() || fallbackPrayer?.trim() || '');
+    const raw = safeTrim(rawPrayer) || safeTrim(fallbackPrayer);
     if (!raw) return '';
-    return formatPersonWithTitle(raw, genderHint as 'M' | 'F' | '');
+    return formatPersonWithTitle(raw, (typeof genderHint === 'string' ? genderHint : '') as 'M' | 'F' | '');
   };
 
   const openingPrayer = resolvePrayer(
@@ -247,17 +249,17 @@ function extractUnifiedAgendaData(
   const savedSpeakers = parseSpeakersList(savedAgenda?.speakers);
   const plannerSpeakers = parseSpeakersList(plannerWeek?.speakers);
 
-  if (savedSpeakers.some((s) => s.name.trim() || s.topic.trim())) {
+  if (savedSpeakers.some((s) => safeTrim(s.name) || safeTrim(s.topic))) {
     finalSpeakers = savedSpeakers;
-  } else if (plannerSpeakers.some((s) => s.name.trim() || s.topic.trim())) {
+  } else if (plannerSpeakers.some((s) => safeTrim(s.name) || safeTrim(s.topic))) {
     finalSpeakers = plannerSpeakers.map((sp) => ({
       ...sp,
-      name: formatPersonWithTitle(sp.name, sp.gender as 'M' | 'F' | ''),
+      name: formatPersonWithTitle(sp.name, (sp.gender || '') as 'M' | 'F' | ''),
     }));
   } else if (Array.isArray(plannerWeek?.topics) && plannerWeek.topics.length > 0) {
-    finalSpeakers = plannerWeek.topics.map((top: string, idx: number) => ({
+    finalSpeakers = plannerWeek.topics.map((top: unknown, idx: number) => ({
       name: '',
-      topic: top,
+      topic: safeTrim(top),
       scripture_ref: '',
       minutes: idx === 0 ? 10 : idx === 1 ? 15 : 20,
       gender: '',
@@ -277,13 +279,13 @@ function extractUnifiedAgendaData(
 
   // 7. Announcements
   let finalAnnSlots = ['', '', '', '', '', ''];
-  const savedAnnList = parseStructuredOrLines<string>(savedAgenda?.announcements, (item) => String(item || ''));
-  const plannerAnnList = parseStructuredOrLines<string>(plannerWeek?.announcements, (item) => String(item || ''));
+  const savedAnnList = parseStructuredOrLines<string>(savedAgenda?.announcements, (item) => safeTrim(item));
+  const plannerAnnList = parseStructuredOrLines<string>(plannerWeek?.announcements, (item) => safeTrim(item));
 
-  if (savedAnnList.some((a) => a.trim())) {
-    savedAnnList.slice(0, 6).forEach((a, i) => { finalAnnSlots[i] = a; });
-  } else if (plannerAnnList.some((a) => a.trim())) {
-    plannerAnnList.slice(0, 6).forEach((a, i) => { finalAnnSlots[i] = a; });
+  if (savedAnnList.some((a) => safeTrim(a))) {
+    savedAnnList.slice(0, 6).forEach((a, i) => { finalAnnSlots[i] = safeTrim(a); });
+  } else if (plannerAnnList.some((a) => safeTrim(a))) {
+    plannerAnnList.slice(0, 6).forEach((a, i) => { finalAnnSlots[i] = safeTrim(a); });
   } else {
     // Auto-query upcoming activities
     const upcomingEvents = activitiesList
@@ -297,85 +299,85 @@ function extractUnifiedAgendaData(
 
   // 8. Ward Business Items
   const savedRel = parseStructuredOrLines<ReleaseItem>(savedAgenda?.releases || plannerWeek?.releases, (item) => {
-    if (typeof item === 'object' && item !== null) return { name: String(item.name || ''), calling: String(item.calling || '') };
-    const str = String(item || '');
+    if (typeof item === 'object' && item !== null) return { name: safeTrim(item.name), calling: safeTrim(item.calling) };
+    const str = safeTrim(item);
     const parts = str.split(/released as/i);
-    return { name: parts[0]?.trim() || str, calling: parts[1]?.trim() || '' };
+    return { name: safeTrim(parts[0]) || str, calling: safeTrim(parts[1]) };
   });
   const releasesList = Array.from({ length: 6 }, (_, i) => savedRel[i] || { name: '', calling: '' });
 
   const savedCalls = parseStructuredOrLines<SustainingItem>(savedAgenda?.calls || plannerWeek?.calls, (item) => {
-    if (typeof item === 'object' && item !== null) return { name: String(item.name || ''), calling: String(item.calling || '') };
-    const str = String(item || '');
+    if (typeof item === 'object' && item !== null) return { name: safeTrim(item.name), calling: safeTrim(item.calling) };
+    const str = safeTrim(item);
     const parts = str.split(/called as/i);
-    return { name: parts[0]?.trim() || str, calling: parts[1]?.trim() || '' };
+    return { name: safeTrim(parts[0]) || str, calling: safeTrim(parts[1]) };
   });
   const sustainingsList = Array.from({ length: 6 }, (_, i) => savedCalls[i] || { name: '', calling: '' });
 
   const savedBap = parseStructuredOrLines<BaptismItem>(savedAgenda?.baptized_children || plannerWeek?.baptized_children, (item) => {
-    if (typeof item === 'object' && item !== null) return { name: String(item.name || '') };
-    return { name: String(item || '') };
+    if (typeof item === 'object' && item !== null) return { name: safeTrim(item.name) };
+    return { name: safeTrim(item) };
   });
   const baptismsList = Array.from({ length: 4 }, (_, i) => savedBap[i] || { name: '' });
 
   const savedOrd = parseStructuredOrLines<OrdinationItem>(savedAgenda?.aaronic_ordinations || plannerWeek?.aaronic_ordinations, (item) => {
     if (typeof item === 'object' && item !== null) {
       return {
-        name: String(item.name || ''),
-        office: String(item.office || ''),
-        ordained_by: String(item.ordained_by || ''),
-        ordained_by_office: String(item.ordained_by_office || '')
+        name: safeTrim(item.name),
+        office: safeTrim(item.office),
+        ordained_by: safeTrim(item.ordained_by),
+        ordained_by_office: safeTrim(item.ordained_by_office)
       };
     }
-    return { name: String(item || ''), office: '', ordained_by: '', ordained_by_office: '' };
+    return { name: safeTrim(item), office: '', ordained_by: '', ordained_by_office: '' };
   });
   const ordinationsList = Array.from({ length: 4 }, (_, i) => savedOrd[i] || { name: '', office: '', ordained_by: '', ordained_by_office: '' });
 
   const savedAdv = parseStructuredOrLines<AdvancementItem>(savedAgenda?.aaronic_advancements || plannerWeek?.aaronic_advancements, (item) => {
     if (typeof item === 'object' && item !== null) {
       return {
-        name: String(item.name || ''),
-        from_office: String(item.from_office || ''),
-        to_office: String(item.to_office || ''),
-        ordained_by: String(item.ordained_by || ''),
-        ordained_by_office: String(item.ordained_by_office || '')
+        name: safeTrim(item.name),
+        from_office: safeTrim(item.from_office),
+        to_office: safeTrim(item.to_office),
+        ordained_by: safeTrim(item.ordained_by),
+        ordained_by_office: safeTrim(item.ordained_by_office)
       };
     }
-    return { name: String(item || ''), from_office: '', to_office: '', ordained_by: '', ordained_by_office: '' };
+    return { name: safeTrim(item), from_office: '', to_office: '', ordained_by: '', ordained_by_office: '' };
   });
   const advancementsList = Array.from({ length: 4 }, (_, i) => savedAdv[i] || { name: '', from_office: '', to_office: '', ordained_by: '', ordained_by_office: '' });
 
-  const savedAch = parseStructuredOrLines<string>(savedAgenda?.achievements || plannerWeek?.achievements, (item) => String(item || ''));
+  const savedAch = parseStructuredOrLines<string>(savedAgenda?.achievements || plannerWeek?.achievements, (item) => safeTrim(item));
   const achievementsList = Array.from({ length: 4 }, (_, i) => savedAch[i] || '');
 
   const savedBabies = parseStructuredOrLines<BabyBlessingItem>(savedAgenda?.babies || savedAgenda?.naming_blessing || plannerWeek?.babies || plannerWeek?.naming_blessing, (item) => {
     if (typeof item === 'object' && item !== null) {
       return {
-        baby_name: String(item.baby_name || ''),
-        family: String(item.family || ''),
-        blessed_by: String(item.blessed_by || ''),
-        blessed_by_office: String(item.blessed_by_office || '')
+        baby_name: safeTrim(item.baby_name),
+        family: safeTrim(item.family),
+        blessed_by: safeTrim(item.blessed_by),
+        blessed_by_office: safeTrim(item.blessed_by_office)
       };
     }
-    return { baby_name: String(item || ''), family: '', blessed_by: '', blessed_by_office: '' };
+    return { baby_name: safeTrim(item), family: '', blessed_by: '', blessed_by_office: '' };
   });
   const babiesList = Array.from({ length: 4 }, (_, i) => savedBabies[i] || { baby_name: '', family: '', blessed_by: '', blessed_by_office: '' });
 
   const savedConf = parseStructuredOrLines<ConfirmationBestowalItem>(savedAgenda?.confirmations || savedAgenda?.confirmation_bestowal || plannerWeek?.confirmations || plannerWeek?.confirmation_bestowal, (item) => {
     if (typeof item === 'object' && item !== null) {
       return {
-        name: String(item.name || ''),
-        confirmed_by: String(item.confirmed_by || ''),
-        office: String(item.office || '')
+        name: safeTrim(item.name),
+        confirmed_by: safeTrim(item.confirmed_by),
+        office: safeTrim(item.office)
       };
     }
-    return { name: String(item || ''), confirmed_by: '', office: '' };
+    return { name: safeTrim(item), confirmed_by: '', office: '' };
   });
   const confirmationsList = Array.from({ length: 6 }, (_, i) => savedConf[i] || { name: '', confirmed_by: '', office: '' });
 
   const savedFel = parseStructuredOrLines<FellowshipItem>(savedAgenda?.fellowships || plannerWeek?.fellowships, (item) => {
-    if (typeof item === 'object' && item !== null) return { name: String(item.name || '') };
-    return { name: String(item || '') };
+    if (typeof item === 'object' && item !== null) return { name: safeTrim(item.name) };
+    return { name: safeTrim(item) };
   });
   const fellowshipsList = Array.from({ length: 8 }, (_, i) => savedFel[i] || { name: '' });
 
@@ -799,21 +801,21 @@ export function AgendasPage() {
     }
     setSaving(true);
     try {
-      const compiledAnnouncements = announcementSlots.filter((s) => s.trim().length > 0).join('\n');
+      const compiledAnnouncements = announcementSlots.filter((s) => safeTrim(s).length > 0).join('\n');
 
       const payload: Partial<Agenda> = {
         ...activeAgenda,
         speakers: JSON.stringify(speakersList),
         announcements: compiledAnnouncements,
-        releases: JSON.stringify(releasesList.filter((r) => r.name.trim())),
-        calls: JSON.stringify(sustainingsList.filter((c) => c.name.trim())),
-        baptized_children: JSON.stringify(baptismsList.filter((b) => b.name.trim())),
-        aaronic_ordinations: JSON.stringify(ordinationsList.filter((o) => o.name.trim())),
-        aaronic_advancements: JSON.stringify(advancementsList.filter((a) => a.name.trim())),
-        achievements: JSON.stringify(achievementsList.filter((a) => a.trim())),
-        babies: JSON.stringify(babiesList.filter((b) => b.baby_name.trim())),
-        confirmations: JSON.stringify(confirmationsList.filter((c) => c.name.trim())),
-        fellowships: JSON.stringify(fellowshipsList.filter((f) => f.name.trim())),
+        releases: JSON.stringify(releasesList.filter((r) => safeTrim(r?.name))),
+        calls: JSON.stringify(sustainingsList.filter((c) => safeTrim(c?.name))),
+        baptized_children: JSON.stringify(baptismsList.filter((b) => safeTrim(b?.name))),
+        aaronic_ordinations: JSON.stringify(ordinationsList.filter((o) => safeTrim(o?.name))),
+        aaronic_advancements: JSON.stringify(advancementsList.filter((a) => safeTrim(a?.name))),
+        achievements: JSON.stringify(achievementsList.filter((a) => safeTrim(a))),
+        babies: JSON.stringify(babiesList.filter((b) => safeTrim(b?.baby_name))),
+        confirmations: JSON.stringify(confirmationsList.filter((c) => safeTrim(c?.name))),
+        fellowships: JSON.stringify(fellowshipsList.filter((f) => safeTrim(f?.name))),
         state: targetState,
         planner_id: selectedPlannerId || activeAgenda.planner_id || '',
       };

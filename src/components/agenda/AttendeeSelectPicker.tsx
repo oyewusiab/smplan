@@ -32,14 +32,15 @@ export function AttendeeSelectPicker({
 
   // Clean, non-empty list of unique attendee names
   const validAttendees = useMemo(() => {
-    return attendees.filter((a) => a.name && a.name.trim().length > 0);
+    return (attendees || []).filter((a) => a && a.name && String(a.name).trim().length > 0);
   }, [attendees]);
 
   // Check if current value exists in attendees
   const isValueInAttendance = useMemo(() => {
-    if (!value) return true;
+    const valClean = String(value ?? '').trim().toLowerCase();
+    if (!valClean) return true;
     return validAttendees.some(
-      (a) => a.name.trim().toLowerCase() === value.trim().toLowerCase()
+      (a) => String(a?.name ?? '').trim().toLowerCase() === valClean
     );
   }, [validAttendees, value]);
 

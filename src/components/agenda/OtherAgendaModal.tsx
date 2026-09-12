@@ -290,8 +290,9 @@ export function OtherAgendaModal({
   };
 
   const handleAddAttendeeToRoll = (newAttendee: OtherAgendaAttendee) => {
+    const targetName = String(newAttendee?.name || '').trim().toLowerCase();
     const exists = attendees.some(
-      (a) => a.name.trim().toLowerCase() === newAttendee.name.trim().toLowerCase()
+      (a) => String(a?.name || '').trim().toLowerCase() === targetName
     );
     if (!exists) {
       setAttendees((prev) => [...prev, newAttendee]);
@@ -356,7 +357,9 @@ export function OtherAgendaModal({
   };
 
   const handleSubmit = (actionType: 'DRAFT' | 'SUBMIT' | 'APPROVE' | 'APPROVE_NO_EMAIL') => {
-    if (!title.trim() || !date.trim()) {
+    const titleClean = String(title || '').trim();
+    const dateClean = String(date || '').trim();
+    if (!titleClean || !dateClean) {
       toast.error('Meeting Title and Date are required');
       return;
     }
@@ -364,25 +367,25 @@ export function OtherAgendaModal({
     const payload: Partial<OtherAgenda> = {
       meeting_type: meetingType,
       meeting_type_other: meetingTypeOther,
-      title: title.trim(),
-      date: date.trim(),
+      title: titleClean,
+      date: dateClean,
       start_time: startTime,
       end_time: endTime,
-      venue: venue.trim(),
-      presiding: presiding.trim(),
+      venue: String(venue || '').trim(),
+      presiding: String(presiding || '').trim(),
       presiding_role: presidingRole,
-      conducting: conducting.trim(),
+      conducting: String(conducting || '').trim(),
       conducting_role: conductingRole,
-      opening_hymn: openingHymn.trim(),
-      opening_prayer: openingPrayer.trim(),
-      spiritual_thought_by: spiritualThoughtBy.trim(),
-      spiritual_thought_topic: spiritualThoughtTopic.trim(),
-      closing_remarks_by: closingRemarksBy.trim(),
-      closing_prayer: closingPrayer.trim(),
-      attendees: JSON.stringify(attendees.filter(a => a.name.trim())),
-      topics: JSON.stringify(topics.filter(t => t.title.trim())),
-      assignments: JSON.stringify(assignments.filter(a => a.task.trim())),
-      general_notes: generalNotes.trim(),
+      opening_hymn: String(openingHymn || '').trim(),
+      opening_prayer: String(openingPrayer || '').trim(),
+      spiritual_thought_by: String(spiritualThoughtBy || '').trim(),
+      spiritual_thought_topic: String(spiritualThoughtTopic || '').trim(),
+      closing_remarks_by: String(closingRemarksBy || '').trim(),
+      closing_prayer: String(closingPrayer || '').trim(),
+      attendees: JSON.stringify(attendees.filter(a => String(a?.name || '').trim())),
+      topics: JSON.stringify(topics.filter(t => String(t?.title || '').trim())),
+      assignments: JSON.stringify(assignments.filter(a => String(a?.task || '').trim())),
+      general_notes: String(generalNotes || '').trim(),
     };
 
     onSave(payload, actionType);
