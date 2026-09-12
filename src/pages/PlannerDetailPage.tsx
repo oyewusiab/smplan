@@ -194,8 +194,56 @@ export function PlannerDetailPage() {
   const [activeThemeWeek, setActiveThemeWeek] = useState<number | null>(null);
   const [selectedThemeCategory, setSelectedThemeCategory] = useState<string>('Atonement & Sacrament');
 
-  // Printable modal state
-  const [showPrintModal, setShowPrintModal] = useState(false);
+function normalizeDateStr(d: unknown): string {
+  if (!d) return '';
+  if (d instanceof Date && !isNaN(d.getTime())) {
+    return format(d, 'yyyy-MM-dd');
+  }
+  if (typeof d === 'string') {
+    const s = d.trim();
+    if (!s) return '';
+    if (s.includes('T')) return s.split('T')[0];
+
+    // Check YYYY-MM-DD or YYYY/MM/DD
+    const ymdMatch = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+    if (ymdMatch) {
+      const y = ymdMatch[1];
+      const m = ymdMatch[2].padStart(2, '0');
+      const day = ymdMatch[3].padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+
+    // Check DD-MM-YYYY or DD/MM/YYYY
+    const dmyMatch = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+    if (dmyMatch) {
+      const day = dmyMatch[1].padStart(2, '0');
+      const m = dmyMatch[2].padStart(2, '0');
+      const y = dmyMatch[3];
+      return `${y}-${m}-${day}`;
+    }
+
+    // Check DD-MMM-YYYY (e.g. 13-Sep-2026, 06-Sep-2026)
+    const monthNames: Record<string, string> = {
+      jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+      jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
+    };
+    const namedMatch = s.match(/^(\d{1,2})[-/\s]+([A-Za-z]{3,9})[-/\s]+(\d{4})/);
+    if (namedMatch) {
+      const day = namedMatch[1].padStart(2, '0');
+      const monStr = namedMatch[2].substring(0, 3).toLowerCase();
+      const m = monthNames[monStr] || '01';
+      const y = namedMatch[3];
+      return `${y}-${m}-${day}`;
+    }
+
+    try {
+      const parsed = new Date(s);
+      if (!isNaN(parsed.getTime())) return format(parsed, 'yyyy-MM-dd');
+    } catch {}
+    return s;
+  }
+  return String(d);
+}
 
   // Generate 4 to 5 Sundays for the selected Month/Year
   const generateSundaysForMonth = (year: number, month: number, unitName: string, conducting: string): Agenda[] => {
@@ -517,8 +565,9 @@ export function PlannerDetailPage() {
         setHymns(hRes.value.data || []);
       }
 
-    } catch {
-      toast.error('Failed to load planner data');
+    } catch (err) {
+      console.error('Error loading planner data:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to load planner data');
     } finally {
       setLoading(false);
     }
