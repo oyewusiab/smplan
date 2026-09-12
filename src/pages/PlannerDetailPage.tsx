@@ -197,206 +197,6 @@ export function PlannerDetailPage() {
   // Printable modal state
   const [showPrintModal, setShowPrintModal] = useState(false);
 
-  // Load Planner and related data with Multi-Layer Safeguards
-  const loadData = async (force = false) => {
-    if (!session || !id) return;
-    setLoading(true);
-    try {
-      const [pRes, aRes, asRes, mRes, hRes] = await Promise.allSettled([
-        plannersApi.get(session.token, id, { forceRefresh: force }) as Promise<{ ok: boolean; data: Planner }>,
-        agendasApi.list(session.token, id, { forceRefresh: force }) as Promise<{ ok: boolean; data: Agenda[] }>,
-        assignmentsApi.list(session.token, undefined, { forceRefresh: force }) as Promise<{ ok: boolean; data: any[] }>,
-        membersApi.list(session.token, { forceRefresh: force }) as Promise<{ ok: boolean; data: Member[] }>,
-        hymnsApi.list(session.token, undefined, { forceRefresh: force }) as Promise<{ ok: boolean; data: Hymn[] }>,
-      ]);
-
-      if (pRes.status === 'fulfilled' && pRes.value.ok) {
-        const pl = pRes.value.data;
-        setPlanner(pl);
-
-        let fetchedAgendas: Agenda[] = [];
-
-        // 1. Primary Source: AGENDAS Table
-        if (aRes.status === 'fulfilled' && aRes.value.ok && Array.isArray(aRes.value.data) && aRes.value.data.length > 0) {
-          fetchedAgendas = aRes.value.data;
-        } 
-        
-        // 2. Secondary Safeguard: Embedded JSON weeks on the PLANNERS row
-        if (fetchedAgendas.length === 0 && pl.weeks) {
-          try {
-            const parsedWeeks = typeof pl.weeks === 'string' ? JSON.parse(pl.weeks) : pl.weeks;
-            if (Array.isArray(parsedWeeks) && parsedWeeks.length > 0) {
-              fetchedAgendas = parsedWeeks;
-            }
-          } catch { /* ignore parse error */ }
-        }
-
-        // 3. Local Offline Backup Check
-        try {
-          const localDraftRaw = localStorage.getItem(`SM_DRAFT_PLANNER_${id}`);
-          if (localDraftRaw) {
-            const localDraft = JSON.parse(localDraftRaw);
-            if (localDraft && Array.isArray(localDraft.agendas) && localDraft.agendas.length > 0) {
-              const hasDutyData = (a: Agenda) => {
-                const duties = getSacramentDuties(a);
-                return duties.preparing.some(Boolean) || duties.blessing.some(Boolean) || duties.passing.some(Boolean);
-              };
-
-              // If cloud is completely empty or has no content, auto-restore local draft
-              const hasCloudContent = fetchedAgendas.some(a => 
-                (a.opening_prayer && a.opening_prayer.trim()) || 
-                (a.closing_prayer && a.closing_prayer.trim()) || 
-                (a.speakers && a.speakers.length > 20) ||
-                hasDutyData(a)
-              );
-              const hasLocalContent = localDraft.agendas.some((a: Agenda) => 
-                (a.opening_prayer && a.opening_prayer.trim()) || 
-                (a.closing_prayer && a.closing_prayer.trim()) || 
-                (a.speakers && a.speakers.length > 20) ||
-                hasDutyData(a)
-              );
-
-              if (!hasCloudContent && hasLocalContent) {
-                fetchedAgendas = localDraft.agendas;
-                setHasUnsavedChanges(true);
-                toast.success('Recovered unsaved planner draft from local storage!');
-              } else if (hasLocalContent && localDraft.timestamp > (new Date(pl.updated_date || 0).getTime() + 10000)) {
-                setLocalBackupAvailable(localDraft);
-              }
-            }
-          }
-        } catch { /* storage fallback */ }
-
-        // 4. Default Fallback: Generate empty month structure only if no existing data exists anywhere
-        if (fetchedAgendas.length === 0 && pl.year && pl.month) {
-          fetchedAgendas = generateSundaysForMonth(pl.year, pl.month, pl.unit_name, pl.conducting_officer);
-        }
-
-        // Check sacrament_administration column from PLANNERS row
-        let sacramentAdminFromPlanner: unknown = null;
-        if (pl.sacrament_administration) {
-          try {
-            sacramentAdminFromPlanner = typeof pl.sacrament_administration === 'string'
-              ? JSON.parse(pl.sacrament_administration)
-              : pl.sacrament_administration;
-          } catch { /* ignore parse error */ }
-        }
-
-        // Normalize loaded agendas (self-heal Saturday timezone shifts, clean 1899 times, and serialize JSON fields)
-        const normalizedAgendas = fetchedAgendas.map((a, idx) => {
-          let cleanDate = a.date || '';
-          if (cleanDate && /^\d{4}-\d{2}-\d{2}/.test(cleanDate)) {
-            const [y, m, d] = cleanDate.substring(0, 10).split('-').map(Number);
-            const dt = new Date(y, m - 1, d);
-            if (dt.getDay() === 6) { // Saturday shifted from Sunday
-              dt.setDate(dt.getDate() + 1);
-              cleanDate = format(dt, 'yyyy-MM-dd');
-            } else {
-              cleanDate = format(dt, 'yyyy-MM-dd');
-            }
-          }
-
-          let cleanTime = a.start_time || '10:00';
-          if (cleanTime.includes('1899') || cleanTime.includes('T')) {
-            cleanTime = '10:00';
-          }
-
-          // 1. Resolve sacrament duties across all possible keys
-          let resolvedDuties = parseSacramentDuties(a.sacrament_duties) ||
-                               parseSacramentDuties((a as { sacrament?: unknown }).sacrament);
-
-          if (!resolvedDuties && sacramentAdminFromPlanner && typeof sacramentAdminFromPlanner === 'object') {
-            const adminMap = sacramentAdminFromPlanner as Record<string, unknown>;
-            const fromMap = adminMap[a.week_id] ||
-                            adminMap[`week_${idx + 1}`] ||
-                            adminMap[cleanDate] ||
-                            (Array.isArray(sacramentAdminFromPlanner) ? sacramentAdminFromPlanner[idx] : null);
-            resolvedDuties = parseSacramentDuties(
-              (fromMap as { duties?: unknown; sacrament_duties?: unknown; sacrament?: unknown })?.duties ||
-              (fromMap as { duties?: unknown; sacrament_duties?: unknown; sacrament?: unknown })?.sacrament_duties ||
-              (fromMap as { duties?: unknown; sacrament_duties?: unknown; sacrament?: unknown })?.sacrament ||
-              fromMap
-            );
-          }
-
-          const finalDuties = resolvedDuties || { preparing: [''], blessing: [''], passing: [''] };
-          const serializedDuties = JSON.stringify(finalDuties);
-
-          return {
-            ...a,
-            week_id: a.week_id || `week_${idx + 1}`,
-            date: cleanDate,
-            start_time: cleanTime,
-            speakers: typeof a.speakers === 'object' ? JSON.stringify(a.speakers) : (a.speakers || '[]'),
-            sacrament_duties: serializedDuties,
-            sacrament: finalDuties as unknown as string,
-          };
-        });
-
-        setAgendas(normalizedAgendas);
-        setLastSavedTime(new Date(pl.updated_date || Date.now()));
-      }
-
-      if (asRes.status === 'fulfilled' && asRes.value.ok) {
-        setHistoricalAssignments(asRes.value.data || []);
-      }
-      if (mRes.status === 'fulfilled' && mRes.value.ok) {
-        setMembers(mRes.value.data || []);
-      }
-      if (hRes.status === 'fulfilled' && hRes.value.ok) {
-        setHymns(hRes.value.data || []);
-      }
-
-    } catch {
-      toast.error('Failed to load planner data');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { loadData(); }, [session, id]);
-
-  // Debounced local backup persistence
-  useEffect(() => {
-    if (!id || loading || agendas.length === 0) return;
-    const timer = setTimeout(() => {
-      try {
-        localStorage.setItem(`SM_DRAFT_PLANNER_${id}`, JSON.stringify({
-          planner_id: id,
-          agendas,
-          conducting_officer: planner?.conducting_officer,
-          unit_name: planner?.unit_name,
-          timestamp: Date.now()
-        }));
-      } catch { /* storage full */ }
-    }, 800);
-    return () => clearTimeout(timer);
-  }, [agendas, planner, id, loading]);
-
-  // Window beforeunload prompt if unsaved changes exist
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges) {
-        e.preventDefault();
-        e.returnValue = '';
-      }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [hasUnsavedChanges]);
-
-  // Keyboard shortcut: Ctrl+S / Cmd+S to Save Workspace
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault();
-        handleSaveWorkspace();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [planner, agendas, session]);
-
   // Generate 4 to 5 Sundays for the selected Month/Year
   const generateSundaysForMonth = (year: number, month: number, unitName: string, conducting: string): Agenda[] => {
     const monthStart = startOfMonth(new Date(year, month - 1, 1));
@@ -467,6 +267,307 @@ export function PlannerDetailPage() {
       archive_date: '',
     }));
   };
+
+  // Load Planner and related data with Multi-Layer Safeguards
+  const loadData = async (force = false) => {
+    if (!session || !id) return;
+    setLoading(true);
+    try {
+      const [pRes, aRes, asRes, mRes, hRes] = await Promise.allSettled([
+        plannersApi.get(session.token, id, { forceRefresh: force }) as Promise<{ ok: boolean; data: Planner }>,
+        agendasApi.list(session.token, id, { forceRefresh: force }) as Promise<{ ok: boolean; data: Agenda[] }>,
+        assignmentsApi.list(session.token, undefined, { forceRefresh: force }) as Promise<{ ok: boolean; data: any[] }>,
+        membersApi.list(session.token, { forceRefresh: force }) as Promise<{ ok: boolean; data: Member[] }>,
+        hymnsApi.list(session.token, undefined, { forceRefresh: force }) as Promise<{ ok: boolean; data: Hymn[] }>,
+      ]);
+
+      if (pRes.status === 'fulfilled' && pRes.value.ok) {
+        const pl = pRes.value.data;
+        setPlanner(pl);
+
+        // 1. Generate standard full month structure for all Sundays
+        const defaultMonthSundays = (pl.year && pl.month)
+          ? generateSundaysForMonth(pl.year, pl.month, pl.unit_name, pl.conducting_officer)
+          : [];
+
+        // 2. Parse embedded JSON weeks on the PLANNERS row
+        let embeddedWeeks: Agenda[] = [];
+        if (pl.weeks) {
+          try {
+            const parsedWeeks = typeof pl.weeks === 'string' ? JSON.parse(pl.weeks) : pl.weeks;
+            if (Array.isArray(parsedWeeks)) {
+              embeddedWeeks = parsedWeeks;
+            }
+          } catch { /* ignore parse error */ }
+        }
+
+        // 3. Cloud AGENDAS Table rows
+        const cloudAgendas: Agenda[] = (aRes.status === 'fulfilled' && aRes.value.ok && Array.isArray(aRes.value.data))
+          ? aRes.value.data
+          : [];
+
+        // 4. Local storage backup
+        let localDraftAgendas: Agenda[] = [];
+        try {
+          const localDraftRaw = localStorage.getItem(`SM_DRAFT_PLANNER_${id}`);
+          if (localDraftRaw) {
+            const localDraft = JSON.parse(localDraftRaw);
+            if (localDraft && Array.isArray(localDraft.agendas) && localDraft.agendas.length > 0) {
+              localDraftAgendas = localDraft.agendas;
+              if (localDraft.timestamp > (new Date(pl.updated_date || 0).getTime() + 10000)) {
+                setLocalBackupAvailable(localDraft);
+              }
+            }
+          }
+        } catch { /* storage fallback */ }
+
+        // Check sacrament_administration column from PLANNERS row
+        let sacramentAdminFromPlanner: unknown = null;
+        if (pl.sacrament_administration) {
+          try {
+            sacramentAdminFromPlanner = typeof pl.sacrament_administration === 'string'
+              ? JSON.parse(pl.sacrament_administration)
+              : pl.sacrament_administration;
+          } catch { /* ignore parse error */ }
+        }
+
+        // 5. Merge all weeks across the entire month (guaranteeing weeks 1, 2, 3, 4, 5 are all loaded and preserved)
+        const totalWeeks = Math.max(
+          defaultMonthSundays.length,
+          embeddedWeeks.length,
+          cloudAgendas.length,
+          localDraftAgendas.length
+        );
+
+        const mergedAgendas: Agenda[] = [];
+        for (let idx = 0; idx < totalWeeks; idx++) {
+          const defaultSun = defaultMonthSundays[idx];
+          const targetDate = defaultSun ? defaultSun.date : '';
+          const targetWeekId = `week_${idx + 1}`;
+
+          // Find match in cloudAgendas (by date or week_id)
+          const cloudMatch = cloudAgendas.find(a => 
+            (targetDate && a.date && normalizeDateStr(a.date) === normalizeDateStr(targetDate)) ||
+            (a.week_id && (a.week_id === targetWeekId || a.week_id === `week${idx + 1}`))
+          ) || (cloudAgendas.length > idx && !cloudAgendas.some(c => c.date === targetDate) ? cloudAgendas[idx] : null);
+
+          // Find match in embeddedWeeks (by date or week_id or index)
+          const embeddedMatch = embeddedWeeks.find(a => 
+            (targetDate && a.date && normalizeDateStr(a.date) === normalizeDateStr(targetDate)) ||
+            (a.week_id && (a.week_id === targetWeekId || a.week_id === `week${idx + 1}`))
+          ) || embeddedWeeks[idx] || null;
+
+          // Find match in localDraftAgendas
+          const localMatch = localDraftAgendas.find(a => 
+            (targetDate && a.date && normalizeDateStr(a.date) === normalizeDateStr(targetDate)) ||
+            (a.week_id && (a.week_id === targetWeekId || a.week_id === `week${idx + 1}`))
+          ) || localDraftAgendas[idx] || null;
+
+          const base = defaultSun || {
+            agenda_id: `temp_${idx}_${Date.now()}`,
+            planner_id: id || '',
+            week_id: targetWeekId,
+            created_by: session?.user_id || '',
+            created_date: new Date().toISOString(),
+            updated_date: new Date().toISOString(),
+            state: 'DRAFT' as const,
+            ward_branch: pl.unit_name || '',
+            stake_district: '',
+            date: targetDate,
+            type_of_meeting: (idx === 0 ? 'FAST_SUNDAY' : 'SACRAMENT') as MeetingType,
+            other_meeting_specify: '',
+            presiding: 'Bishop',
+            conducting: pl.conducting_officer || '',
+            music_director: '',
+            choir_director: '',
+            organist: '',
+            start_time: '10:00',
+            prelude_music: '',
+            greetings_welcome: '',
+            acknowledgements: '',
+            ward_branch_business: '',
+            stake_district_business: '',
+            naming_blessing: '',
+            confirmation_bestowal: '',
+            opening_hymn: '',
+            opening_hymn_number: '',
+            opening_prayer: '',
+            opening_prayer_gender: '',
+            sacrament_hymn: '',
+            sacrament_hymn_number: '',
+            special_music: '',
+            speakers: '[]',
+            sacrament_duties: '{}',
+            closing_hymn: '',
+            closing_hymn_number: '',
+            closing_prayer: '',
+            closing_prayer_gender: '',
+            postlude_music: '',
+            announcements: '',
+            releases: '',
+            calls: '',
+            baptized_children: '',
+            aaronic_ordinations: '',
+            aaronic_advancements: '',
+            achievements: '',
+            babies: '',
+            confirmations: '',
+            fellowships: '',
+            week_notes: '',
+            archive_method: '' as const,
+            archive_date: '',
+          };
+
+          // Combine with intelligence: prioritize cloudMatch if it has content, fallback to embeddedMatch / localMatch
+          const resolvedSpeakers = (cloudMatch?.speakers && cloudMatch.speakers !== '[]' && cloudMatch.speakers.length > 20)
+            ? cloudMatch.speakers
+            : (embeddedMatch?.speakers && embeddedMatch.speakers !== '[]' && embeddedMatch.speakers.length > 20)
+            ? embeddedMatch.speakers
+            : (localMatch?.speakers && localMatch.speakers !== '[]')
+            ? localMatch.speakers
+            : (cloudMatch?.speakers || embeddedMatch?.speakers || base.speakers);
+
+          const resolvedOpeningPrayer = cloudMatch?.opening_prayer || embeddedMatch?.opening_prayer || localMatch?.opening_prayer || base.opening_prayer;
+          const resolvedClosingPrayer = cloudMatch?.closing_prayer || embeddedMatch?.closing_prayer || localMatch?.closing_prayer || base.closing_prayer;
+
+          const resolvedOpeningHymn = cloudMatch?.opening_hymn || embeddedMatch?.opening_hymn || localMatch?.opening_hymn || base.opening_hymn;
+          const resolvedOpeningHymnNum = cloudMatch?.opening_hymn_number || embeddedMatch?.opening_hymn_number || localMatch?.opening_hymn_number || base.opening_hymn_number;
+
+          const resolvedSacHymn = cloudMatch?.sacrament_hymn || embeddedMatch?.sacrament_hymn || localMatch?.sacrament_hymn || base.sacrament_hymn;
+          const resolvedSacHymnNum = cloudMatch?.sacrament_hymn_number || embeddedMatch?.sacrament_hymn_number || localMatch?.sacrament_hymn_number || base.sacrament_hymn_number;
+
+          const resolvedClosingHymn = cloudMatch?.closing_hymn || embeddedMatch?.closing_hymn || localMatch?.closing_hymn || base.closing_hymn;
+          const resolvedClosingHymnNum = cloudMatch?.closing_hymn_number || embeddedMatch?.closing_hymn_number || localMatch?.closing_hymn_number || base.closing_hymn_number;
+
+          const resolvedSpecialMusic = cloudMatch?.special_music || embeddedMatch?.special_music || localMatch?.special_music || base.special_music;
+          const rawDuties = cloudMatch?.sacrament_duties || embeddedMatch?.sacrament_duties || localMatch?.sacrament_duties || (cloudMatch as any)?.sacrament || (embeddedMatch as any)?.sacrament || base.sacrament_duties;
+
+          let cleanDate = targetDate || cloudMatch?.date || embeddedMatch?.date || base.date;
+          if (cleanDate && /^\d{4}-\d{2}-\d{2}/.test(cleanDate)) {
+            const [y, m, d] = cleanDate.substring(0, 10).split('-').map(Number);
+            const dt = new Date(y, m - 1, d);
+            if (dt.getDay() === 6) { // Saturday shifted from Sunday
+              dt.setDate(dt.getDate() + 1);
+              cleanDate = format(dt, 'yyyy-MM-dd');
+            } else {
+              cleanDate = format(dt, 'yyyy-MM-dd');
+            }
+          }
+
+          let cleanTime = cloudMatch?.start_time || embeddedMatch?.start_time || '10:00';
+          if (cleanTime.includes('1899') || cleanTime.includes('T')) {
+            cleanTime = '10:00';
+          }
+
+          // Resolve sacrament duties across admin column if needed
+          let resolvedDuties = parseSacramentDuties(rawDuties);
+          if (!resolvedDuties && sacramentAdminFromPlanner && typeof sacramentAdminFromPlanner === 'object') {
+            const adminMap = sacramentAdminFromPlanner as Record<string, unknown>;
+            const fromMap = adminMap[targetWeekId] ||
+                            adminMap[`week_${idx + 1}`] ||
+                            adminMap[cleanDate] ||
+                            (Array.isArray(sacramentAdminFromPlanner) ? sacramentAdminFromPlanner[idx] : null);
+            resolvedDuties = parseSacramentDuties(
+              (fromMap as { duties?: unknown; sacrament_duties?: unknown; sacrament?: unknown })?.duties ||
+              (fromMap as { duties?: unknown; sacrament_duties?: unknown; sacrament?: unknown })?.sacrament_duties ||
+              (fromMap as { duties?: unknown; sacrament_duties?: unknown; sacrament?: unknown })?.sacrament ||
+              fromMap
+            );
+          }
+
+          const finalDuties = resolvedDuties || { preparing: [''], blessing: [''], passing: [''] };
+          const serializedDuties = JSON.stringify(finalDuties);
+
+          const combinedWeek: Agenda = {
+            ...base,
+            ...(embeddedMatch || {}),
+            ...(localMatch || {}),
+            ...(cloudMatch || {}),
+            week_id: targetWeekId,
+            date: cleanDate,
+            start_time: cleanTime,
+            speakers: typeof resolvedSpeakers === 'object' ? JSON.stringify(resolvedSpeakers) : (resolvedSpeakers || '[]'),
+            opening_prayer: resolvedOpeningPrayer || '',
+            closing_prayer: resolvedClosingPrayer || '',
+            opening_hymn: resolvedOpeningHymn || '',
+            opening_hymn_number: resolvedOpeningHymnNum || '',
+            sacrament_hymn: resolvedSacHymn || '',
+            sacrament_hymn_number: resolvedSacHymnNum || '',
+            closing_hymn: resolvedClosingHymn || '',
+            closing_hymn_number: resolvedClosingHymnNum || '',
+            special_music: resolvedSpecialMusic || '',
+            sacrament_duties: serializedDuties,
+            sacrament: finalDuties as unknown as string,
+          };
+
+          mergedAgendas.push(combinedWeek);
+        }
+
+        setAgendas(mergedAgendas);
+        setLastSavedTime(new Date(pl.updated_date || Date.now()));
+      }
+
+      if (asRes.status === 'fulfilled' && asRes.value.ok) {
+        setHistoricalAssignments(asRes.value.data || []);
+      }
+      if (mRes.status === 'fulfilled' && mRes.value.ok) {
+        setMembers(mRes.value.data || []);
+      }
+      if (hRes.status === 'fulfilled' && hRes.value.ok) {
+        setHymns(hRes.value.data || []);
+      }
+
+    } catch {
+      toast.error('Failed to load planner data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadData(); }, [session, id]);
+
+  // Debounced local backup persistence
+  useEffect(() => {
+    if (!id || loading || agendas.length === 0) return;
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem(`SM_DRAFT_PLANNER_${id}`, JSON.stringify({
+          planner_id: id,
+          agendas,
+          conducting_officer: planner?.conducting_officer,
+          unit_name: planner?.unit_name,
+          timestamp: Date.now()
+        }));
+      } catch { /* storage full */ }
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [agendas, planner, id, loading]);
+
+  // Window beforeunload prompt if unsaved changes exist
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  // Keyboard shortcut: Ctrl+S / Cmd+S to Save Workspace
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        handleSaveWorkspace();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [planner, agendas, session]);
+
+
 
   // Toggle week accordion
   const toggleWeekAccordion = (idx: number) => {
