@@ -87,19 +87,345 @@ const emptyAgenda: Partial<Agenda> = {
 
 function normalizeDateStr(d: unknown): string {
   if (!d) return '';
-  if (typeof d === 'string') {
-    if (d.includes('T')) return d.split('T')[0];
-    if (d.length >= 10 && d.includes('-')) return d.substring(0, 10);
-    try {
-      const parsed = new Date(d);
-      if (!isNaN(parsed.getTime())) return format(parsed, 'yyyy-MM-dd');
-    } catch {}
-    return d.trim();
-  }
   if (d instanceof Date && !isNaN(d.getTime())) {
     return format(d, 'yyyy-MM-dd');
   }
+  if (typeof d === 'string') {
+    const s = d.trim();
+    if (!s) return '';
+    if (s.includes('T')) return s.split('T')[0];
+
+    // Check YYYY-MM-DD or YYYY/MM/DD
+    const ymdMatch = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+    if (ymdMatch) {
+      const y = ymdMatch[1];
+      const m = ymdMatch[2].padStart(2, '0');
+      const day = ymdMatch[3].padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+
+    // Check DD-MM-YYYY or DD/MM/YYYY
+    const dmyMatch = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+    if (dmyMatch) {
+      const day = dmyMatch[1].padStart(2, '0');
+      const m = dmyMatch[2].padStart(2, '0');
+      const y = dmyMatch[3];
+      return `${y}-${m}-${day}`;
+    }
+
+    try {
+      const parsed = new Date(s);
+      if (!isNaN(parsed.getTime())) return format(parsed, 'yyyy-MM-dd');
+    } catch {}
+    return s;
+  }
   return String(d);
+}
+
+function extractUnifiedAgendaData(
+  targetDate: string,
+  selectedPlanner: Planner | null,
+  savedAgenda: Agenda | Partial<Agenda> | null,
+  plannerWeek: Partial<Agenda> | any | null,
+  hymnsList: Hymn[],
+  _membersList: Member[],
+  activitiesList: Activity[]
+) {
+  const normDate = normalizeDateStr(targetDate);
+
+  // 1. Basic Meeting Info
+  const wardBranch = (savedAgenda?.ward_branch?.trim() || plannerWeek?.ward_branch?.trim() || selectedPlanner?.unit_name?.trim() || '');
+  const stakeDistrict = (savedAgenda?.stake_district?.trim() || plannerWeek?.stake_district?.trim() || '');
+  const meetingType = (savedAgenda?.type_of_meeting || plannerWeek?.type_of_meeting || plannerWeek?.meeting_type || 'SACRAMENT') as MeetingType;
+  const otherSpecify = (savedAgenda?.other_meeting_specify?.trim() || plannerWeek?.other_meeting_specify?.trim() || '');
+  const startTime = (savedAgenda?.start_time?.trim() || plannerWeek?.start_time?.trim() || '9:00 AM');
+  const greetings = (savedAgenda?.greetings_welcome?.trim() || plannerWeek?.greetings_welcome?.trim() || 'We warmly welcome everyone, stake officers, friends of the church and those worshipping with us for the first time.');
+
+  // 2. Leadership
+  const presiding = (savedAgenda?.presiding?.trim() || plannerWeek?.presiding?.trim() || 'Bishop');
+  const presidingPos = (savedAgenda?.presiding_position?.trim() || plannerWeek?.presiding_position?.trim() || 'Bishop');
+  const conducting = (savedAgenda?.conducting?.trim() || plannerWeek?.conducting?.trim() || selectedPlanner?.conducting_officer?.trim() || '');
+  const conductingPos = (savedAgenda?.conducting_position?.trim() || plannerWeek?.conducting_position?.trim() || '1st Counsellor');
+
+  // 3. Music Leaders
+  const musicDirector = (
+    savedAgenda?.music_director?.trim() ||
+    plannerWeek?.music_director?.trim() ||
+    plannerWeek?.music?.director?.trim() ||
+    plannerWeek?.chorister?.trim() ||
+    ''
+  );
+  const choirDirector = (
+    savedAgenda?.choir_director?.trim() ||
+    plannerWeek?.choir_director?.trim() ||
+    ''
+  );
+  const organist = (
+    savedAgenda?.organist?.trim() ||
+    plannerWeek?.organist?.trim() ||
+    plannerWeek?.music?.accompanist?.trim() ||
+    plannerWeek?.pianist?.trim() ||
+    plannerWeek?.accompanist?.trim() ||
+    ''
+  );
+
+  // 4. Music Selections (Hymns)
+  const resolveHymnInfo = (
+    rawHymn: string | undefined,
+    rawNum: string | undefined,
+    fallbackNested?: string
+  ) => {
+    const raw = (rawHymn?.trim() || fallbackNested?.trim() || '');
+    const numIn = (rawNum?.trim() || '');
+    const parsed = parseHymn(raw);
+
+    let finalNum = numIn || parsed.number;
+    let finalTitle = parsed.title || (raw !== parsed.number ? raw : '');
+
+    // If we have number but no title, look up title in hymn list
+    if (finalNum && !finalTitle && Array.isArray(hymnsList)) {
+      const match = hymnsList.find((h) => String(h.number).trim() === String(finalNum).trim() || parseInt(String(h.number), 10) === parseInt(finalNum, 10));
+      if (match) finalTitle = match.title;
+    }
+    // If we have title but no number, look up number in hymn list
+    if (finalTitle && !finalNum && Array.isArray(hymnsList)) {
+      const match = hymnsList.find((h) => String(h.title || '').trim().toLowerCase() === finalTitle.trim().toLowerCase());
+      if (match) finalNum = String(match.number);
+    }
+
+    return { number: finalNum, title: finalTitle };
+  };
+
+  const openHymn = resolveHymnInfo(
+    savedAgenda?.opening_hymn,
+    savedAgenda?.opening_hymn_number,
+    plannerWeek?.opening_hymn || plannerWeek?.hymns?.opening
+  );
+  const sacHymn = resolveHymnInfo(
+    savedAgenda?.sacrament_hymn,
+    savedAgenda?.sacrament_hymn_number,
+    plannerWeek?.sacrament_hymn || plannerWeek?.hymns?.sacrament
+  );
+  const closeHymn = resolveHymnInfo(
+    savedAgenda?.closing_hymn,
+    savedAgenda?.closing_hymn_number,
+    plannerWeek?.closing_hymn || plannerWeek?.hymns?.closing
+  );
+  const specialMusic = (
+    savedAgenda?.special_music?.trim() ||
+    plannerWeek?.special_music?.trim() ||
+    plannerWeek?.hymns?.special?.trim() ||
+    ''
+  );
+  const preludeMusic = (savedAgenda?.prelude_music?.trim() || plannerWeek?.prelude_music?.trim() || '');
+  const postludeMusic = (savedAgenda?.postlude_music?.trim() || plannerWeek?.postlude_music?.trim() || '');
+
+  // 5. Prayers with Titles
+  const resolvePrayer = (
+    rawPrayer: string | undefined,
+    fallbackPrayer: string | undefined,
+    genderHint?: string
+  ) => {
+    const raw = (rawPrayer?.trim() || fallbackPrayer?.trim() || '');
+    if (!raw) return '';
+    return formatPersonWithTitle(raw, genderHint as 'M' | 'F' | '');
+  };
+
+  const openingPrayer = resolvePrayer(
+    savedAgenda?.opening_prayer,
+    plannerWeek?.opening_prayer || plannerWeek?.prayers?.opening,
+    plannerWeek?.opening_prayer_gender
+  );
+  const closingPrayer = resolvePrayer(
+    savedAgenda?.closing_prayer,
+    plannerWeek?.closing_prayer || plannerWeek?.prayers?.closing,
+    plannerWeek?.closing_prayer_gender
+  );
+
+  // 6. Speakers
+  let finalSpeakers: SpeakerItem[] = [];
+  const savedSpeakers = parseSpeakersList(savedAgenda?.speakers);
+  const plannerSpeakers = parseSpeakersList(plannerWeek?.speakers);
+
+  if (savedSpeakers.some((s) => s.name.trim() || s.topic.trim())) {
+    finalSpeakers = savedSpeakers;
+  } else if (plannerSpeakers.some((s) => s.name.trim() || s.topic.trim())) {
+    finalSpeakers = plannerSpeakers.map((sp) => ({
+      ...sp,
+      name: formatPersonWithTitle(sp.name, sp.gender as 'M' | 'F' | ''),
+    }));
+  } else if (Array.isArray(plannerWeek?.topics) && plannerWeek.topics.length > 0) {
+    finalSpeakers = plannerWeek.topics.map((top: string, idx: number) => ({
+      name: '',
+      topic: top,
+      scripture_ref: '',
+      minutes: idx === 0 ? 10 : idx === 1 ? 15 : 20,
+      gender: '',
+    }));
+  }
+
+  while (finalSpeakers.length < 3) {
+    const idx = finalSpeakers.length;
+    finalSpeakers.push({
+      name: '',
+      topic: '',
+      scripture_ref: '',
+      minutes: idx === 0 ? 10 : idx === 1 ? 15 : 20,
+      gender: '',
+    });
+  }
+
+  // 7. Announcements
+  let finalAnnSlots = ['', '', '', '', '', ''];
+  const savedAnnList = parseStructuredOrLines<string>(savedAgenda?.announcements, (item) => String(item || ''));
+  const plannerAnnList = parseStructuredOrLines<string>(plannerWeek?.announcements, (item) => String(item || ''));
+
+  if (savedAnnList.some((a) => a.trim())) {
+    savedAnnList.slice(0, 6).forEach((a, i) => { finalAnnSlots[i] = a; });
+  } else if (plannerAnnList.some((a) => a.trim())) {
+    plannerAnnList.slice(0, 6).forEach((a, i) => { finalAnnSlots[i] = a; });
+  } else {
+    // Auto-query upcoming activities
+    const upcomingEvents = activitiesList
+      .filter((a) => a.date && normalizeDateStr(a.date) >= normDate)
+      .slice(0, 6)
+      .map((a) => `${a.activity} (${a.organisation || 'Ward'}) — ${format(new Date(a.date), 'dd-MMM-yyyy')}`);
+    upcomingEvents.forEach((ev, i) => {
+      finalAnnSlots[i] = ev;
+    });
+  }
+
+  // 8. Ward Business Items
+  const savedRel = parseStructuredOrLines<ReleaseItem>(savedAgenda?.releases || plannerWeek?.releases, (item) => {
+    if (typeof item === 'object' && item !== null) return { name: String(item.name || ''), calling: String(item.calling || '') };
+    const str = String(item || '');
+    const parts = str.split(/released as/i);
+    return { name: parts[0]?.trim() || str, calling: parts[1]?.trim() || '' };
+  });
+  const releasesList = Array.from({ length: 6 }, (_, i) => savedRel[i] || { name: '', calling: '' });
+
+  const savedCalls = parseStructuredOrLines<SustainingItem>(savedAgenda?.calls || plannerWeek?.calls, (item) => {
+    if (typeof item === 'object' && item !== null) return { name: String(item.name || ''), calling: String(item.calling || '') };
+    const str = String(item || '');
+    const parts = str.split(/called as/i);
+    return { name: parts[0]?.trim() || str, calling: parts[1]?.trim() || '' };
+  });
+  const sustainingsList = Array.from({ length: 6 }, (_, i) => savedCalls[i] || { name: '', calling: '' });
+
+  const savedBap = parseStructuredOrLines<BaptismItem>(savedAgenda?.baptized_children || plannerWeek?.baptized_children, (item) => {
+    if (typeof item === 'object' && item !== null) return { name: String(item.name || '') };
+    return { name: String(item || '') };
+  });
+  const baptismsList = Array.from({ length: 4 }, (_, i) => savedBap[i] || { name: '' });
+
+  const savedOrd = parseStructuredOrLines<OrdinationItem>(savedAgenda?.aaronic_ordinations || plannerWeek?.aaronic_ordinations, (item) => {
+    if (typeof item === 'object' && item !== null) {
+      return {
+        name: String(item.name || ''),
+        office: String(item.office || ''),
+        ordained_by: String(item.ordained_by || ''),
+        ordained_by_office: String(item.ordained_by_office || '')
+      };
+    }
+    return { name: String(item || ''), office: '', ordained_by: '', ordained_by_office: '' };
+  });
+  const ordinationsList = Array.from({ length: 4 }, (_, i) => savedOrd[i] || { name: '', office: '', ordained_by: '', ordained_by_office: '' });
+
+  const savedAdv = parseStructuredOrLines<AdvancementItem>(savedAgenda?.aaronic_advancements || plannerWeek?.aaronic_advancements, (item) => {
+    if (typeof item === 'object' && item !== null) {
+      return {
+        name: String(item.name || ''),
+        from_office: String(item.from_office || ''),
+        to_office: String(item.to_office || ''),
+        ordained_by: String(item.ordained_by || ''),
+        ordained_by_office: String(item.ordained_by_office || '')
+      };
+    }
+    return { name: String(item || ''), from_office: '', to_office: '', ordained_by: '', ordained_by_office: '' };
+  });
+  const advancementsList = Array.from({ length: 4 }, (_, i) => savedAdv[i] || { name: '', from_office: '', to_office: '', ordained_by: '', ordained_by_office: '' });
+
+  const savedAch = parseStructuredOrLines<string>(savedAgenda?.achievements || plannerWeek?.achievements, (item) => String(item || ''));
+  const achievementsList = Array.from({ length: 4 }, (_, i) => savedAch[i] || '');
+
+  const savedBabies = parseStructuredOrLines<BabyBlessingItem>(savedAgenda?.babies || savedAgenda?.naming_blessing || plannerWeek?.babies || plannerWeek?.naming_blessing, (item) => {
+    if (typeof item === 'object' && item !== null) {
+      return {
+        baby_name: String(item.baby_name || ''),
+        family: String(item.family || ''),
+        blessed_by: String(item.blessed_by || ''),
+        blessed_by_office: String(item.blessed_by_office || '')
+      };
+    }
+    return { baby_name: String(item || ''), family: '', blessed_by: '', blessed_by_office: '' };
+  });
+  const babiesList = Array.from({ length: 4 }, (_, i) => savedBabies[i] || { baby_name: '', family: '', blessed_by: '', blessed_by_office: '' });
+
+  const savedConf = parseStructuredOrLines<ConfirmationBestowalItem>(savedAgenda?.confirmations || savedAgenda?.confirmation_bestowal || plannerWeek?.confirmations || plannerWeek?.confirmation_bestowal, (item) => {
+    if (typeof item === 'object' && item !== null) {
+      return {
+        name: String(item.name || ''),
+        confirmed_by: String(item.confirmed_by || ''),
+        office: String(item.office || '')
+      };
+    }
+    return { name: String(item || ''), confirmed_by: '', office: '' };
+  });
+  const confirmationsList = Array.from({ length: 6 }, (_, i) => savedConf[i] || { name: '', confirmed_by: '', office: '' });
+
+  const savedFel = parseStructuredOrLines<FellowshipItem>(savedAgenda?.fellowships || plannerWeek?.fellowships, (item) => {
+    if (typeof item === 'object' && item !== null) return { name: String(item.name || '') };
+    return { name: String(item || '') };
+  });
+  const fellowshipsList = Array.from({ length: 8 }, (_, i) => savedFel[i] || { name: '' });
+
+  const unifiedAgenda: Partial<Agenda> = {
+    ...emptyAgenda,
+    ...(savedAgenda || {}),
+    agenda_id: savedAgenda?.agenda_id,
+    planner_id: selectedPlanner?.planner_id || savedAgenda?.planner_id || '',
+    date: normDate,
+    ward_branch: wardBranch,
+    stake_district: stakeDistrict,
+    type_of_meeting: meetingType,
+    other_meeting_specify: otherSpecify,
+    presiding,
+    presiding_position: presidingPos,
+    conducting,
+    conducting_position: conductingPos,
+    music_director: musicDirector,
+    choir_director: choirDirector,
+    organist,
+    start_time: startTime,
+    prelude_music: preludeMusic,
+    postlude_music: postludeMusic,
+    greetings_welcome: greetings,
+    opening_hymn: openHymn.title,
+    opening_hymn_number: openHymn.number,
+    opening_prayer: openingPrayer,
+    sacrament_hymn: sacHymn.title,
+    sacrament_hymn_number: sacHymn.number,
+    special_music: specialMusic,
+    closing_hymn: closeHymn.title,
+    closing_hymn_number: closeHymn.number,
+    closing_prayer: closingPrayer,
+    state: savedAgenda?.state || 'DRAFT',
+  };
+
+  return {
+    agenda: unifiedAgenda,
+    speakers: finalSpeakers,
+    announcements: finalAnnSlots,
+    releases: releasesList,
+    calls: sustainingsList,
+    baptisms: baptismsList,
+    ordinations: ordinationsList,
+    advancements: advancementsList,
+    achievements: achievementsList,
+    babies: babiesList,
+    confirmations: confirmationsList,
+    fellowships: fellowshipsList,
+  };
 }
 
 export function AgendasPage() {
@@ -354,141 +680,52 @@ export function AgendasPage() {
     return null;
   }, [selectedPlanner, selectedDate, selectedPlannerId, agendas]);
 
-  // Populate workspace when date changes or saved agenda found
-  useEffect(() => {
-    if (savedAgendaForDate) {
-      loadAgendaIntoWorkspace(savedAgendaForDate);
-      setIsDraftCreated(true);
-    } else if (weekPlanFromPlanner) {
-      loadAgendaIntoWorkspace(weekPlanFromPlanner);
-      setIsDraftCreated(true);
-    } else {
-      setIsDraftCreated(false);
-      setActiveAgenda({
-        ...emptyAgenda,
-        date: selectedDate,
-        planner_id: selectedPlanner?.planner_id || '',
-        ward_branch: selectedPlanner?.unit_name || '',
-      });
-    }
-  }, [selectedDate, selectedPlannerId, savedAgendaForDate, weekPlanFromPlanner]);
+  const applyUnifiedData = (unified: ReturnType<typeof extractUnifiedAgendaData>) => {
+    setActiveAgenda(unified.agenda);
+    setSpeakersList(unified.speakers);
+    setAnnouncementSlots(unified.announcements);
+    setReleasesList(unified.releases);
+    setSustainingsList(unified.calls);
+    setBaptismsList(unified.baptisms);
+    setOrdinationsList(unified.ordinations);
+    setAdvancementsList(unified.advancements);
+    setAchievementsList(unified.achievements);
+    setBabiesList(unified.babies);
+    setConfirmationsList(unified.confirmations);
+    setFellowshipsList(unified.fellowships);
+  };
 
   const loadAgendaIntoWorkspace = (agenda: Agenda | Partial<Agenda>) => {
-    setActiveAgenda(agenda);
-
-    // Speakers
-    const sp = parseSpeakersList(agenda.speakers);
-    setSpeakersList(sp.length > 0 ? sp : [
-      { name: '', topic: '', scripture_ref: '', minutes: 10, gender: '' },
-      { name: '', topic: '', scripture_ref: '', minutes: 15, gender: '' },
-      { name: '', topic: '', scripture_ref: '', minutes: 20, gender: '' },
-    ]);
-
-    // Announcements (6 slots)
-    const rawAnn = agenda.announcements || '';
-    const parsedAnn = parseStructuredOrLines<string>(rawAnn, (item) => String(item || ''));
-    const slots = ['', '', '', '', '', ''];
-    parsedAnn.forEach((item, i) => {
-      if (i < 6) slots[i] = item;
-    });
-    setAnnouncementSlots(slots);
-
-    // Releases (6 rows)
-    const rawRel = parseStructuredOrLines<ReleaseItem>(agenda.releases, (item) => {
-      if (typeof item === 'object' && item !== null) {
-        return { name: String(item.name || ''), calling: String(item.calling || '') };
-      }
-      const str = String(item || '');
-      const parts = str.split(/released as/i);
-      return { name: parts[0]?.trim() || str, calling: parts[1]?.trim() || '' };
-    });
-    setReleasesList(Array.from({ length: 6 }, (_, i) => rawRel[i] || { name: '', calling: '' }));
-
-    // Calls (6 rows)
-    const rawCalls = parseStructuredOrLines<SustainingItem>(agenda.calls, (item) => {
-      if (typeof item === 'object' && item !== null) {
-        return { name: String(item.name || ''), calling: String(item.calling || '') };
-      }
-      const str = String(item || '');
-      const parts = str.split(/called as/i);
-      return { name: parts[0]?.trim() || str, calling: parts[1]?.trim() || '' };
-    });
-    setSustainingsList(Array.from({ length: 6 }, (_, i) => rawCalls[i] || { name: '', calling: '' }));
-
-    // Baptisms of record (4 slots)
-    const rawBap = parseStructuredOrLines<BaptismItem>(agenda.baptized_children, (item) => {
-      if (typeof item === 'object' && item !== null) return { name: String(item.name || '') };
-      return { name: String(item || '') };
-    });
-    setBaptismsList(Array.from({ length: 4 }, (_, i) => rawBap[i] || { name: '' }));
-
-    // Ordinations (4 rows)
-    const rawOrd = parseStructuredOrLines<OrdinationItem>(agenda.aaronic_ordinations, (item) => {
-      if (typeof item === 'object' && item !== null) {
-        return {
-          name: String(item.name || ''),
-          office: String(item.office || ''),
-          ordained_by: String(item.ordained_by || ''),
-          ordained_by_office: String(item.ordained_by_office || '')
-        };
-      }
-      return { name: String(item || ''), office: '', ordained_by: '', ordained_by_office: '' };
-    });
-    setOrdinationsList(Array.from({ length: 4 }, (_, i) => rawOrd[i] || { name: '', office: '', ordained_by: '', ordained_by_office: '' }));
-
-    // Advancements (4 rows)
-    const rawAdv = parseStructuredOrLines<AdvancementItem>(agenda.aaronic_advancements, (item) => {
-      if (typeof item === 'object' && item !== null) {
-        return {
-          name: String(item.name || ''),
-          from_office: String(item.from_office || ''),
-          to_office: String(item.to_office || ''),
-          ordained_by: String(item.ordained_by || ''),
-          ordained_by_office: String(item.ordained_by_office || '')
-        };
-      }
-      return { name: String(item || ''), from_office: '', to_office: '', ordained_by: '', ordained_by_office: '' };
-    });
-    setAdvancementsList(Array.from({ length: 4 }, (_, i) => rawAdv[i] || { name: '', from_office: '', to_office: '', ordained_by: '', ordained_by_office: '' }));
-
-    // Achievements (4 slots)
-    const rawAch = parseStructuredOrLines<string>(agenda.achievements, (item) => String(item || ''));
-    setAchievementsList(Array.from({ length: 4 }, (_, i) => rawAch[i] || ''));
-
-    // Baby Blessings (4 rows)
-    const rawBabies = parseStructuredOrLines<BabyBlessingItem>(agenda.babies || agenda.naming_blessing, (item) => {
-      if (typeof item === 'object' && item !== null) {
-        return {
-          baby_name: String(item.baby_name || ''),
-          family: String(item.family || ''),
-          blessed_by: String(item.blessed_by || ''),
-          blessed_by_office: String(item.blessed_by_office || '')
-        };
-      }
-      return { baby_name: String(item || ''), family: '', blessed_by: '', blessed_by_office: '' };
-    });
-    setBabiesList(Array.from({ length: 4 }, (_, i) => rawBabies[i] || { baby_name: '', family: '', blessed_by: '', blessed_by_office: '' }));
-
-    // Confirmation & Bestowal (6 rows)
-    const rawConf = parseStructuredOrLines<ConfirmationBestowalItem>(agenda.confirmations || agenda.confirmation_bestowal, (item) => {
-      if (typeof item === 'object' && item !== null) {
-        return {
-          name: String(item.name || ''),
-          confirmed_by: String(item.confirmed_by || ''),
-          office: String(item.office || '')
-        };
-      }
-      return { name: String(item || ''), confirmed_by: '', office: '' };
-    });
-    setConfirmationsList(Array.from({ length: 6 }, (_, i) => rawConf[i] || { name: '', confirmed_by: '', office: '' }));
-
-    // Receive into fellowship (8 slots)
-    const rawFel = parseStructuredOrLines<FellowshipItem>(agenda.fellowships, (item) => {
-      if (typeof item === 'object' && item !== null) return { name: String(item.name || '') };
-      return { name: String(item || '') };
-    });
-    setFellowshipsList(Array.from({ length: 8 }, (_, i) => rawFel[i] || { name: '' }));
+    const unified = extractUnifiedAgendaData(
+      agenda.date || selectedDate,
+      selectedPlanner,
+      agenda,
+      weekPlanFromPlanner,
+      hymns,
+      members,
+      activities
+    );
+    applyUnifiedData(unified);
   };
+
+  // Populate workspace when date changes or saved agenda / week plan found
+  useEffect(() => {
+    if (!selectedDate) {
+      setIsDraftCreated(false);
+      return;
+    }
+    const unified = extractUnifiedAgendaData(
+      selectedDate,
+      selectedPlanner,
+      savedAgendaForDate,
+      weekPlanFromPlanner,
+      hymns,
+      members,
+      activities
+    );
+    applyUnifiedData(unified);
+    setIsDraftCreated(Boolean(savedAgendaForDate || weekPlanFromPlanner));
+  }, [selectedDate, selectedPlannerId, savedAgendaForDate, weekPlanFromPlanner, hymns, members, activities]);
 
   // Requirement 1 & Step 2: Auto-Magic Extraction & Population from WeekPlan
   const handleCreateAgendaDraft = () => {
@@ -496,95 +733,16 @@ export function AgendasPage() {
       toast.error('Please select a Sunday week first');
       return;
     }
-
-    const plannerWeek = weekPlanFromPlanner;
-    const parsedOpen = parseHymn(plannerWeek?.opening_hymn || '');
-    const parsedSac = parseHymn(plannerWeek?.sacrament_hymn || '');
-    const parsedClose = parseHymn(plannerWeek?.closing_hymn || '');
-
-    const openPrayerName = plannerWeek?.opening_prayer
-      ? formatPersonWithTitle(
-          plannerWeek.opening_prayer,
-          plannerWeek.opening_prayer_gender as 'M' | 'F' | ''
-        )
-      : '';
-    const closePrayerName = plannerWeek?.closing_prayer
-      ? formatPersonWithTitle(
-          plannerWeek.closing_prayer,
-          plannerWeek.closing_prayer_gender as 'M' | 'F' | ''
-        )
-      : '';
-
-    // Auto-query top 6 upcoming calendar events
-    const upcomingEvents = activities
-      .filter((a) => a.date && a.date >= selectedDate)
-      .slice(0, 6)
-      .map((a) => `${a.activity} (${a.organisation || 'Ward'}) — ${format(new Date(a.date), 'dd-MMM-yyyy')}`);
-
-    const slots = ['', '', '', '', '', ''];
-    upcomingEvents.forEach((ev, i) => {
-      if (i < 6) slots[i] = ev;
-    });
-    setAnnouncementSlots(slots);
-
-    // Speakers from weekplan
-    const importedSpeakers = parseSpeakersList(plannerWeek?.speakers);
-    if (importedSpeakers.length > 0) {
-      setSpeakersList(importedSpeakers);
-    } else {
-      setSpeakersList([
-        { name: '', topic: '', scripture_ref: '', minutes: 10, gender: '' },
-        { name: '', topic: '', scripture_ref: '', minutes: 15, gender: '' },
-        { name: '', topic: '', scripture_ref: '', minutes: 20, gender: '' },
-      ]);
-    }
-
-    const draft: Partial<Agenda> = {
-      ...emptyAgenda,
-      planner_id: selectedPlanner?.planner_id || '',
-      date: selectedDate,
-      ward_branch: plannerWeek?.ward_branch || selectedPlanner?.unit_name || '',
-      stake_district: plannerWeek?.stake_district || '',
-      type_of_meeting: plannerWeek?.type_of_meeting || 'SACRAMENT',
-      other_meeting_specify: plannerWeek?.other_meeting_specify || '',
-      presiding: plannerWeek?.presiding || 'Bishop',
-      presiding_position: plannerWeek?.presiding_position || 'Bishop',
-      conducting: plannerWeek?.conducting || selectedPlanner?.conducting_officer || '',
-      conducting_position: plannerWeek?.conducting_position || '1st Counsellor',
-      music_director: plannerWeek?.music_director || '',
-      choir_director: plannerWeek?.choir_director || '',
-      organist: plannerWeek?.organist || '',
-      start_time: plannerWeek?.start_time || '9:00 AM',
-      prelude_music: plannerWeek?.prelude_music || '',
-      postlude_music: plannerWeek?.postlude_music || '',
-      greetings_welcome: plannerWeek?.greetings_welcome || 'We warmly welcome everyone, stake officers, friends of the church and those worshipping with us for the first time.',
-      ward_branch_business: plannerWeek?.ward_branch_business || '',
-      stake_district_business: plannerWeek?.stake_district_business || '',
-      naming_blessing: plannerWeek?.naming_blessing || '',
-      confirmation_bestowal: plannerWeek?.confirmation_bestowal || '',
-      opening_hymn: parsedOpen.title || plannerWeek?.opening_hymn || '',
-      opening_hymn_number: parsedOpen.number || plannerWeek?.opening_hymn_number || '',
-      opening_prayer: openPrayerName || plannerWeek?.opening_prayer || '',
-      sacrament_hymn: parsedSac.title || plannerWeek?.sacrament_hymn || '',
-      sacrament_hymn_number: parsedSac.number || plannerWeek?.sacrament_hymn_number || '',
-      special_music: plannerWeek?.special_music || '',
-      closing_hymn: parsedClose.title || plannerWeek?.closing_hymn || '',
-      closing_hymn_number: parsedClose.number || plannerWeek?.closing_hymn_number || '',
-      closing_prayer: closePrayerName || plannerWeek?.closing_prayer || '',
-      announcements: plannerWeek?.announcements || '',
-      releases: plannerWeek?.releases || '[]',
-      calls: plannerWeek?.calls || '[]',
-      baptized_children: plannerWeek?.baptized_children || '[]',
-      aaronic_ordinations: plannerWeek?.aaronic_ordinations || '[]',
-      aaronic_advancements: plannerWeek?.aaronic_advancements || '[]',
-      achievements: plannerWeek?.achievements || '[]',
-      babies: plannerWeek?.babies || '[]',
-      confirmations: plannerWeek?.confirmations || '[]',
-      fellowships: plannerWeek?.fellowships || '[]',
-      state: 'DRAFT',
-    };
-
-    setActiveAgenda(draft);
+    const unified = extractUnifiedAgendaData(
+      selectedDate,
+      selectedPlanner,
+      savedAgendaForDate,
+      weekPlanFromPlanner,
+      hymns,
+      members,
+      activities
+    );
+    applyUnifiedData(unified);
     setIsDraftCreated(true);
     toast.success(`Extracted real week plan & generated agenda for ${format(new Date(selectedDate), 'MMM d, yyyy')}`);
   };
@@ -717,15 +875,17 @@ export function AgendasPage() {
         const weeksArr: Partial<Agenda>[] = typeof selectedPlanner.weeks === 'string'
           ? JSON.parse(selectedPlanner.weeks)
           : selectedPlanner.weeks || [];
-        targetWeek = weeksArr.find((w) => w.date === selectedDate) || null;
+        const norm = normalizeDateStr(selectedDate);
+        targetWeek = weeksArr.find((w) => normalizeDateStr(w.date) === norm) || null;
       } catch {}
     }
 
     // 2. If not found in planner.weeks, search in agendas list
     if (!targetWeek && selectedDate) {
+      const norm = normalizeDateStr(selectedDate);
       targetWeek = agendas.find(
-        (a) => (selectedPlannerId ? a.planner_id === selectedPlannerId : true) && a.date === selectedDate
-      ) || agendas.find((a) => a.date === selectedDate) || null;
+        (a) => (selectedPlannerId ? a.planner_id === selectedPlannerId : true) && normalizeDateStr(a.date) === norm
+      ) || agendas.find((a) => normalizeDateStr(a.date) === norm) || null;
     }
 
     // 3. Fallback to weekPlanFromPlanner
@@ -738,29 +898,17 @@ export function AgendasPage() {
       return;
     }
 
-    const parsedOpen = parseHymn(targetWeek.opening_hymn || '');
-    const parsedSac = parseHymn(targetWeek.sacrament_hymn || '');
-    const parsedClose = parseHymn(targetWeek.closing_hymn || '');
+    const unifiedPlannerData = extractUnifiedAgendaData(
+      selectedDate,
+      selectedPlanner,
+      null,
+      targetWeek,
+      hymns,
+      members,
+      activities
+    );
 
-    const pWeekFormatted: Partial<Agenda> = {
-      ...targetWeek,
-      opening_hymn: parsedOpen.title || targetWeek.opening_hymn,
-      opening_hymn_number: parsedOpen.number || targetWeek.opening_hymn_number,
-      sacrament_hymn: parsedSac.title || targetWeek.sacrament_hymn,
-      sacrament_hymn_number: parsedSac.number || targetWeek.sacrament_hymn_number,
-      closing_hymn: parsedClose.title || targetWeek.closing_hymn,
-      closing_hymn_number: parsedClose.number || targetWeek.closing_hymn_number,
-      opening_prayer: formatPersonWithTitle(
-        targetWeek.opening_prayer || '',
-        targetWeek.opening_prayer_gender as 'M' | 'F' | ''
-      ),
-      closing_prayer: formatPersonWithTitle(
-        targetWeek.closing_prayer || '',
-        targetWeek.closing_prayer_gender as 'M' | 'F' | ''
-      ),
-    };
-
-    setPlannerWeekAgenda(pWeekFormatted);
+    setPlannerWeekAgenda(unifiedPlannerData.agenda);
     setDiffModalOpen(true);
   };
 

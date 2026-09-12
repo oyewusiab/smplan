@@ -209,8 +209,8 @@ export function generateStandAgendaHtml(agenda: Agenda): string {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
       color: #000000;
       background: #ffffff;
-      line-height: 1.25;
-      font-size: 8.5pt;
+      line-height: 1.3;
+      font-size: 9pt;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
@@ -226,103 +226,108 @@ export function generateStandAgendaHtml(agenda: Agenda): string {
       flex-direction: column;
       justify-content: space-between;
       border: 1.5px solid #000000;
-      padding: 7px 10px 6px 10px;
+      padding: 9px 12px 8px 12px;
     }
 
     .page-container:last-child {
       page-break-after: auto;
       break-after: auto;
+      padding: 7px 10px 6px 10px;
     }
 
     /* TYPOGRAPHY & HEADINGS */
     .doc-title {
       text-align: center;
-      font-size: 12pt;
+      font-size: 14pt;
       font-weight: 800;
-      letter-spacing: 0.5px;
-      margin-bottom: 5px;
+      letter-spacing: 0.75px;
+      margin-bottom: 6px;
       text-transform: uppercase;
     }
 
     .table-bordered {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 4px;
+      margin-bottom: 5px;
     }
     .table-bordered th,
     .table-bordered td {
       border: 1px solid #000000;
-      padding: 2px 4px;
-      font-size: 8pt;
+      padding: 3.5px 6px;
+      font-size: 8.5pt;
       vertical-align: middle;
     }
 
     .checkbox-box {
       display: inline-block;
-      width: 10px;
-      height: 10px;
+      width: 12px;
+      height: 12px;
       border: 1px solid #000;
-      margin-right: 3px;
+      margin-right: 4px;
       vertical-align: middle;
       text-align: center;
-      line-height: 9px;
-      font-size: 8pt;
+      line-height: 11px;
+      font-size: 8.5pt;
       font-weight: bold;
     }
 
-    /* SERVICE ROWS */
+    /* SERVICE ROWS ON PAGE 1 */
     .service-row {
       display: flex;
       align-items: baseline;
       justify-content: space-between;
-      margin-bottom: 2px;
-      font-size: 8pt;
+      margin-bottom: 4px;
+      font-size: 9pt;
     }
     .sr-label {
       font-weight: 700;
       white-space: nowrap;
-      margin-right: 4px;
+      margin-right: 6px;
+      font-size: 9pt;
     }
     .sr-line {
       flex: 1;
       border-bottom: 1px solid #000000;
-      min-height: 12px;
-      padding: 0 4px;
+      min-height: 17px;
+      padding: 0 5px;
       font-weight: 600;
-      margin-right: 6px;
+      margin-right: 8px;
       color: #0f172a;
+      font-size: 9pt;
     }
     .sr-time {
       display: flex;
-      width: 60px;
-      gap: 3px;
+      width: 66px;
+      gap: 4px;
       shrink: 0;
     }
     .sr-time-box {
-      width: 28px;
-      height: 13px;
+      width: 31px;
+      height: 16px;
       border-bottom: 1px solid #000000;
       text-align: center;
-      font-size: 7.5pt;
+      font-size: 8pt;
+      font-weight: 600;
     }
 
     .time-header-bar {
       display: flex;
       justify-content: flex-end;
-      margin-bottom: 2px;
+      margin-bottom: 3px;
     }
     .time-header-inner {
-      width: 60px;
+      width: 66px;
       display: flex;
-      gap: 3px;
+      gap: 4px;
       text-align: center;
-      font-size: 7pt;
-      font-weight: 700;
+      font-size: 7.5pt;
+      font-weight: 800;
       text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
     .time-header-inner > div {
-      width: 28px;
-      border-bottom: 1px solid #000;
+      width: 31px;
+      border-bottom: 1.5px solid #000;
     }
 
     .banner-bar {
@@ -330,34 +335,37 @@ export function generateStandAgendaHtml(agenda: Agenda): string {
       border-bottom: 1.5px solid #000000;
       text-align: center;
       font-weight: 800;
-      font-size: 8.5pt;
+      font-size: 9.5pt;
       text-transform: uppercase;
-      padding: 2.5px 0;
-      margin: 4px 0 3px 0;
+      letter-spacing: 0.5px;
+      padding: 4px 0;
+      margin: 6px 0 4px 0;
+      background: #f8fafc;
     }
 
     .italic-note {
-      font-size: 7pt;
+      font-size: 7.5pt;
       font-style: italic;
       color: #334155;
-      margin-bottom: 2px;
+      margin-bottom: 3px;
+      line-height: 1.25;
     }
 
     .f-and-t-watermark-box {
       border: 1px dashed #000000;
       border-radius: 4px;
-      height: 185px;
+      height: 235px;
       display: flex;
       align-items: center;
       justify-content: center;
-      margin: 4px 0;
+      margin: 6px 0;
       background: #ffffff;
     }
     .f-and-t-watermark {
-      font-size: 28pt;
+      font-size: 32pt;
       font-weight: 800;
       color: #cbd5e1;
-      letter-spacing: 4px;
+      letter-spacing: 5px;
       text-transform: uppercase;
       transform: rotate(-12deg);
     }
@@ -400,18 +408,18 @@ export function generateStandAgendaHtml(agenda: Agenda): string {
       <div class="doc-title">SACRAMENT MEETING AGENDA</div>
 
       <!-- HEADER TOP 3-CELL BOX -->
-      <table class="table-bordered" style="margin-bottom: 3px;">
+      <table class="table-bordered" style="margin-bottom: 4px;">
         <tr>
-          <td style="width: 38%;"><strong>Ward / Branch:</strong> ${agenda.ward_branch || ''}</td>
-          <td style="width: 38%;"><strong>Stake / District:</strong> ${agenda.stake_district || ''}</td>
-          <td style="width: 24%; text-align: right;"><strong>Date:</strong> ${formattedDate}</td>
+          <td style="width: 38%; font-size: 9pt;"><strong>Ward / Branch:</strong> ${agenda.ward_branch || ''}</td>
+          <td style="width: 38%; font-size: 9pt;"><strong>Stake / District:</strong> ${agenda.stake_district || ''}</td>
+          <td style="width: 24%; text-align: right; font-size: 9pt;"><strong>Date:</strong> ${formattedDate}</td>
         </tr>
       </table>
 
       <!-- TYPE CHECKBOXES -->
-      <table class="table-bordered" style="margin-bottom: 4px;">
+      <table class="table-bordered" style="margin-bottom: 5px;">
         <tr>
-          <td style="padding: 3px 6px;">
+          <td style="padding: 4px 6px; font-size: 8.5pt;">
             <span style="font-weight: 700; margin-right: 6px;">Type:</span>
             <span class="checkbox-box">${meetingType === 'SACRAMENT' ? '✓' : ''}</span> Sacrament Meeting &nbsp;&nbsp;
             <span class="checkbox-box">${meetingType === 'FAST_SUNDAY' ? '✓' : ''}</span> Fast & Testimony (F & T) &nbsp;&nbsp;
@@ -423,34 +431,34 @@ export function generateStandAgendaHtml(agenda: Agenda): string {
       </table>
 
       <!-- LEADERSHIP & MUSIC -->
-      <table class="table-bordered" style="margin-bottom: 4px;">
+      <table class="table-bordered" style="margin-bottom: 5px;">
         <tr>
           <td style="width: 58%; padding: 0; vertical-align: top;">
             <table style="width: 100%; border-collapse: collapse;">
               <tr style="border-bottom: 1px solid #000;">
-                <th style="width: 60%; font-size: 7.5pt; text-align: left; padding: 2px 4px;">Name</th>
-                <th style="width: 40%; font-size: 7.5pt; text-align: left; padding: 2px 4px; border-left: 1px solid #000;">Position</th>
+                <th style="width: 60%; font-size: 8pt; text-align: left; padding: 3px 5px;">Name</th>
+                <th style="width: 40%; font-size: 8pt; text-align: left; padding: 3px 5px; border-left: 1px solid #000;">Position</th>
               </tr>
               <tr style="border-bottom: 1px solid #000;">
-                <td style="padding: 2px 4px; font-size: 8pt;"><strong>Presiding:</strong> ${agenda.presiding || ''}</td>
-                <td style="padding: 2px 4px; font-size: 8pt; border-left: 1px solid #000;">${agenda.presiding_position || ''}</td>
+                <td style="padding: 3.5px 5px; font-size: 8.5pt;"><strong>Presiding:</strong> ${agenda.presiding || ''}</td>
+                <td style="padding: 3.5px 5px; font-size: 8.5pt; border-left: 1px solid #000;">${agenda.presiding_position || ''}</td>
               </tr>
               <tr>
-                <td style="padding: 2px 4px; font-size: 8pt;"><strong>Conducting:</strong> ${agenda.conducting || ''}</td>
-                <td style="padding: 2px 4px; font-size: 8pt; border-left: 1px solid #000;">${agenda.conducting_position || ''}</td>
+                <td style="padding: 3.5px 5px; font-size: 8.5pt;"><strong>Conducting:</strong> ${agenda.conducting || ''}</td>
+                <td style="padding: 3.5px 5px; font-size: 8.5pt; border-left: 1px solid #000;">${agenda.conducting_position || ''}</td>
               </tr>
             </table>
           </td>
           <td style="width: 42%; padding: 0; vertical-align: top; border-left: 1px solid #000;">
             <table style="width: 100%; border-collapse: collapse;">
               <tr style="border-bottom: 1px solid #000;">
-                <td style="padding: 2px 4px; font-size: 8pt;"><strong>Music Director:</strong> ${agenda.music_director || ''}</td>
+                <td style="padding: 3.5px 5px; font-size: 8.5pt;"><strong>Music Director:</strong> ${agenda.music_director || ''}</td>
               </tr>
               <tr style="border-bottom: 1px solid #000;">
-                <td style="padding: 2px 4px; font-size: 8pt;"><strong>Choir Director:</strong> ${agenda.choir_director || ''}</td>
+                <td style="padding: 3.5px 5px; font-size: 8.5pt;"><strong>Choir Director:</strong> ${agenda.choir_director || ''}</td>
               </tr>
               <tr>
-                <td style="padding: 2px 4px; font-size: 8pt;"><strong>Organist:</strong> ${agenda.organist || ''}</td>
+                <td style="padding: 3.5px 5px; font-size: 8.5pt;"><strong>Organist:</strong> ${agenda.organist || ''}</td>
               </tr>
             </table>
           </td>
@@ -474,14 +482,14 @@ export function generateStandAgendaHtml(agenda: Agenda): string {
 
       <div class="service-row">
         <span class="sr-label">Start time:</span>
-        <div class="sr-line" style="flex: 0 0 100px;">${formatTime12h(agenda.start_time || '9:00 AM')}</div>
+        <div class="sr-line" style="flex: 0 0 110px;">${formatTime12h(agenda.start_time || '9:00 AM')}</div>
         <div class="sr-line"></div>
         <div class="sr-time"><div class="sr-time-box"></div><div class="sr-time-box"></div></div>
       </div>
 
       <div class="service-row" style="align-items: flex-start;">
         <span class="sr-label">Greetings, Welcome & Acknowledgements:</span>
-        <div class="sr-line" style="font-size: 7.5pt; font-weight: normal; min-height: 24px;">
+        <div class="sr-line" style="font-size: 8.5pt; font-weight: normal; min-height: 28px; line-height: 1.35;">
           ${agenda.greetings_welcome || 'We warmly welcome everyone, stake officers, friends of the church and those worshipping with us for the first time.'}
         </div>
         <div class="sr-time"><div class="sr-time-box"></div><div class="sr-time-box"></div></div>
@@ -489,7 +497,7 @@ export function generateStandAgendaHtml(agenda: Agenda): string {
 
       <div class="service-row">
         <span class="sr-label">Announcements</span>
-        <span style="font-size: 7.5pt; font-style: italic; color: #475569; margin-right: 4px;">(see reverse side)</span>
+        <span style="font-size: 8pt; font-style: italic; color: #475569; margin-right: 4px;">(see reverse side)</span>
         <div class="sr-line"></div>
         <div class="sr-time"><div class="sr-time-box"></div><div class="sr-time-box"></div></div>
       </div>
@@ -498,7 +506,7 @@ export function generateStandAgendaHtml(agenda: Agenda): string {
         <span class="sr-label">Opening Hymn:</span>
         <div class="sr-line">${agenda.opening_hymn || ''}</div>
         <span class="sr-label">Hymn Number:</span>
-        <div class="sr-line" style="flex: 0 0 55px; text-align: center;">${agenda.opening_hymn_number || ''}</div>
+        <div class="sr-line" style="flex: 0 0 60px; text-align: center;">${agenda.opening_hymn_number || ''}</div>
         <div class="sr-time"><div class="sr-time-box"></div><div class="sr-time-box"></div></div>
       </div>
 
@@ -510,7 +518,7 @@ export function generateStandAgendaHtml(agenda: Agenda): string {
 
       <div class="service-row">
         <span class="sr-label">Ward/Branch Business</span>
-        <span style="font-size: 7.5pt; font-style: italic; color: #475569; margin-right: 4px;">(see reverse side)</span>
+        <span style="font-size: 8pt; font-style: italic; color: #475569; margin-right: 4px;">(see reverse side)</span>
         <div class="sr-line">${agenda.ward_branch_business || ''}</div>
         <div class="sr-time"><div class="sr-time-box"></div><div class="sr-time-box"></div></div>
       </div>
@@ -523,14 +531,14 @@ export function generateStandAgendaHtml(agenda: Agenda): string {
 
       <div class="service-row">
         <span class="sr-label">Naming & Blessing of Children</span>
-        <span style="font-size: 7.5pt; font-style: italic; color: #475569; margin-right: 4px;">(F & T only) (see reverse side)</span>
+        <span style="font-size: 8pt; font-style: italic; color: #475569; margin-right: 4px;">(F & T only) (see reverse side)</span>
         <div class="sr-line">${agenda.naming_blessing || ''}</div>
         <div class="sr-time"><div class="sr-time-box"></div><div class="sr-time-box"></div></div>
       </div>
 
       <div class="service-row">
         <span class="sr-label">Confirmation & Bestowal of the Holy Ghost</span>
-        <span style="font-size: 7.5pt; font-style: italic; color: #475569; margin-right: 4px;">(see reverse side)</span>
+        <span style="font-size: 8pt; font-style: italic; color: #475569; margin-right: 4px;">(see reverse side)</span>
         <div class="sr-line">${agenda.confirmation_bestowal || ''}</div>
         <div class="sr-time"><div class="sr-time-box"></div><div class="sr-time-box"></div></div>
       </div>
@@ -539,7 +547,7 @@ export function generateStandAgendaHtml(agenda: Agenda): string {
         <span class="sr-label">Sacrament Hymn:</span>
         <div class="sr-line">${agenda.sacrament_hymn || ''}</div>
         <span class="sr-label">Hymn Number:</span>
-        <div class="sr-line" style="flex: 0 0 55px; text-align: center;">${agenda.sacrament_hymn_number || ''}</div>
+        <div class="sr-line" style="flex: 0 0 60px; text-align: center;">${agenda.sacrament_hymn_number || ''}</div>
         <div class="sr-time"><div class="sr-time-box"></div><div class="sr-time-box"></div></div>
       </div>
 
@@ -548,7 +556,7 @@ export function generateStandAgendaHtml(agenda: Agenda): string {
         ADMINISTRATION AND PASSING OF THE SACRAMENT
       </div>
 
-      <div class="service-row" style="margin-top: 2px;">
+      <div class="service-row" style="margin-top: 3px;">
         <span class="sr-label">Special Music (if any, by choir - F & T only):</span>
         <div class="sr-line">${isFastSunday ? (agenda.special_music || '') : ''}</div>
         <div class="sr-time"><div class="sr-time-box"></div><div class="sr-time-box"></div></div>
@@ -557,7 +565,7 @@ export function generateStandAgendaHtml(agenda: Agenda): string {
         (Express gratitude to the priesthood brethren for administering and to the congregation for reverence maintained; also, to the choir)
       </div>
 
-      <div style="font-weight: 800; font-size: 7.5pt; text-transform: uppercase; margin: 3px 0 2px 0;">
+      <div style="font-weight: 800; font-size: 8pt; text-transform: uppercase; margin: 4px 0 3px 0;">
         SPEAKERS, TESTIMONIES, HYMN, SPECIAL MUSIC (AS APPROPRIATE)
       </div>
 
@@ -568,46 +576,46 @@ export function generateStandAgendaHtml(agenda: Agenda): string {
         </div>
       ` : `
         <!-- REGULAR SPEAKERS PROGRAM -->
-        <div class="service-row">
+        <div class="service-row" style="margin-bottom: 2px;">
           <span class="sr-label">Testimony/Talk (by):</span>
           <div class="sr-line">${speakers[0]?.name || ''}</div>
           <div class="sr-time"><div class="sr-time-box">${speakers[0]?.minutes ? speakers[0].minutes + 'm' : ''}</div><div class="sr-time-box"></div></div>
         </div>
-        <div class="service-row" style="padding-left: 15px;">
-          <span style="font-size: 7.5pt; color: #334155; margin-right: 4px;">Subject & references:</span>
-          <div class="sr-line" style="font-size: 7.5pt; font-weight: normal;">
+        <div class="service-row" style="padding-left: 15px; margin-bottom: 5px;">
+          <span style="font-size: 8pt; color: #334155; margin-right: 4px;">Subject & references:</span>
+          <div class="sr-line" style="font-size: 8pt; font-weight: normal; min-height: 15px;">
             ${speakers[0]?.topic || ''}${speakers[0]?.scripture_ref ? ` — Ref: ${speakers[0].scripture_ref}` : ''}
           </div>
           <div class="sr-time"></div>
         </div>
 
-        <div class="service-row">
+        <div class="service-row" style="margin-bottom: 2px;">
           <span class="sr-label">Testimony/Talk (by):</span>
           <div class="sr-line">${speakers[1]?.name || ''}</div>
           <div class="sr-time"><div class="sr-time-box">${speakers[1]?.minutes ? speakers[1].minutes + 'm' : ''}</div><div class="sr-time-box"></div></div>
         </div>
-        <div class="service-row" style="padding-left: 15px;">
-          <span style="font-size: 7.5pt; color: #334155; margin-right: 4px;">Subject & references:</span>
-          <div class="sr-line" style="font-size: 7.5pt; font-weight: normal;">
+        <div class="service-row" style="padding-left: 15px; margin-bottom: 5px;">
+          <span style="font-size: 8pt; color: #334155; margin-right: 4px;">Subject & references:</span>
+          <div class="sr-line" style="font-size: 8pt; font-weight: normal; min-height: 15px;">
             ${speakers[1]?.topic || ''}${speakers[1]?.scripture_ref ? ` — Ref: ${speakers[1].scripture_ref}` : ''}
           </div>
           <div class="sr-time"></div>
         </div>
 
-        <div class="service-row">
+        <div class="service-row" style="margin-bottom: 2px;">
           <span class="sr-label">Testimony/Talk (by):</span>
           <div class="sr-line">${speakers[2]?.name || ''}</div>
           <div class="sr-time"><div class="sr-time-box">${speakers[2]?.minutes ? speakers[2].minutes + 'm' : ''}</div><div class="sr-time-box"></div></div>
         </div>
-        <div class="service-row" style="padding-left: 15px;">
-          <span style="font-size: 7.5pt; color: #334155; margin-right: 4px;">Subject & references:</span>
-          <div class="sr-line" style="font-size: 7.5pt; font-weight: normal;">
+        <div class="service-row" style="padding-left: 15px; margin-bottom: 5px;">
+          <span style="font-size: 8pt; color: #334155; margin-right: 4px;">Subject & references:</span>
+          <div class="sr-line" style="font-size: 8pt; font-weight: normal; min-height: 15px;">
             ${speakers[2]?.topic || ''}${speakers[2]?.scripture_ref ? ` — Ref: ${speakers[2].scripture_ref}` : ''}
           </div>
           <div class="sr-time"></div>
         </div>
 
-        <div class="service-row">
+        <div class="service-row" style="margin-top: 2px;">
           <span class="sr-label">Special Music:</span>
           <div class="sr-line">${!isFastSunday ? (agenda.special_music || '') : ''}</div>
           <div class="sr-time"><div class="sr-time-box"></div><div class="sr-time-box"></div></div>
@@ -617,14 +625,14 @@ export function generateStandAgendaHtml(agenda: Agenda): string {
           (Express gratitude to all those who have participated in the service thus far & to those who yet will; announce the rest of the program)
         </div>
 
-        <div class="service-row">
+        <div class="service-row" style="margin-bottom: 2px;">
           <span class="sr-label">Testimony/Talk (by):</span>
           <div class="sr-line">${speakers[3]?.name || ''}</div>
           <div class="sr-time"><div class="sr-time-box">${speakers[3]?.minutes ? speakers[3].minutes + 'm' : ''}</div><div class="sr-time-box"></div></div>
         </div>
-        <div class="service-row" style="padding-left: 15px;">
-          <span style="font-size: 7.5pt; color: #334155; margin-right: 4px;">Subject & references:</span>
-          <div class="sr-line" style="font-size: 7.5pt; font-weight: normal;">
+        <div class="service-row" style="padding-left: 15px; margin-bottom: 4px;">
+          <span style="font-size: 8pt; color: #334155; margin-right: 4px;">Subject & references:</span>
+          <div class="sr-line" style="font-size: 8pt; font-weight: normal; min-height: 15px;">
             ${speakers[3]?.topic || ''}${speakers[3]?.scripture_ref ? ` — Ref: ${speakers[3].scripture_ref}` : ''}
           </div>
           <div class="sr-time"></div>
@@ -639,7 +647,7 @@ export function generateStandAgendaHtml(agenda: Agenda): string {
         <span class="sr-label">Closing Hymn:</span>
         <div class="sr-line">${agenda.closing_hymn || ''}</div>
         <span class="sr-label">Hymn No:</span>
-        <div class="sr-line" style="flex: 0 0 55px; text-align: center;">${agenda.closing_hymn_number || ''}</div>
+        <div class="sr-line" style="flex: 0 0 60px; text-align: center;">${agenda.closing_hymn_number || ''}</div>
         <div class="sr-time"><div class="sr-time-box"></div><div class="sr-time-box"></div></div>
       </div>
 
