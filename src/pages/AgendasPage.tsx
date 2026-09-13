@@ -571,11 +571,15 @@ export function AgendasPage() {
         hymnsApi.list(session.token) as Promise<{ ok: boolean; data: Hymn[] }>,
       ]);
 
-      if (aRes.status === 'fulfilled' && aRes.value.ok) setAgendas(aRes.value.data || []);
-      if (pRes.status === 'fulfilled' && pRes.value.ok) {
-        const allPlanners = pRes.value.data || [];
+      let cloudAgendas: Agenda[] = [];
+      if (aRes.status === 'fulfilled' && aRes.value.ok && Array.isArray(aRes.value.data)) {
+        cloudAgendas = aRes.value.data;
+      }
+
+      let allPlanners: Planner[] = [];
+      if (pRes.status === 'fulfilled' && pRes.value.ok && Array.isArray(pRes.value.data)) {
+        allPlanners = pRes.value.data;
         setPlanners(allPlanners);
-        // Requirement 2: Only Active (SUBMITTED / APPROVED) Planners should appear for selection
         const activePlanners = allPlanners.filter((p) => p.state === 'SUBMITTED' || p.state === 'APPROVED');
         if (activePlanners.length > 0 && !selectedPlannerId) {
           setSelectedPlannerId(activePlanners[0].planner_id);
@@ -583,6 +587,45 @@ export function AgendasPage() {
           setSelectedPlannerId(allPlanners[0].planner_id);
         }
       }
+
+      // Merge agendas from AGENDAS table and planner.weeks
+      const combinedAgendasMap = new Map<string, Agenda>();
+      cloudAgendas.forEach((ca) => {
+        const key = ca.agenda_id || `${ca.planner_id}_${normalizeDateStr(ca.date)}`;
+        combinedAgendasMap.set(key, ca);
+      });
+
+      allPlanners.forEach((pl) => {
+        if (pl.weeks) {
+          try {
+            const weeks = typeof pl.weeks === 'string' ? JSON.parse(pl.weeks) : pl.weeks;
+            if (Array.isArray(weeks)) {
+              weeks.forEach((w: Partial<Agenda>) => {
+                if (w && w.date) {
+                  const normD = normalizeDateStr(w.date);
+                  const key = w.agenda_id || `${pl.planner_id}_${normD}`;
+                  if (!combinedAgendasMap.has(key)) {
+                    const existing = Array.from(combinedAgendasMap.values()).find(
+                      (ea) => ea.planner_id === pl.planner_id && normalizeDateStr(ea.date) === normD
+                    );
+                    if (!existing) {
+                      combinedAgendasMap.set(key, {
+                        ...w,
+                        planner_id: pl.planner_id,
+                        ward_branch: w.ward_branch || pl.unit_name || '',
+                        conducting: w.conducting || pl.conducting_officer || '',
+                        state: (w.state || (pl.state === 'APPROVED' ? 'APPROVED' : 'DRAFT')) as any,
+                      } as Agenda);
+                    }
+                  }
+                }
+              });
+            }
+          } catch {}
+        }
+      });
+
+      setAgendas(Array.from(combinedAgendasMap.values()));
       if (mRes.status === 'fulfilled' && mRes.value.ok) setMembers(mRes.value.data || []);
       if (actRes.status === 'fulfilled' && actRes.value.ok) setActivities(actRes.value.data || []);
       if (hRes.status === 'fulfilled' && hRes.value.ok) setHymns(hRes.value.data || []);
@@ -1164,6 +1207,11 @@ export function AgendasPage() {
             members={members}
             unitName={planners[0]?.unit_name}
           />
+        ) : loading ? (
+          <div className="p-12 text-center text-slate-500 bg-white rounded-xl border border-slate-200 shadow-xs">
+            <RefreshCw className="h-8 w-8 mx-auto animate-spin text-blue-600 mb-2" />
+            <p className="text-sm font-medium">Loading sacrament meeting agendas & planners...</p>
+          </div>
         ) : (
           <>
             {viewMode === 'directory' ? (

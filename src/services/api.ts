@@ -163,19 +163,27 @@ async function get<T = unknown>(params: Record<string, string>, options?: { forc
     }
   }
 
-  // Network fetch
+  // Network fetch: try GET first, fallback to POST on failure (e.g. Google Apps Script echo 404 redirect issues)
   const url = new URL(API_BASE_URL);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
 
-  const res = await fetch(url.toString());
-  if (!res.ok) {
-    if (res.status === 404) {
-      throw new Error('HTTP 404: Cloud Database API endpoint not found. Please verify your system server configuration.');
+  let json: any = null;
+  try {
+    const res = await fetch(url.toString());
+    if (!res.ok) {
+      json = await post<T>(params);
+    } else {
+      json = await res.json();
     }
-    throw new Error(`HTTP ${res.status}`);
+  } catch (err) {
+    try {
+      json = await post<T>(params);
+    } catch {
+      throw err;
+    }
   }
-  const json = await res.json();
-  if (json.ok === false) {
+
+  if (json && json.ok === false) {
     handleSessionExpiry(json.error || '');
     throw new Error(json.error || 'Backend error');
   }
@@ -218,9 +226,11 @@ async function post<T = unknown>(body: Record<string, unknown>): Promise<T> {
     throw new Error(json.error || 'Backend error');
   }
 
-  // Invalidate relevant caches on successful mutation
+  // Invalidate relevant caches on successful mutation (skip read-only queries routed through POST)
   const action = String(body.action || '');
-  autoInvalidateOnMutation(action);
+  if (!action.startsWith('LIST_') && !action.startsWith('GET_') && !action.startsWith('SYNC_') && !action.startsWith('AUTH_PING')) {
+    autoInvalidateOnMutation(action);
+  }
 
   return json as T;
 }
