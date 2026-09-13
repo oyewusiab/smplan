@@ -19,7 +19,8 @@ export interface ParsedCfmGuide {
  */
 export function extractCfmScriptureOfTheWeek(readingBlock?: string, ideas?: string[], intro?: string): string {
   if (ideas && ideas.length > 0) {
-    for (const idea of ideas) {
+    for (const rawIdea of ideas) {
+      const idea = rawIdea.replace(/^\d+\.\s*/, '').trim();
       const match = idea.match(/^([A-Za-z0-9\s]+?\s+\d+:\d+(?:[–-]\d+)?):?\s*(.+)$/);
       if (match) {
         const ref = match[1].trim();
@@ -41,6 +42,10 @@ export function cleanHtml(raw: string): string {
   return raw
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
     .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+    .replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, '')
+    .replace(/<button\b[^<]*(?:(?!<\/button>)<[^<]*)*<\/button>/gi, '')
+    .replace(/<span[^>]*class="[^"]*icon[^"]*"[^>]*>[\s\S]*?<\/span>/gi, '')
+    .replace(/<div[^>]*class="[^"]*imageWrapper[^"]*"[^>]*>[\s\S]*?<\/div>/gi, '')
     .replace(/<[^>]+>/g, ' ')
     .replace(/&nbsp;/g, ' ')
     .replace(/&ndash;/g, '–')
@@ -58,6 +63,8 @@ export function cleanHtml(raw: string): string {
     .replace(/&#8221;/g, '”')
     .replace(/&#39;/g, "'")
     .replace(/&quot;/g, '"')
+    .replace(/\s+;\s*/g, '; ')
+    .replace(/\s+,\s*/g, ', ')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -666,7 +673,7 @@ export const CFM_52_WEEKS: Record<string, {
   },
   '38': {
     reading: 'Isaiah 1–12',
-    theme: 'September 14–20: “Though Your Sins Be as Scarlet”',
+    theme: 'September 14–20: “God Is My Salvation”',
     intro: 'The prophet Isaiah called ancient Israel to repentance with vivid, urgent imagery, while testifying of the Redeemer. He taught that even when we feel spiritually weary or burdened by sin, Jesus Christ offers profound cleansing: "though your sins be as scarlet, they shall be as white as snow."',
     ideas: [
       'Isaiah 1:16–18: Through Jesus Christ, I can be forgiven and cleansed from sin.',
@@ -918,33 +925,38 @@ export function parseCfmHtml(html: string, originalUrl: string): ParsedCfmGuide 
   // Extract lesson number from URL (e.g. /38?lang=eng -> "38")
   const lessonNumMatch = originalUrl.match(/\/(\d+)(?:[^\d]|$)/);
   const lessonNum = lessonNumMatch ? String(Number(lessonNumMatch[1])) : '';
+  const cur = lessonNum && CFM_52_WEEKS[lessonNum];
 
   if (html && html.trim().length > 100) {
     try {
-      // 1. Extract <p class="title-number"> or <title>
-      const titleNumMatch = html.match(/<p[^>]*class="[^"]*title-number[^"]*"[^>]*>([\s\S]*?)<\/p>/i);
-      if (titleNumMatch) {
-        studyTheme = cleanHtml(titleNumMatch[1]);
+      // 1. Extract from <title> tag (Gospel Library format: [Date Range]. “[Study Theme]”: [Scripture Reading Block])
+      const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+      if (titleMatch) {
+        const fullTitle = cleanHtml(titleMatch[1]);
+        const colonIdx = fullTitle.lastIndexOf(':');
+        if (colonIdx > -1) {
+          studyTheme = fullTitle.substring(0, colonIdx).replace(/\.\s*“/, ': “').trim();
+          readingBlock = fullTitle.substring(colonIdx + 1).trim();
+        } else {
+          studyTheme = fullTitle;
+        }
       }
 
-      // 2. Extract <h1 ...> for reading block
+      // 2. Extract <h1 ...> for reading block if available (provides cleaner scripture refs)
       const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
       if (h1Match) {
-        readingBlock = cleanHtml(h1Match[1]);
+        const h1Text = cleanHtml(h1Match[1]);
+        if (h1Text) {
+          readingBlock = h1Text;
+        }
       }
 
-      // 3. Fallback from <title> tag if h1 or title-number were missing
-      if (!readingBlock || !studyTheme) {
-        const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-        if (titleMatch) {
-          const fullTitle = cleanHtml(titleMatch[1]);
-          const colonIdx = fullTitle.lastIndexOf(':');
-          if (colonIdx > -1) {
-            if (!studyTheme) studyTheme = fullTitle.substring(0, colonIdx).replace(/\.\s*“/, ': “').trim();
-            if (!readingBlock) readingBlock = fullTitle.substring(colonIdx + 1).trim();
-          } else if (!studyTheme) {
-            studyTheme = fullTitle;
-          }
+      // 3. Extract <p class="title-number"> or <p class="titleNumber">
+      const titleNumMatch = html.match(/<p[^>]*class="[^"]*title-?number[^"]*"[^>]*>([\s\S]*?)<\/p>/i);
+      if (titleNumMatch) {
+        const rawNum = cleanHtml(titleNumMatch[1]).replace(/\.\s*“/, ': “');
+        if (rawNum.includes('“') || !studyTheme) {
+          studyTheme = rawNum;
         }
       }
 
@@ -973,26 +985,44 @@ export function parseCfmHtml(html: string, originalUrl: string): ParsedCfmGuide 
     }
   }
 
-  // Check complete 52-week curriculum database for exact match
-  const cur = lessonNum && CFM_52_WEEKS[lessonNum];
-
+  // Check complete 52-week curriculum database for exact match or fallbacks
   if ((!readingBlock || readingBlock === 'Scripture Reading Block') && cur) readingBlock = cur.reading;
   if ((!studyTheme || studyTheme === 'Come, Follow Me Lesson') && cur) studyTheme = cur.theme;
   if ((!introduction || introduction.includes('Spirit guides us')) && cur) introduction = cur.intro;
 
+  const formatNumberedIdeas = (arr: string[]) => {
+    return arr.slice(0, 4).map((item, idx) => {
+      const trimmed = item.trim();
+      if (/^\d+\.\s*/.test(trimmed)) return trimmed;
+      return `${idx + 1}. ${trimmed}`;
+    }).join('\n');
+  };
+
   let ideasForLearning = ideasList.length > 0
-    ? ideasList.slice(0, 4).join('\n')
-    : (cur?.ideas ? cur.ideas.join('\n') : '');
+    ? formatNumberedIdeas(ideasList)
+    : (cur?.ideas ? formatNumberedIdeas(cur.ideas) : '');
 
   if (!ideasForLearning && cur) {
-    ideasForLearning = cur.ideas.join('\n');
+    ideasForLearning = formatNumberedIdeas(cur.ideas);
   }
 
-  const reflectionOptions = cur?.reflections || [
-    `How does the doctrine taught in ${readingBlock || 'this week’s study'} help you turn to the Savior for peace and forgiveness?`,
-    `In what ways can you share what the Lord has done for your soul with your family and ministering friends?`,
-    `What specific invitation from this lesson will you act upon this week to increase your faith in Jesus Christ?`,
-  ];
+  let reflectionOptions: string[] = [];
+  if (cur?.reflections && cur.reflections.length > 0) {
+    reflectionOptions = cur.reflections;
+  } else {
+    const questionMatches = [...html.matchAll(/<p[^>]*>([\s\S]*?\?)<\/p>/gi)]
+      .map((m) => cleanHtml(m[1]))
+      .filter((q) => q.length > 35 && q.length < 220 && !q.toLowerCase().includes('copyright') && !q.toLowerCase().includes('search'));
+    if (questionMatches.length >= 3) {
+      reflectionOptions = questionMatches.slice(0, 3);
+    } else {
+      reflectionOptions = [
+        `How does the doctrine taught in ${readingBlock || 'this week’s study'} help you turn to the Savior for peace and forgiveness?`,
+        `In what ways can you share what the Lord has done for your soul with your family and ministering friends?`,
+        `What specific invitation from this lesson will you act upon this week to increase your faith in Jesus Christ?`,
+      ];
+    }
+  }
 
   const scriptureOfTheWeek = extractCfmScriptureOfTheWeek(readingBlock, ideasList.length > 0 ? ideasList : cur?.ideas, introduction);
 
@@ -1015,7 +1045,7 @@ export async function fetchAndParseCfmUrl(url: string): Promise<ParsedCfmGuide> 
   const lessonNumMatch = url.match(/\/(\d+)(?:[^\d]|$)/);
   const lessonNum = lessonNumMatch ? String(Number(lessonNumMatch[1])) : '';
 
-  // 1. If lesson is in complete 52-week database, retrieve it immediately
+  // 1. If lesson is in complete 52-week database, retrieve it immediately as baseline
   const known = lessonNum && CFM_52_WEEKS[lessonNum];
 
   // 2. Try fetching live HTML via multiple endpoints if online
@@ -1029,7 +1059,7 @@ export async function fetchAndParseCfmUrl(url: string): Promise<ParsedCfmGuide> 
     try {
       const resp = await fetch(endpoint, {
         headers: { Accept: 'text/html,application/xhtml+xml' },
-        signal: AbortSignal.timeout(3000),
+        signal: AbortSignal.timeout(3500),
       });
       if (resp.ok) {
         const text = await resp.text();
@@ -1037,6 +1067,22 @@ export async function fetchAndParseCfmUrl(url: string): Promise<ParsedCfmGuide> 
           const parsed = parseCfmHtml(text, url);
           if (parsed.reading_block && parsed.reading_block !== 'Scripture Reading Block' &&
               parsed.study_theme && parsed.study_theme !== 'Come, Follow Me Lesson') {
+            // Fill any missing or brief fields from curated 52-week dictionary if available
+            if (known) {
+              if (!parsed.ideas_for_learning || parsed.ideas_for_learning.length < 20) {
+                parsed.ideas_for_learning = known.ideas.map((id, i) => `${i + 1}. ${id}`).join('\n');
+              }
+              if (!parsed.reflection_options || parsed.reflection_options.length === 0) {
+                parsed.reflection_options = known.reflections;
+                parsed.selected_reflection = known.reflections[0];
+              }
+              if (!parsed.introduction || parsed.introduction.length < 30) {
+                parsed.introduction = known.intro;
+              }
+              if (!parsed.scripture_of_the_week) {
+                parsed.scripture_of_the_week = extractCfmScriptureOfTheWeek(parsed.reading_block, known.ideas, parsed.introduction);
+              }
+            }
             return parsed;
           }
         }
@@ -1053,7 +1099,7 @@ export async function fetchAndParseCfmUrl(url: string): Promise<ParsedCfmGuide> 
       reading_block: known.reading,
       study_theme: known.theme,
       introduction: known.intro,
-      ideas_for_learning: known.ideas.join('\n'),
+      ideas_for_learning: known.ideas.map((id, i) => `${i + 1}. ${id}`).join('\n'),
       reflection_options: known.reflections,
       selected_reflection: known.reflections[0],
       scripture_of_the_week: extractCfmScriptureOfTheWeek(known.reading, known.ideas, known.intro),
@@ -1077,7 +1123,7 @@ export function generateCfmFromUrlOffline(url: string): ParsedCfmGuide {
       reading_block: cur.reading,
       study_theme: cur.theme,
       introduction: cur.intro,
-      ideas_for_learning: cur.ideas.join('\n'),
+      ideas_for_learning: cur.ideas.map((id, i) => `${i + 1}. ${id}`).join('\n'),
       reflection_options: cur.reflections,
       selected_reflection: cur.reflections[0],
       scripture_of_the_week: extractCfmScriptureOfTheWeek(cur.reading, cur.ideas, cur.intro),

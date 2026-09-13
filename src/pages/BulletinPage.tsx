@@ -636,17 +636,22 @@ export function BulletinPage() {
 
     try {
       if (session?.token) {
-        const res = (await bulletinsApi.generateCfm(session.token, cfmUrl)) as any;
-        if (res.ok && res.data) {
+        const res = (await bulletinsApi.generateCfmFromUrl(session.token, cfmUrl)) as any;
+        if (res?.ok && res?.data) {
           const d = res.data;
+          const reflectionOpts = (Array.isArray(d.reflection_options) && d.reflection_options.length > 0)
+            ? d.reflection_options
+            : [];
+          const selectedRefl = d.selected_reflection || reflectionOpts[0] || '';
           setForm((prev) => ({
             ...prev,
-            cfm_reading: d.reading_block,
-            cfm_theme: d.study_theme,
-            cfm_introduction: d.introduction,
-            cfm_ideas_for_learning: d.ideas_for_learning,
-            cfm_reflection: d.selected_reflection || (d.reflection_options && d.reflection_options[0]) || '',
-            cfm_discussion_question: d.selected_reflection || (d.reflection_options && d.reflection_options[0]) || '',
+            cfm_reading: d.reading_block || prev.cfm_reading,
+            cfm_theme: d.study_theme || prev.cfm_theme,
+            cfm_introduction: d.introduction || prev.cfm_introduction,
+            cfm_ideas_for_learning: d.ideas_for_learning || prev.cfm_ideas_for_learning,
+            cfm_reflection_options: reflectionOpts.length > 0 ? reflectionOpts : prev.cfm_reflection_options,
+            cfm_reflection: selectedRefl || prev.cfm_reflection,
+            cfm_discussion_question: selectedRefl || prev.cfm_discussion_question,
             scripture_of_the_week: d.scripture_of_the_week || prev.scripture_of_the_week,
             cfm_url: d.url || cfmUrl,
           }));
@@ -657,32 +662,43 @@ export function BulletinPage() {
       }
 
       const parsedData = await fetchAndParseCfmUrl(cfmUrl);
+      const parsedReflectionOpts = (Array.isArray(parsedData.reflection_options) && parsedData.reflection_options.length > 0)
+        ? parsedData.reflection_options
+        : [];
+      const selectedRefl = parsedData.selected_reflection || parsedReflectionOpts[0] || '';
       setForm((prev) => ({
         ...prev,
-        cfm_reading: parsedData.reading_block,
-        cfm_theme: parsedData.study_theme,
-        cfm_introduction: parsedData.introduction,
-        cfm_ideas_for_learning: parsedData.ideas_for_learning,
-        cfm_reflection: parsedData.selected_reflection,
-        cfm_discussion_question: parsedData.selected_reflection,
+        cfm_reading: parsedData.reading_block || prev.cfm_reading,
+        cfm_theme: parsedData.study_theme || prev.cfm_theme,
+        cfm_introduction: parsedData.introduction || prev.cfm_introduction,
+        cfm_ideas_for_learning: parsedData.ideas_for_learning || prev.cfm_ideas_for_learning,
+        cfm_reflection_options: parsedReflectionOpts.length > 0 ? parsedReflectionOpts : prev.cfm_reflection_options,
+        cfm_reflection: selectedRefl || prev.cfm_reflection,
+        cfm_discussion_question: selectedRefl || prev.cfm_discussion_question,
         scripture_of_the_week: parsedData.scripture_of_the_week || prev.scripture_of_the_week,
-        cfm_url: parsedData.url,
+        cfm_url: parsedData.url || cfmUrl,
       }));
       toast.success('Come, Follow Me study guide extracted!', { id: 'cfmai' });
-    } catch {
+    } catch (err) {
+      console.warn('CFM live extraction failed, falling back to curriculum dictionary:', err);
       const offlineData = generateCfmFromUrlOffline(cfmUrl);
+      const offlineReflectionOpts = (Array.isArray(offlineData.reflection_options) && offlineData.reflection_options.length > 0)
+        ? offlineData.reflection_options
+        : [];
+      const selectedRefl = offlineData.selected_reflection || offlineReflectionOpts[0] || '';
       setForm((prev) => ({
         ...prev,
-        cfm_reading: offlineData.reading_block,
-        cfm_theme: offlineData.study_theme,
-        cfm_introduction: offlineData.introduction,
-        cfm_ideas_for_learning: offlineData.ideas_for_learning,
-        cfm_reflection: offlineData.selected_reflection,
-        cfm_discussion_question: offlineData.selected_reflection,
+        cfm_reading: offlineData.reading_block || prev.cfm_reading,
+        cfm_theme: offlineData.study_theme || prev.cfm_theme,
+        cfm_introduction: offlineData.introduction || prev.cfm_introduction,
+        cfm_ideas_for_learning: offlineData.ideas_for_learning || prev.cfm_ideas_for_learning,
+        cfm_reflection_options: offlineReflectionOpts.length > 0 ? offlineReflectionOpts : prev.cfm_reflection_options,
+        cfm_reflection: selectedRefl || prev.cfm_reflection,
+        cfm_discussion_question: selectedRefl || prev.cfm_discussion_question,
         scripture_of_the_week: offlineData.scripture_of_the_week || prev.scripture_of_the_week,
-        cfm_url: offlineData.url,
+        cfm_url: offlineData.url || cfmUrl,
       }));
-      toast.success('Come, Follow Me offline study guide generated!', { id: 'cfmai' });
+      toast.success('Come, Follow Me study guide generated!', { id: 'cfmai' });
     } finally {
       setGeneratingAi(false);
     }

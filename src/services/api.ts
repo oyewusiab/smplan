@@ -412,6 +412,9 @@ export const bulletinsApi = {
 
   generateCfmFromUrl: (token: string, url: string) =>
     post(withTokenBody(token, { action: 'GENERATE_CFM_FROM_URL', url })),
+
+  generateCfm: (token: string, url: string) =>
+    post(withTokenBody(token, { action: 'GENERATE_CFM_FROM_URL', url })),
 };
 
 // ─── Members ─────────────────────────────────────────────────────────────────
