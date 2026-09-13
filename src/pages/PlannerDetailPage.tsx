@@ -193,6 +193,7 @@ export function PlannerDetailPage() {
   // Hymn Topic Matcher Modal/Drawer state
   const [activeThemeWeek, setActiveThemeWeek] = useState<number | null>(null);
   const [selectedThemeCategory, setSelectedThemeCategory] = useState<string>('Atonement & Sacrament');
+  const [showPrintModal, setShowPrintModal] = useState(false);
 
 function normalizeDateStr(d: unknown): string {
   if (!d) return '';
@@ -243,6 +244,22 @@ function normalizeDateStr(d: unknown): string {
     return s;
   }
   return String(d);
+}
+
+function hasActualSpeakers(speakersVal: unknown): boolean {
+  if (!speakersVal) return false;
+  try {
+    let list: any[] = [];
+    if (Array.isArray(speakersVal)) {
+      list = speakersVal;
+    } else if (typeof speakersVal === 'string' && speakersVal.trim() && speakersVal !== '[]') {
+      const parsed = JSON.parse(speakersVal);
+      if (Array.isArray(parsed)) list = parsed;
+    }
+    return list.some((s) => s && typeof s === 'object' && String(s.name || '').trim().length > 0);
+  } catch {
+    return false;
+  }
 }
 
   // Generate 4 to 5 Sundays for the selected Month/Year
@@ -467,11 +484,11 @@ function normalizeDateStr(d: unknown): string {
           };
 
           // Combine with intelligence: prioritize cloudMatch if it has content, fallback to embeddedMatch / localMatch
-          const resolvedSpeakers = (cloudMatch?.speakers && cloudMatch.speakers !== '[]' && cloudMatch.speakers.length > 20)
+          const resolvedSpeakers = (cloudMatch && hasActualSpeakers(cloudMatch.speakers))
             ? cloudMatch.speakers
-            : (embeddedMatch?.speakers && embeddedMatch.speakers !== '[]' && embeddedMatch.speakers.length > 20)
+            : (embeddedMatch && hasActualSpeakers(embeddedMatch.speakers))
             ? embeddedMatch.speakers
-            : (localMatch?.speakers && localMatch.speakers !== '[]')
+            : (localMatch && hasActualSpeakers(localMatch.speakers))
             ? localMatch.speakers
             : (cloudMatch?.speakers || embeddedMatch?.speakers || base.speakers);
 
@@ -1897,7 +1914,7 @@ function normalizeDateStr(d: unknown): string {
                                             newSpeakers[sIdx] = {
                                               ...newSpeakers[sIdx],
                                               name: val,
-                                              gender: detectedGender,
+                                              gender: (detectedGender as 'M' | 'F' | ''),
                                               prefix: newSpeakers[sIdx].prefix || (detectedGender === 'F' ? 'Sister' : 'Brother'),
                                             };
                                             updateAgendaSpeakers(wIdx, newSpeakers);
@@ -2236,7 +2253,7 @@ function normalizeDateStr(d: unknown): string {
                                       const detectedGender = found ? (found.gender || 'M') : ag.opening_prayer_gender;
                                       updateAgendaField(wIdx, {
                                         opening_prayer: val,
-                                        opening_prayer_gender: detectedGender,
+                                        opening_prayer_gender: (detectedGender as 'M' | 'F' | ''),
                                         opening_prayer_prefix: ag.opening_prayer_prefix || (detectedGender === 'F' ? 'Sister' : 'Brother'),
                                       });
                                     }}
@@ -2297,7 +2314,7 @@ function normalizeDateStr(d: unknown): string {
                                       const detectedGender = found ? (found.gender || 'M') : ag.closing_prayer_gender;
                                       updateAgendaField(wIdx, {
                                         closing_prayer: val,
-                                        closing_prayer_gender: detectedGender,
+                                        closing_prayer_gender: (detectedGender as 'M' | 'F' | ''),
                                         closing_prayer_prefix: ag.closing_prayer_prefix || (detectedGender === 'F' ? 'Sister' : 'Brother'),
                                       });
                                     }}

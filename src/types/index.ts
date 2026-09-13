@@ -540,7 +540,7 @@ export interface DoubleDipAlert {
   member: Member;
   monthLabel: string;
   monthKey: string;
-  roles: { role: string; date: string; org?: string; planner_id?: string }[];
+  roles: { role: string; date: string; org?: string; planner_id?: string; person?: string }[];
   distinctOrgsCount: number;
   totalRolesCount: number;
 }

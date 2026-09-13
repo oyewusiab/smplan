@@ -136,6 +136,18 @@ function normalizeDateStr(d: unknown): string {
   return String(d);
 }
 
+function parseLocalDate(d: unknown): Date {
+  if (!d) return new Date();
+  if (d instanceof Date && !isNaN(d.getTime())) return d;
+  const s = normalizeDateStr(d);
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    const [y, m, day] = s.substring(0, 10).split('-').map(Number);
+    return new Date(y, m - 1, day);
+  }
+  const parsed = new Date(String(d));
+  return !isNaN(parsed.getTime()) ? parsed : new Date();
+}
+
 const safeTrim = (val: unknown): string => {
   if (val === null || val === undefined) return '';
   if (typeof val === 'string') return val.trim();
@@ -752,14 +764,17 @@ export function AgendasPage() {
     }
   }, [selectedPlanner, selectedPlannerId, agendas]);
 
-  // Update selected date if not in planner's sundays
+  // Update selected date if not in planner's sundays or existing agendas
   useEffect(() => {
     if (plannerSundays.length > 0) {
-      if (!selectedDate || !plannerSundays.includes(selectedDate)) {
+      const normSelected = normalizeDateStr(selectedDate);
+      const isPresentInPlanner = plannerSundays.some((s) => normalizeDateStr(s) === normSelected);
+      const isPresentInAgendas = agendas.some((a) => normalizeDateStr(a.date) === normSelected);
+      if (!selectedDate || (!isPresentInPlanner && !isPresentInAgendas)) {
         setSelectedDate(plannerSundays[0]);
       }
     }
-  }, [plannerSundays]);
+  }, [plannerSundays, agendas]);
 
   // Check if saved agenda exists for selected date
   const savedAgendaForDate = useMemo(() => {
@@ -901,7 +916,7 @@ export function AgendasPage() {
     }
     applyUnifiedData(unified);
     setIsDraftCreated(true);
-    toast.success(`Generated agenda workspace for Sunday, ${format(new Date(selectedDate), 'MMM d, yyyy')}`);
+    toast.success(`Generated agenda workspace for Sunday, ${format(parseLocalDate(selectedDate), 'MMM d, yyyy')}`);
   };
 
   // Hymn parsing on input change
@@ -1080,7 +1095,7 @@ export function AgendasPage() {
       return;
     }
 
-    const dateDisplay = agenda.date ? format(new Date(agenda.date), 'EEEE, MMMM d, yyyy') : 'this meeting';
+    const dateDisplay = agenda.date ? format(parseLocalDate(agenda.date), 'EEEE, MMMM d, yyyy') : 'this meeting';
     const wardDisplay = agenda.ward_branch || 'Ward';
     const confirmMsg = `Are you sure you want to delete the saved Sacrament Meeting agenda for ${dateDisplay} (${wardDisplay})? This action cannot be undone.`;
 
@@ -1255,7 +1270,7 @@ export function AgendasPage() {
                     <CardHeader>
                       <div>
                         <p className="font-bold text-slate-900">
-                          {a.date ? format(new Date(a.date), 'EEEE, MMM d, yyyy') : 'No Date'}
+                          {a.date ? format(parseLocalDate(a.date), 'EEEE, MMM d, yyyy') : 'No Date'}
                         </p>
                         <p className="text-xs text-slate-500">{a.ward_branch || 'Ward'}</p>
                       </div>
@@ -1288,6 +1303,9 @@ export function AgendasPage() {
                             variant="outline"
                             icon={<Edit3 className="h-3.5 w-3.5" />}
                             onClick={() => {
+                              if (a.planner_id && a.planner_id !== selectedPlannerId) {
+                                setSelectedPlannerId(a.planner_id);
+                              }
                               setSelectedDate(a.date);
                               loadAgendaIntoWorkspace(a);
                               setIsDraftCreated(true);
@@ -1301,6 +1319,10 @@ export function AgendasPage() {
                             variant="secondary"
                             icon={<Tablet className="h-3.5 w-3.5" />}
                             onClick={() => {
+                              if (a.planner_id && a.planner_id !== selectedPlannerId) {
+                                setSelectedPlannerId(a.planner_id);
+                              }
+                              setSelectedDate(a.date);
                               loadAgendaIntoWorkspace(a);
                               setPodiumModalOpen(true);
                             }}
@@ -1381,7 +1403,7 @@ export function AgendasPage() {
                             : '(Unsaved / Recreate)';
                           return (
                             <option key={sun} value={sun}>
-                              Sunday, {format(new Date(sun), 'MMMM d, yyyy')} {statusSuffix}
+                              Sunday, {format(parseLocalDate(sun), 'MMMM d, yyyy')} {statusSuffix}
                             </option>
                           );
                         })}
@@ -1478,7 +1500,7 @@ export function AgendasPage() {
                         : 'No agenda created yet for this week.'}
                     </span>
                   </div>
-                  <span>Target: {selectedDate ? format(new Date(selectedDate), 'EEEE, MMMM d, yyyy') : 'Select a date'}</span>
+                  <span>Target: {selectedDate ? format(parseLocalDate(selectedDate), 'EEEE, MMMM d, yyyy') : 'Select a date'}</span>
                 </div>
               </CardBody>
             </Card>
@@ -1492,7 +1514,7 @@ export function AgendasPage() {
                   </div>
                   <div>
                     <h3 className="text-lg font-bold text-slate-900">
-                      Create Sunday Agenda for {selectedDate ? format(new Date(selectedDate), 'MMMM d, yyyy') : 'Selected Week'}
+                      Create Sunday Agenda for {selectedDate ? format(parseLocalDate(selectedDate), 'MMMM d, yyyy') : 'Selected Week'}
                     </h3>
                     <p className="text-sm text-slate-500 max-w-md mx-auto mt-1">
                       Extracts speakers, hymns, prayers, and leadership from the selected Monthly Planner, and queries upcoming activities into announcements.

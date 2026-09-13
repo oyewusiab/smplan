@@ -33,6 +33,7 @@ import type {
   YearAnalyticsData,
   MonthlyActivityStat,
   YouthMilestoneStats,
+  BishopricAlertsData,
   PastoralAlertsData,
   InactiveMemberAlert,
   NewcomerAlert,
@@ -277,7 +278,8 @@ function isRoleMatch(assignmentRole: string, targetRole: RecommendedRoleType): b
     case 'BENEDICTION':
       return r.includes('BENEDICTION') || r.includes('CLOSING_PRAYER') || r.includes('CLOSING PRAYER');
     case 'MUSIC_DIRECTOR':
-      return r.includes('MUSIC') || r.includes('DIRECTOR') || r.includes('CONDUCTOR');
+      if (r.includes('SPECIAL') || r.includes('SOLO') || r.includes('INTERMEDIATE') || r.includes('ITEM')) return false;
+      return r.includes('DIRECTOR') || r.includes('CONDUCTOR') || r.includes('CHORISTER') || r === 'MUSIC';
     case 'ORGANIST':
       return r.includes('ORGANIST') || r.includes('PIANIST') || r.includes('ACCOMPANIST');
     case 'SACRAMENT_PREPARING':
@@ -615,7 +617,7 @@ export function calculateBishopricAlerts(
 ): BishopricAlertsData {
   const inactiveMembers: InactiveMemberAlert[] = [];
   const newcomers: NewcomerAlert[] = [];
-  const monthMap = new Map<string, Map<string, { role: string; date: string; org?: string; planner_id?: string }[]>>();
+  const monthMap = new Map<string, Map<string, { role: string; date: string; org?: string; planner_id?: string; person?: string }[]>>();
   const surnameMap = new Map<string, { count: number; members: Set<string> }>();
   const topicMap = new Map<string, { count: number; dates: string[]; lastUsed: string }>();
 
@@ -627,27 +629,7 @@ export function calculateBishopricAlerts(
 
     // Analysis, suggestions, and inactivity guardrails focus on active members aged 8+
     if (isActive && (dynamicAge === 0 || dynamicAge >= 8)) {
-      let monthsSince = 12;
-      let neverAssigned = true;
-
-      if (m.last_assigned_date) {
-        neverAssigned = false;
-        const ld = parseDateFlexible(m.last_assigned_date);
-        if (ld) monthsSince = differenceInMonths(referenceDate, ld);
-      } else if (Number(m.total_assignments || 0) > 0 || Number(m.spoken_count || 0) > 0) {
-        neverAssigned = false;
-        monthsSince = 8;
-      }
-
-      if (neverAssigned || monthsSince >= 6) {
-        inactiveMembers.push({
-          member: m,
-          monthsSinceLast: monthsSince,
-          neverAssigned
-        });
-      }
-
-      // ─── Newcomer Spotlight with confirmation_date (0-6 months vs 7-12 months) ───
+      // ─── Ward Tenure & Newcomer Calculation ───
       const rawConfDate = m.confirmation_date || m.confirmationdate || '';
       let confDateObj = rawConfDate ? parseDateFlexible(rawConfDate) : null;
       let monthsSinceConfirmation = -1;
@@ -660,6 +642,30 @@ export function calculateBishopricAlerts(
       }
 
       const isNewStatus = statusUpper.includes('NEW') || statusUpper.includes('CONVERT');
+      const isRecentNewcomer = (monthsSinceConfirmation >= 0 && monthsSinceConfirmation < 6) || (isNewStatus && monthsSinceConfirmation <= 6);
+
+      let monthsSince = 12;
+      let neverAssigned = true;
+
+      if (m.last_assigned_date) {
+        neverAssigned = false;
+        const ld = parseDateFlexible(m.last_assigned_date);
+        if (ld) monthsSince = differenceInMonths(referenceDate, ld);
+      } else if (Number(m.total_assignments || 0) > 0 || Number(m.spoken_count || 0) > 0) {
+        neverAssigned = false;
+        monthsSince = 8;
+      }
+
+      // Inactivity alerts only apply to established members (>6 months in ward)
+      if (!isRecentNewcomer && (neverAssigned || monthsSince >= 6)) {
+        inactiveMembers.push({
+          member: m,
+          monthsSinceLast: monthsSince,
+          neverAssigned
+        });
+      }
+
+      // ─── Newcomer Spotlight with confirmation_date (0-6 months vs 7-12 months) ───
       const isWithinFirstYear = monthsSinceConfirmation >= 0 && monthsSinceConfirmation <= 12;
 
       if (isWithinFirstYear || (isNewStatus && (monthsSinceConfirmation === -1 || monthsSinceConfirmation <= 24))) {
@@ -709,6 +715,7 @@ export function calculateBishopricAlerts(
     }
     pMap.get(personClean.toLowerCase())!.push({
       role: s(a.role) || 'Duty',
+      person: personClean,
       date: a.date,
       org: a.venue || '',
       planner_id: a.planner_id
@@ -747,8 +754,9 @@ export function calculateBishopricAlerts(
   monthMap.forEach((pMap, monthKey) => {
     pMap.forEach((rolesList, pLower) => {
       if (rolesList.length >= 3) {
+        const primaryPersonName = rolesList[0]?.person || pLower.replace(/\b\w/g, l => l.toUpperCase());
         const mem = members.find(m => extractPersonName(m.name).toLowerCase() === pLower) || {
-          name: rolesList[0].role,
+          name: primaryPersonName,
           gender: '',
           age: 0,
           phone: '',

@@ -15,6 +15,18 @@ interface DigitalPodiumModalProps {
   agenda: Agenda;
 }
 
+function parseLocalDate(d: unknown): Date {
+  if (!d) return new Date();
+  if (d instanceof Date && !isNaN(d.getTime())) return d;
+  const s = String(d).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    const [y, m, day] = s.substring(0, 10).split('-').map(Number);
+    return new Date(y, m - 1, day);
+  }
+  const parsed = new Date(s);
+  return !isNaN(parsed.getTime()) ? parsed : new Date();
+}
+
 export function DigitalPodiumModal({ open, onClose, agenda }: DigitalPodiumModalProps) {
   const [darkMode, setDarkMode] = useState(true);
   const [activeTab, setActiveTab] = useState<'service' | 'business'>('service');
@@ -31,7 +43,7 @@ export function DigitalPodiumModal({ open, onClose, agenda }: DigitalPodiumModal
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (timerRunning) {
-      interval = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
+      interval = setInterval(() => setElapsedSeconds((prev) => prev + 1), 1000);
     }
     return () => clearInterval(interval);
   }, [timerRunning]);
@@ -42,7 +54,7 @@ export function DigitalPodiumModal({ open, onClose, agenda }: DigitalPodiumModal
     setCompletedItems((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const formattedDate = agenda.date ? format(new Date(agenda.date), 'EEEE, MMMM d, yyyy') : 'Sunday Service';
+  const formattedDate = agenda.date ? format(parseLocalDate(agenda.date), 'EEEE, MMMM d, yyyy') : 'Sunday Service';
   const speakers = parseSpeakersList(agenda.speakers);
   
   const announcements = parseStructuredOrLines<string>(agenda.announcements, (l) => {

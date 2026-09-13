@@ -19,7 +19,7 @@ const SHEET_SCHEMAS = {
   BULLETIN_FEEDBACK: ['feedback_id','bulletin_id','date','type','member_name','phone','email','message','status','created_date'],
   CHECKLISTS: ['checklist_id','planner_id','week_id','week_label','task','responsible','status','updated_by','updated_date'],
   HYMNS: ['number','title','type','theme','link','updated_date'],
-  MEMBERS_LIST: ['member_id','name','gender','age','phone','email','organisation','status','birth_date','calling','priesthood_office','household_id','notes','created_date','updated_date','total_assignments','spoken_count','prayers_count','last_assigned_date','readiness_score'],
+  MEMBERS_LIST: ['member_id','name','gender','age','phone','email','organisation','status','birth_date','confirmation_date','calling','priesthood_office','household_id','notes','created_date','updated_date','total_assignments','spoken_count','prayers_count','last_assigned_date','readiness_score'],
   NOTIFICATIONS: ['notification_id','to_user_id','type','title','body','meta','read','created_date'],
   OTHER_AGENDAS: ['other_agenda_id','meeting_type','meeting_type_other','title','date','start_time','end_time','venue','presiding','presiding_role','conducting','conducting_role','opening_hymn','opening_prayer','spiritual_thought_by','spiritual_thought_topic','closing_remarks_by','closing_prayer','attendees','topics','assignments','general_notes','state','created_by','created_by_name','created_date','approved_by','approved_by_name','approved_date','email_sent_count','updated_date'],
   PLANNERS: ['planner_id','month','year','state','conducting_officer','weeks','unit_name','created_by','created_date','updated_date','music_status','archive_method','archive_date','sacrament_administration'],
