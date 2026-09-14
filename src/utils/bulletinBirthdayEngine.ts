@@ -374,3 +374,77 @@ export function formatCelebrantDisplayName(
   return name;
 }
 
+/**
+ * Detect if a celebrant's birthday falls specifically on TODAY's calendar date
+ */
+export function isCelebrantBirthdayToday(
+  celebrant: BulletinCelebrant | string,
+  targetDateStr?: string
+): boolean {
+  if (!celebrant) return false;
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentDay = now.getDate();
+
+  // 1. If BulletinCelebrant object with dateStr
+  if (typeof celebrant === 'object') {
+    if (celebrant.dateStr) {
+      try {
+        const p = parseISO(celebrant.dateStr);
+        if (!isNaN(p.getTime()) && p.getMonth() + 1 === currentMonth && p.getDate() === currentDay) {
+          return true;
+        }
+      } catch {}
+    }
+    if (celebrant.day && celebrant.day === currentDay) {
+      if (celebrant.birth_date) {
+        const parsed = parseMemberBirthMonthDay(celebrant.birth_date);
+        if (parsed && parsed.month === currentMonth && parsed.day === currentDay) {
+          return true;
+        }
+      }
+      if (targetDateStr) {
+        try {
+          const tParts = targetDateStr.split('-');
+          if (tParts.length >= 2 && parseInt(tParts[1], 10) === currentMonth) {
+            return true;
+          }
+        } catch {}
+      }
+    }
+  }
+
+  // 2. Parse from text string or celebrant name/birth_date
+  const text = typeof celebrant === 'string'
+    ? celebrant
+    : `${celebrant.name || ''} ${celebrant.birth_date || ''}`;
+
+  const parenMatch = text.match(/\(([^)]+)\)/);
+  const toCheck = parenMatch ? parenMatch[1] : text;
+
+  const parsed = parseMemberBirthMonthDay(toCheck);
+  if (parsed) {
+    return parsed.month === currentMonth && parsed.day === currentDay;
+  }
+
+  // 3. Just a day number e.g. "(14)"
+  const dayMatch = toCheck.match(/\b(\d{1,2})\b/);
+  if (dayMatch) {
+    const dNum = parseInt(dayMatch[1], 10);
+    if (dNum === currentDay) {
+      if (targetDateStr) {
+        try {
+          const tParts = targetDateStr.split('-');
+          if (tParts.length >= 2 && parseInt(tParts[1], 10) === currentMonth) {
+            return true;
+          }
+        } catch {}
+      } else {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
