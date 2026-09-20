@@ -9,6 +9,7 @@ import { getBulletinTheme } from '../utils/bulletinThemes';
 import { getWeekDateRange, isSectionVisible } from '../utils/bulletinPrintEngine';
 import { resolveHymnLink, formatHymnDisplay } from '../data/bundledHymns';
 import { formatBirthdayLabel, getOrdinalSuffix, normalizeBirthdaysString, parseCelebrantsFromText, formatCelebrantDisplayName, isCelebrantBirthdayToday } from '../utils/bulletinBirthdayEngine';
+import { getBulletinLifecycle, findActiveLiveBulletin, findQueuedBulletins, getBulletinWeekBounds } from '../utils/bulletinLifecycle';
 import { formatHonorificName } from '../utils/memberTitle';
 import { BulletinFormattedText } from '../utils/bulletinFormatter';
 import { BirthdayWishModal, type BirthdayChannel } from '../components/bulletin/BirthdayWishModal';
@@ -114,14 +115,41 @@ export function PublicBulletinLandingPage({ previewBulletin, isPreview = false }
 
   // Notification Settings Modal state
   const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [queuedNotice, setQueuedNotice] = useState<{ count: number; nextDate?: string; nextDateFormatted?: string } | null>(null);
 
   const loadLiveBulletin = async () => {
     setLoading(true);
+    const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const requestedDate = searchParams?.get('date') || undefined;
+    const requestedId = searchParams?.get('id') || undefined;
+
     try {
-      const res = await bulletinsApi.getLive({ forceRefresh: true }) as { ok: boolean; data?: Bulletin; error?: string };
-      if (res.ok && res.data) {
-        setBulletin(normalizeLandingBulletin(res.data));
-        return;
+      if (requestedDate || requestedId) {
+        // Specific bulletin preview request (e.g. preview link for leaders)
+        const res = (await bulletinsApi.getLive({
+          forceRefresh: true,
+          ...(requestedDate ? { date: requestedDate } : {}),
+          ...(requestedId ? { bulletin_id: requestedId } : {}),
+        } as any)) as any;
+        if (res && res.ok && res.data) {
+          setBulletin(normalizeLandingBulletin(res.data));
+          setLoading(false);
+          return;
+        }
+      } else {
+        const res = (await bulletinsApi.getLive({ forceRefresh: true })) as any;
+        if (res && res.ok && res.data) {
+          setBulletin(normalizeLandingBulletin(res.data));
+          setLoading(false);
+          return;
+        } else if (res && res.has_queued && res.next_queued_date) {
+          const b = getBulletinWeekBounds(res.next_queued_date);
+          setQueuedNotice({
+            count: res.queued_count || 1,
+            nextDate: res.next_queued_date,
+            nextDateFormatted: b?.mondayFormatted || res.next_queued_date,
+          });
+        }
       }
     } catch (err) {
       console.warn('Live bulletin network load notice:', err);
@@ -131,11 +159,41 @@ export function PublicBulletinLandingPage({ previewBulletin, isPreview = false }
     try {
       const localSaved = JSON.parse(localStorage.getItem('SM_SAVED_BULLETINS') || '[]');
       if (Array.isArray(localSaved) && localSaved.length > 0) {
-        // Find latest published or newest draft
-        const published = localSaved.filter((b: any) => b.status === 'PUBLISHED');
-        const chosen = published.length > 0 ? published[0] : localSaved[0];
-        setBulletin(normalizeLandingBulletin(chosen));
-        return;
+        if (requestedDate) {
+          const matched = localSaved.find((b: any) => b.date === requestedDate);
+          if (matched) {
+            setBulletin(normalizeLandingBulletin(matched));
+            setLoading(false);
+            return;
+          }
+        }
+        if (requestedId) {
+          const matched = localSaved.find((b: any) => b.bulletin_id === requestedId);
+          if (matched) {
+            setBulletin(normalizeLandingBulletin(matched));
+            setLoading(false);
+            return;
+          }
+        }
+
+        // Pick strictly the currently active live bulletin (Monday to Sunday)
+        const active = findActiveLiveBulletin(localSaved);
+        if (active) {
+          setBulletin(normalizeLandingBulletin(active));
+          setLoading(false);
+          return;
+        }
+
+        // Check if any queued future bulletins exist in local cache
+        const queued = findQueuedBulletins(localSaved);
+        if (queued.length > 0) {
+          const b = getBulletinWeekBounds(queued[0].date);
+          setQueuedNotice({
+            count: queued.length,
+            nextDate: queued[0].date,
+            nextDateFormatted: b?.mondayFormatted || queued[0].date,
+          });
+        }
       }
     } catch {}
 
@@ -239,9 +297,12 @@ export function PublicBulletinLandingPage({ previewBulletin, isPreview = false }
     );
   }
 
-  const isExpired = bulletin && bulletin.date ? (new Date() > new Date(bulletin.date + 'T23:59:59')) : false;
+  const lifecycle = bulletin ? getBulletinLifecycle(bulletin) : null;
+  const isExpired = lifecycle ? lifecycle.isExpired : false;
+  const isQueued = lifecycle ? lifecycle.isQueued : false;
+  const isDirectPreview = isPreview || (typeof window !== 'undefined' && (new URLSearchParams(window.location.search).has('date') || new URLSearchParams(window.location.search).has('id')));
 
-  if (!bulletin || isExpired) {
+  if (!bulletin || (isExpired && !isDirectPreview) || (isQueued && !isDirectPreview)) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-slate-200 shadow-xl text-center space-y-4">
@@ -250,9 +311,15 @@ export function PublicBulletinLandingPage({ previewBulletin, isPreview = false }
           </div>
           <h2 className="text-xl font-bold text-slate-900">MyWard Bulletin</h2>
           <p className="text-sm text-slate-600">
-            {isExpired
-              ? 'The previous weekly bulletin expired on Sunday at 11:59 PM. Please check back when next week’s bulletin is published.'
-              : 'No weekly bulletin is published at this moment. Please check back shortly or reach out to your ward leadership.'}
+            {queuedNotice ? (
+              <span>
+                The previous weekly bulletin has expired. Next week’s bulletin is already scheduled and will automatically become available to members on <strong>{queuedNotice.nextDateFormatted || 'Monday'}</strong>.
+              </span>
+            ) : isExpired ? (
+              'The previous weekly bulletin expired on Sunday at 11:59 PM. Please check back when next week’s bulletin is published.'
+            ) : (
+              'No weekly bulletin is published at this moment. Please check back shortly or reach out to your ward leadership.'
+            )}
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2">
             <button
@@ -305,6 +372,12 @@ export function PublicBulletinLandingPage({ previewBulletin, isPreview = false }
     >
       {/* Central Reading Canvas */}
       <main className="max-w-2xl w-full bg-white rounded-3xl shadow-xl border overflow-hidden flex flex-col justify-between" style={{ borderColor: theme.borderLight }}>
+        {isQueued && (
+          <div className="bg-indigo-600 text-white px-4 py-2.5 text-center text-xs font-bold flex items-center justify-center gap-2 shadow-xs">
+            <Clock className="w-4 h-4 text-indigo-200 shrink-0" />
+            <span>Upcoming Bulletin Preview: Scheduled to go live for members on {lifecycle?.mondayFormatted} at 12:00 AM.</span>
+          </div>
+        )}
         <div className="p-5 sm:p-8 space-y-6">
           {/* Header Section Matching Specified Typography & Palette */}
           <header className="text-center pb-5 border-b-2" style={{ borderColor: theme.primaryColor }}>

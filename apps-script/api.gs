@@ -2608,33 +2608,83 @@ function handleGetBulletin(params) {
 }
 
 /**
+ * Computes exact Monday 00:00:00 and Sunday 23:59:59 week boundary for a bulletin's target Sunday date.
+ */
+function getBulletinWeekBounds(dateStr) {
+  if (!dateStr) return null;
+  const parts = String(dateStr).trim().split('-');
+  if (parts.length !== 3) return null;
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10) - 1;
+  const d = parseInt(parts[2], 10);
+  if (isNaN(y) || isNaN(m) || isNaN(d)) return null;
+
+  const sunday = new Date(y, m, d, 23, 59, 59, 999);
+  const monday = new Date(y, m, d, 0, 0, 0, 0);
+  monday.setDate(monday.getDate() - 6);
+  return { monday: monday, sunday: sunday };
+}
+
+/**
  * Public Endpoint: Returns the currently active published ward bulletin for congregation members.
- * Accessible without authentication token. Automatically filters out expired bulletins (past Sunday 11:59 PM).
+ * Accessible without authentication token.
+ * Automatically filters out expired bulletins (past Sunday 11:59 PM) AND future queued bulletins (before Monday 12:00 AM).
+ * Future bulletins are kept on queue and automatically become live when their week begins.
  */
 function handleGetLiveBulletin(params) {
   let bulletins = dbReadAll('BULLETINS');
   let published = bulletins.filter(b => b.status === 'PUBLISHED' || b.status === 'published');
-  
-  // Filter out expired bulletins: Expires on Sunday at 11:59:59 PM
-  const nowTime = new Date();
-  published = published.filter(b => {
-    if (!b.date) return false;
-    const sundayDate = new Date(b.date + 'T23:59:59');
-    return nowTime <= sundayDate;
-  });
 
-  if (published.length === 0) {
-    return { ok: false, error: 'No weekly bulletin is currently active for this week.' };
+  // Support direct inspection / leadership preview if requested by ID or specific date
+  if (params && params.bulletin_id) {
+    const specific = published.find(b => b.bulletin_id === params.bulletin_id);
+    if (specific) return { ok: true, data: specific, is_preview: true };
+  }
+  if (params && params.date) {
+    const specificDate = published.find(b => b.date === params.date);
+    if (specificDate) return { ok: true, data: specificDate, is_preview: true };
   }
 
-  // Sort by target Sunday date descending, then updated_date descending
-  published.sort((a, b) => {
-    const dComp = (b.date || '').localeCompare(a.date || '');
-    if (dComp !== 0) return dComp;
-    return (b.updated_date || '').localeCompare(a.updated_date || '');
+  const nowTime = new Date();
+
+  // Find bulletins currently active (Monday 00:00:00 to Sunday 23:59:59)
+  const activeBulletins = published.filter(b => {
+    const bounds = getBulletinWeekBounds(b.date);
+    if (!bounds) return false;
+    return nowTime >= bounds.monday && nowTime <= bounds.sunday;
   });
 
-  return { ok: true, data: published[0] };
+  if (activeBulletins.length > 0) {
+    // Sort by updated_date descending
+    activeBulletins.sort((a, b) => (b.updated_date || '').localeCompare(a.updated_date || ''));
+    return { ok: true, data: activeBulletins[0] };
+  }
+
+  // Check if any upcoming bulletins are queued for future weeks (nowTime < monday)
+  const queuedBulletins = published.filter(b => {
+    const bounds = getBulletinWeekBounds(b.date);
+    if (!bounds) return false;
+    return nowTime < bounds.monday;
+  });
+
+  queuedBulletins.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+  if (queuedBulletins.length > 0) {
+    return {
+      ok: false,
+      error: 'No weekly bulletin is currently active for this week.',
+      has_queued: true,
+      next_queued_date: queuedBulletins[0].date,
+      queued_count: queuedBulletins.length,
+      message: 'The next weekly bulletin has been scheduled and will automatically become available on Monday.'
+    };
+  }
+
+  return {
+    ok: false,
+    error: 'No weekly bulletin is currently active for this week.',
+    has_queued: false
+  };
 }
 
 function handleSaveBulletin(body) {
@@ -2679,16 +2729,32 @@ function handleSaveBulletin(body) {
 
   bulletinData.status = sanitizeString(body.status || (existing ? existing.status : 'DRAFT'));
 
+  let saveMessage = bulletinData.status === 'PUBLISHED'
+    ? 'Weekly Bulletin published and saved!'
+    : 'Weekly Bulletin draft saved!';
+
+  if (bulletinData.status === 'PUBLISHED') {
+    const bounds = getBulletinWeekBounds(bulletinData.date);
+    const nowTime = new Date();
+    if (bounds && nowTime < bounds.monday) {
+      saveMessage = 'Weekly Bulletin published and placed on queue! It will automatically go live for members on Monday after the present bulletin expires.';
+    } else if (bounds && nowTime > bounds.sunday) {
+      saveMessage = 'Weekly Bulletin published (archived past week).';
+    } else {
+      saveMessage = 'Weekly Bulletin published and live for members!';
+    }
+  }
+
   if (existing) {
     const result = dbUpdate('BULLETINS', 'bulletin_id', existing.bulletin_id, bulletinData);
     auditLog(session.user_id, 'UPDATE', 'BULLETINS', existing.bulletin_id, result.old, result.updated, 'OK');
-    return { ok: true, data: result.updated, message: bulletinData.status === 'PUBLISHED' ? 'Weekly Bulletin published and saved!' : 'Weekly Bulletin draft saved!' };
+    return { ok: true, data: result.updated, message: saveMessage };
   } else {
     bulletinData.bulletin_id = body.bulletin_id || generateId('BUL');
     bulletinData.created_date = now();
     dbInsert('BULLETINS', bulletinData);
     auditLog(session.user_id, 'CREATE', 'BULLETINS', bulletinData.bulletin_id, null, bulletinData, 'OK');
-    return { ok: true, data: bulletinData, message: bulletinData.status === 'PUBLISHED' ? 'Weekly Bulletin created and published!' : 'Weekly Bulletin draft created and saved!' };
+    return { ok: true, data: bulletinData, message: saveMessage };
   }
 }
 

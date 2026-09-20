@@ -21,6 +21,7 @@ import { fetchAndParseCfmUrl, generateCfmFromUrlOffline } from '../utils/bulleti
 import { getWeekDateRange } from '../utils/bulletinPrintEngine';
 import { formatHymnDisplay } from '../data/bundledHymns';
 import { formatHonorificName, setMembersDirectoryRegistry } from '../utils/memberTitle';
+import { getBulletinLifecycle, findActiveLiveBulletin, findQueuedBulletins, getBulletinWeekBounds } from '../utils/bulletinLifecycle';
 import type { Bulletin, Planner, Member, Activity, Hymn, BulletinFeedback, UnitSetting } from '../types';
 import { format, parseISO, addWeeks, subWeeks, startOfMonth, endOfMonth, eachWeekOfInterval, isSunday } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -818,9 +819,17 @@ export function BulletinPage() {
     }
 
     setSaving(true);
+    const lifecycleTarget = getBulletinLifecycle({ date: form.date, status: targetStatus });
+    const isTargetQueued = targetStatus === 'PUBLISHED' && lifecycleTarget.stage === 'QUEUED';
+    const isTargetLive = targetStatus === 'PUBLISHED' && lifecycleTarget.stage === 'LIVE';
+
     const saveToastId = toast.loading(
       targetStatus === 'PUBLISHED'
-        ? `Publishing bulletin for ${form.date}…`
+        ? isTargetQueued
+          ? `Publishing bulletin to queue (goes live ${lifecycleTarget.mondayFormatted})…`
+          : isTargetLive
+          ? `Publishing bulletin live for ${form.date}…`
+          : `Publishing bulletin for ${form.date}…`
         : `Saving draft for ${form.date}…`
     );
 
@@ -833,6 +842,14 @@ export function BulletinPage() {
         status: targetStatus,
         updated_date: new Date().toISOString(),
       };
+
+      const defaultSuccessMsg = targetStatus === 'PUBLISHED'
+        ? isTargetQueued
+          ? `Weekly Bulletin published & placed on queue! It will automatically go live to members on ${lifecycleTarget.mondayFormatted} after the current bulletin expires.`
+          : isTargetLive
+          ? 'Weekly Bulletin published & live for members!'
+          : 'Weekly Bulletin published!'
+        : 'Weekly Bulletin draft saved successfully!';
 
       // 1. Immediate local cache persistence
       try {
@@ -866,12 +883,7 @@ export function BulletinPage() {
 
         if (res.ok && res.data) {
           setSelectedBulletinId(res.data.bulletin_id);
-          toast.success(
-            targetStatus === 'PUBLISHED'
-              ? 'Weekly Bulletin published and saved to Cloud!'
-              : 'Weekly Bulletin draft saved successfully!',
-            { id: saveToastId }
-          );
+          toast.success(res.message || defaultSuccessMsg, { id: saveToastId });
           loadData();
           return;
         }
@@ -879,12 +891,7 @@ export function BulletinPage() {
         console.warn('Backend save notice (offline fallback applied):', backendErr);
       }
 
-      toast.success(
-        targetStatus === 'PUBLISHED'
-          ? 'Weekly Bulletin published and saved locally!'
-          : 'Weekly Bulletin draft saved successfully to local storage!',
-        { id: saveToastId }
-      );
+      toast.success(defaultSuccessMsg, { id: saveToastId });
     } catch (err: any) {
       toast.error(err.message || 'Failed to save bulletin.', { id: saveToastId });
     } finally {
@@ -916,6 +923,9 @@ export function BulletinPage() {
     }
   };
 
+  const activeFormLifecycle = getBulletinLifecycle(form);
+  const queuedBulletinsList = useMemo(() => findQueuedBulletins(bulletins), [bulletins]);
+
   return (
     <div className="min-h-screen bg-slate-50">
       <Header
@@ -925,10 +935,20 @@ export function BulletinPage() {
           <div className="flex flex-wrap items-center gap-2">
             {/* Status Indicator */}
             <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 border border-slate-200 text-xs">
-              {form.status === 'PUBLISHED' ? (
+              {activeFormLifecycle.stage === 'LIVE' ? (
                 <span className="flex items-center gap-1 text-emerald-700 font-bold">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                  PUBLISHED (Live)
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  PUBLISHED (Live Now)
+                </span>
+              ) : activeFormLifecycle.stage === 'QUEUED' ? (
+                <span className="flex items-center gap-1.5 text-indigo-700 font-bold">
+                  <Clock className="w-3 h-3 text-indigo-600" />
+                  QUEUED (Goes live {activeFormLifecycle.mondayFormatted})
+                </span>
+              ) : activeFormLifecycle.stage === 'EXPIRED' ? (
+                <span className="flex items-center gap-1 text-slate-600 font-bold">
+                  <span className="w-2 h-2 rounded-full bg-slate-400" />
+                  EXPIRED (Past week)
                 </span>
               ) : (
                 <span className="flex items-center gap-1 text-amber-700 font-bold">
@@ -1005,15 +1025,23 @@ export function BulletinPage() {
               </Button>
             )}
 
-            {/* 3. Publish / Republish Button */}
+            {/* 3. Publish / Republish / Queue Button */}
             <Button
               size="sm"
               icon={<Sparkles className="w-3.5 h-3.5" />}
               onClick={() => handleSave('PUBLISHED')}
               loading={saving}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-xs text-xs"
+              className={`${
+                activeFormLifecycle.stage === 'QUEUED' || (activeFormLifecycle.isDraft && activeFormLifecycle.buttonLabel === 'Publish to Queue')
+                  ? 'bg-indigo-600 hover:bg-indigo-500'
+                  : 'bg-emerald-600 hover:bg-emerald-500'
+              } text-white font-bold shadow-xs text-xs`}
             >
-              {form.status === 'PUBLISHED' ? 'Republish Live' : 'Publish Bulletin'}
+              {activeFormLifecycle.stage === 'LIVE'
+                ? 'Republish Live'
+                : activeFormLifecycle.stage === 'QUEUED'
+                ? 'Update Queued Bulletin'
+                : activeFormLifecycle.buttonLabel}
             </Button>
           </div>
         }
@@ -1027,7 +1055,15 @@ export function BulletinPage() {
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
                 Weekly Bulletins Directory
               </p>
-              <span className="text-xs text-slate-400 font-semibold">{bulletins.length} total</span>
+              <div className="flex items-center gap-1.5">
+                {queuedBulletinsList.length > 0 && (
+                  <span className="text-[10px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Clock className="w-2.5 h-2.5" />
+                    {queuedBulletinsList.length} queued
+                  </span>
+                )}
+                <span className="text-xs text-slate-400 font-semibold">{bulletins.length} total</span>
+              </div>
             </div>
 
             {loading ? (
@@ -1054,7 +1090,7 @@ export function BulletinPage() {
                 {bulletins.map((b) => {
                   const isSelected = selectedBulletinId === b.bulletin_id || form.date === b.date;
                   const range = getWeekDateRange(b.date, b.unit_name);
-                  const isPublished = b.status === 'PUBLISHED';
+                  const bLifecycle = getBulletinLifecycle(b);
 
                   return (
                     <div
@@ -1068,22 +1104,28 @@ export function BulletinPage() {
                     >
                       <div className="flex items-start justify-between">
                         <div className="space-y-1 flex-1 min-w-0 pr-2">
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <span
-                              className={`text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded-md ${
-                                isPublished
-                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                                  : 'bg-amber-100 text-amber-800 border border-amber-300'
-                              }`}
+                              className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-md border flex items-center gap-1 ${bLifecycle.badgeClass}`}
                             >
-                              {isPublished ? 'PUBLISHED' : 'DRAFT'}
+                              {bLifecycle.stage === 'LIVE' && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                              )}
+                              {bLifecycle.stage === 'QUEUED' && (
+                                <Clock className="w-2.5 h-2.5 text-indigo-700" />
+                              )}
+                              {bLifecycle.badgeLabel}
                             </span>
                             <p className={`text-xs font-bold truncate ${isSelected ? 'text-blue-900' : 'text-slate-900'}`}>
                               {range.rangeLabel}
                             </p>
                           </div>
                           <p className="text-[11px] text-slate-500 truncate">
-                            {b.unit_name || 'Ward Bulletin'}
+                            {bLifecycle.stage === 'QUEUED'
+                              ? `Goes live ${bLifecycle.mondayFormatted} • ${b.unit_name || 'Ward Bulletin'}`
+                              : bLifecycle.stage === 'LIVE'
+                              ? `Active this week • ${b.unit_name || 'Ward Bulletin'}`
+                              : b.unit_name || 'Ward Bulletin'}
                           </p>
                         </div>
                         <button

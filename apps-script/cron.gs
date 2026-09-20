@@ -271,8 +271,16 @@ function dispatchDailyBulletinNotifications(targetTime) {
   const todayDayOfWeek = new Date().getDay(); // 0 = Sunday, 6 = Saturday
 
   const bulletins = dbReadAll('BULLETINS');
-  const published = bulletins.filter(b => b.status === 'PUBLISHED');
-  const activeBulletin = published.length > 0 ? published[0] : null;
+  const published = bulletins.filter(b => b.status === 'PUBLISHED' || b.status === 'published');
+  const nowCron = new Date();
+  const activeBulletins = published.filter(b => {
+    const bounds = typeof getBulletinWeekBounds === 'function' ? getBulletinWeekBounds(b.date) : null;
+    if (bounds) return nowCron >= bounds.monday && nowCron <= bounds.sunday;
+    if (!b.date) return false;
+    return nowCron <= new Date(b.date + 'T23:59:59');
+  });
+  activeBulletins.sort((a, b) => (b.updated_date || '').localeCompare(a.updated_date || ''));
+  const activeBulletin = activeBulletins.length > 0 ? activeBulletins[0] : null;
 
   let notificationsQueue = [];
 
