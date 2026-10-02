@@ -143,6 +143,10 @@ export function getBirthdaysForWeek(
             email: m.email || '',
             birth_date: dayLabel,
             formatted: `🎂 ${rawName} (${dayLabel})`,
+            member_id: m.member_id || m.members_id || '',
+            age: m.age,
+            organisation: m.organisation,
+            gender: m.gender,
           });
         }
       }
@@ -551,5 +555,69 @@ export function sortCelebrantsChronologically(
     const nameB = b.name || '';
     return nameA.localeCompare(nameB);
   });
+}
+
+export interface CelebrantShareData {
+  name: string;
+  birthDate?: string;
+  dateStr?: string;
+  unitName?: string;
+  age?: number;
+  organisation?: string;
+  gender?: string;
+  phone?: string;
+  email?: string;
+  member_id?: string;
+}
+
+export function encodeCelebrantToken(data: CelebrantShareData): string {
+  try {
+    const json = JSON.stringify(data);
+    if (typeof window !== 'undefined' && window.btoa) {
+      return btoa(encodeURIComponent(json));
+    }
+    return Buffer.from(encodeURIComponent(json)).toString('base64');
+  } catch {
+    return '';
+  }
+}
+
+export function decodeCelebrantToken(token: string): CelebrantShareData | null {
+  try {
+    if (!token) return null;
+    let decoded = '';
+    if (typeof window !== 'undefined' && window.atob) {
+      decoded = decodeURIComponent(atob(token));
+    } else {
+      decoded = decodeURIComponent(Buffer.from(token, 'base64').toString());
+    }
+    return JSON.parse(decoded);
+  } catch {
+    return null;
+  }
+}
+
+export function generateCelebrantShareUrl(
+  celebrant: BulletinCelebrant,
+  unitName: string = 'Ward',
+  bulletinDate?: string
+): string {
+  const data: CelebrantShareData = {
+    name: (celebrant.name || '').replace(/\s*\([^)]+\)$/, '').trim(),
+    birthDate: celebrant.birth_date,
+    dateStr: celebrant.dateStr || bulletinDate || format(new Date(), 'yyyy-MM-dd'),
+    unitName,
+    age: celebrant.age,
+    organisation: celebrant.organisation,
+    gender: celebrant.gender,
+    phone: celebrant.phone,
+    email: celebrant.email,
+    member_id: celebrant.member_id,
+  };
+  const token = encodeCelebrantToken(data);
+  const origin = typeof window !== 'undefined' && window.location.origin
+    ? window.location.origin
+    : 'https://smplans.online';
+  return `${origin}/celebrant?c=${token}`;
 }
 

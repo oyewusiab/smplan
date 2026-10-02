@@ -36,6 +36,7 @@ import { canAccessRoute } from './utils/permissions';
 import { useEffect } from 'react';
 
 import { PublicBulletinLandingPage } from './pages/PublicBulletinLandingPage';
+import { CelebrantCelebrationPage } from './pages/CelebrantCelebrationPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore();
@@ -73,6 +74,8 @@ function AppWithInactivity() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/visitbulletin" element={<PublicBulletinLandingPage />} />
       <Route path="/visitbullettin" element={<Navigate to="/visitbulletin" replace />} />
+      <Route path="/celebrant" element={<CelebrantCelebrationPage />} />
+      <Route path="/celebrant/:id" element={<CelebrantCelebrationPage />} />
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
       {/* Protected — all inside AppLayout */}

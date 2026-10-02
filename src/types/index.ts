@@ -329,6 +329,19 @@ export interface BulletinCelebrant {
   email?: string;
   birth_date?: string;
   formatted?: string;
+  member_id?: string;
+  age?: number;
+  organisation?: string;
+  gender?: string;
+}
+
+export interface CelebrantCardNote {
+  id: string;
+  author: string;
+  relationship?: string;
+  message: string;
+  emoji: string;
+  timestamp: string;
 }
 
 export interface WeeklyActivityItem {

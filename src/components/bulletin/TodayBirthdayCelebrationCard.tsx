@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Sparkles, MessageSquare, Mail, Smartphone, Heart, Gift, PartyPopper } from 'lucide-react';
+import { Sparkles, MessageSquare, Mail, Smartphone, Heart, Gift, PartyPopper, Copy, Share2, ExternalLink } from 'lucide-react';
 import type { BulletinCelebrant } from '../../types';
 import type { BirthdayChannel } from './BirthdayWishModal';
 import { formatHonorificName } from '../../utils/memberTitle';
+import { generateCelebrantShareUrl } from '../../utils/bulletinBirthdayEngine';
+import toast from 'react-hot-toast';
 
 interface TodayBirthdayCelebrationCardProps {
   celebrants: BulletinCelebrant[];
@@ -405,42 +407,89 @@ export function TodayBirthdayCelebrationCard({
                   </div>
                 </div>
 
-                {/* Catchy, High-Visibility Wishing Action Buttons */}
-                <div className="pt-3 mt-2 border-t border-amber-200 flex flex-wrap items-center gap-2">
-                  {/* WhatsApp Quick Action Button */}
-                  <button
-                    type="button"
-                    onClick={() => onOpenWishModal(celebrant, 'WHATSAPP')}
-                    title={`Send WhatsApp birthday wish to ${cleanName}`}
-                    className="flex-1 inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs sm:text-sm font-black shadow-md hover:shadow-lg active:scale-95 transition-all cursor-pointer group"
-                  >
-                    <MessageSquare className="w-4 h-4 text-emerald-100 group-hover:scale-110 transition-transform" />
-                    <span>WhatsApp Wish</span>
-                    <span className="text-xs">💬</span>
-                  </button>
+                {/* Catchy Personal Temporal Celebration Page Links & Action Buttons */}
+                {(() => {
+                  const celebrationUrl = generateCelebrantShareUrl(celebrant, unitName, bulletinDate);
+                  return (
+                    <div className="pt-3 mt-2 border-t border-amber-200 space-y-2">
+                      {/* Big Gold Personal Celebration Page Link */}
+                      <a
+                        href={celebrationUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 hover:from-amber-400 hover:to-yellow-300 text-slate-950 text-xs sm:text-sm font-black shadow-md hover:shadow-lg active:scale-95 transition-all cursor-pointer"
+                      >
+                        <PartyPopper className="w-4 h-4 text-rose-700" />
+                        <span>🌟 Open Personal Celebration Page</span>
+                        <ExternalLink className="w-3.5 h-3.5 text-slate-950" />
+                      </a>
 
-                  {/* SMS Quick Action Button */}
-                  <button
-                    type="button"
-                    onClick={() => onOpenWishModal(celebrant, 'SMS')}
-                    title={`Send SMS birthday wish to ${cleanName}`}
-                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-800 text-xs font-black shadow-2xs active:scale-95 transition-all cursor-pointer"
-                  >
-                    <Smartphone className="w-3.5 h-3.5 text-blue-600" />
-                    <span className="hidden sm:inline">SMS</span>
-                  </button>
+                      {/* Copy Link & Share on WhatsApp Row */}
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(celebrationUrl);
+                            toast.success(`Copied celebration link for ${displayName}! 🔗`);
+                          }}
+                          className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-100/90 hover:bg-amber-200/90 border border-amber-300 text-amber-950 text-xs font-bold transition-all active:scale-95 cursor-pointer"
+                        >
+                          <Copy className="w-3.5 h-3.5 text-amber-800" />
+                          <span>Copy Link</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const text = encodeURIComponent(
+                              `🎉 Join us in celebrating our dear ${displayName} on their birthday today!\n\n` +
+                              `Check out their personalized celebration page, pop some balloons, and sign their card:\n` +
+                              `${celebrationUrl}\n\n` +
+                              `With love from your ${unitName} family! ❤️`
+                            );
+                            window.open(`https://wa.me/?text=${text}`, '_blank');
+                          }}
+                          className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 border border-emerald-300 text-emerald-950 text-xs font-bold transition-all active:scale-95 cursor-pointer"
+                        >
+                          <Share2 className="w-3.5 h-3.5 text-emerald-800" />
+                          <span>Share Page</span>
+                        </button>
+                      </div>
 
-                  {/* Email Quick Action Button */}
-                  <button
-                    type="button"
-                    onClick={() => onOpenWishModal(celebrant, 'EMAIL')}
-                    title={`Send Email birthday wish to ${cleanName}`}
-                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-800 text-xs font-black shadow-2xs active:scale-95 transition-all cursor-pointer"
-                  >
-                    <Mail className="w-3.5 h-3.5 text-purple-600" />
-                    <span className="hidden sm:inline">Email</span>
-                  </button>
-                </div>
+                      {/* Direct Wishing Buttons (WhatsApp, SMS, Email) */}
+                      <div className="flex items-center gap-1.5 pt-0.5">
+                        <button
+                          type="button"
+                          onClick={() => onOpenWishModal(celebrant, 'WHATSAPP')}
+                          title={`Send WhatsApp birthday wish to ${cleanName}`}
+                          className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black shadow-xs active:scale-95 transition-all cursor-pointer"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5 text-emerald-100" />
+                          <span>WhatsApp Wish</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => onOpenWishModal(celebrant, 'SMS')}
+                          title={`Send SMS birthday wish to ${cleanName}`}
+                          className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-800 text-xs font-bold active:scale-95 transition-all cursor-pointer"
+                        >
+                          <Smartphone className="w-3.5 h-3.5 text-blue-600" />
+                          <span className="hidden sm:inline">SMS</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => onOpenWishModal(celebrant, 'EMAIL')}
+                          title={`Send Email birthday wish to ${cleanName}`}
+                          className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-800 text-xs font-bold active:scale-95 transition-all cursor-pointer"
+                        >
+                          <Mail className="w-3.5 h-3.5 text-purple-600" />
+                          <span className="hidden sm:inline">Email</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}
