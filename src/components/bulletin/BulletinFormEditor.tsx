@@ -9,7 +9,7 @@ import { Card, CardBody, CardHeader } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Input, Select, Textarea } from '../ui/Input';
 import { BULLETIN_THEMES } from '../../utils/bulletinThemes';
-import { buildWhatsAppBirthdayGreetingUrl, parseCelebrantsFromText, formatCelebrantDisplayName } from '../../utils/bulletinBirthdayEngine';
+import { buildWhatsAppBirthdayGreetingUrl, parseCelebrantsFromText, formatCelebrantDisplayName, sortCelebrantsChronologically } from '../../utils/bulletinBirthdayEngine';
 import { BirthdayWishModal, type BirthdayChannel } from './BirthdayWishModal';
 import { formatActivitiesToText } from '../../utils/bulletinActivityHarvester';
 import { isSectionVisible } from '../../utils/bulletinPrintEngine';
@@ -941,9 +941,10 @@ export function BulletinFormEditor({
 
               {/* Direct Multi-Channel Celebrant Hyperlinks */}
               {(() => {
-                const celebrantsList: BulletinCelebrant[] = (f.birthday_celebrants_list && f.birthday_celebrants_list.length > 0)
+                const rawList: BulletinCelebrant[] = (f.birthday_celebrants_list && f.birthday_celebrants_list.length > 0)
                   ? f.birthday_celebrants_list
                   : parseCelebrantsFromText(f.birthdays, undefined, f.date);
+                const celebrantsList = sortCelebrantsChronologically(rawList, f.date);
 
                 if (celebrantsList.length === 0) return null;
 

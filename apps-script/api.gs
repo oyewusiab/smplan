@@ -3016,7 +3016,14 @@ function handleGetBulletinDraftData(params) {
     }
   });
 
-  birthdaysThisWeek.sort((a, b) => a.day - b.day);
+  birthdaysThisWeek.sort((a, b) => {
+    const idxA = weekDateStrings.indexOf(a.dateStr);
+    const idxB = weekDateStrings.indexOf(b.dateStr);
+    const wA = idxA !== -1 ? idxA : a.day;
+    const wB = idxB !== -1 ? idxB : b.day;
+    if (wA !== wB) return wA - wB;
+    return (a.name || '').localeCompare(b.name || '');
+  });
   const celebrantsText = birthdaysThisWeek.map(b => b.formatted).join('   ');
 
   // 6. Weekly Calendar Activities Harvester (Structured Table with Recurring Support)

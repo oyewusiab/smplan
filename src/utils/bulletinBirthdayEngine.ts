@@ -149,7 +149,14 @@ export function getBirthdaysForWeek(
     }
   });
 
-  celebrants.sort((a, b) => a.day - b.day);
+  celebrants.sort((a, b) => {
+    const idxA = weekDays.findIndex((w) => w.dateStr === a.dateStr);
+    const idxB = weekDays.findIndex((w) => w.dateStr === b.dateStr);
+    const wA = idxA !== -1 ? idxA : a.day;
+    const wB = idxB !== -1 ? idxB : b.day;
+    if (wA !== wB) return wA - wB;
+    return (a.name || '').localeCompare(b.name || '');
+  });
   const formattedString = celebrants.map((c) => c.formatted).join('   ');
 
   return { celebrants, formattedString };
@@ -446,5 +453,103 @@ export function isCelebrantBirthdayToday(
   }
 
   return false;
+}
+
+/**
+ * Safely parses the month and day from a celebrant record or text string
+ */
+export function getCelebrantMonthDay(
+  celebrant: BulletinCelebrant | string,
+  targetSundayDateStr?: string
+): { month: number; day: number } | null {
+  if (!celebrant) return null;
+  if (typeof celebrant === 'object') {
+    if (celebrant.dateStr) {
+      const parts = celebrant.dateStr.split('-');
+      if (parts.length === 3) {
+        const m = parseInt(parts[1], 10);
+        const d = parseInt(parts[2], 10);
+        if (!isNaN(m) && !isNaN(d)) return { month: m, day: d };
+      }
+    }
+    if (celebrant.birth_date) {
+      const parsed = parseMemberBirthMonthDay(celebrant.birth_date);
+      if (parsed) return parsed;
+    }
+  }
+
+  const text = typeof celebrant === 'string'
+    ? celebrant
+    : `${celebrant.name || ''} ${celebrant.birth_date || ''}`;
+
+  const parenMatch = text.match(/\(([^)]+)\)/);
+  if (parenMatch) {
+    const parsed = parseMemberBirthMonthDay(parenMatch[1]);
+    if (parsed) return parsed;
+  }
+
+  const rawParsed = parseMemberBirthMonthDay(text);
+  if (rawParsed) return rawParsed;
+
+  return null;
+}
+
+/**
+ * Accurately sorts celebrants chronologically across the Monday-to-Sunday calendar window
+ * of the bulletin week, correctly handling weeks that combine two months (e.g. Sept 28 - Oct 4).
+ */
+export function sortCelebrantsChronologically(
+  celebrants: (BulletinCelebrant | string)[],
+  targetSundayDateStr?: string
+): BulletinCelebrant[] {
+  if (!Array.isArray(celebrants) || celebrants.length <= 1) {
+    return (celebrants || []).map((c) => (typeof c === 'string' ? { name: c } : c));
+  }
+
+  const weekDays: { index: number; month: number; day: number; dateStr: string }[] = [];
+  if (targetSundayDateStr) {
+    try {
+      const sunday = parseISO(targetSundayDateStr);
+      if (!isNaN(sunday.getTime())) {
+        const monday = startOfWeek(sunday, { weekStartsOn: 1 });
+        for (let i = 0; i < 7; i++) {
+          const d = addDays(monday, i);
+          weekDays.push({
+            index: i,
+            month: d.getMonth() + 1,
+            day: d.getDate(),
+            dateStr: format(d, 'yyyy-MM-dd'),
+          });
+        }
+      }
+    } catch {}
+  }
+
+  const normalized: BulletinCelebrant[] = celebrants.map((c) => (typeof c === 'string' ? { name: c } : c));
+
+  return [...normalized].sort((a, b) => {
+    const mdA = getCelebrantMonthDay(a, targetSundayDateStr);
+    const mdB = getCelebrantMonthDay(b, targetSundayDateStr);
+
+    let weightA = 999;
+    let weightB = 999;
+
+    if (mdA) {
+      const wIdx = weekDays.findIndex((w) => w.month === mdA.month && w.day === mdA.day);
+      weightA = wIdx !== -1 ? wIdx : mdA.month * 32 + mdA.day;
+    }
+    if (mdB) {
+      const wIdx = weekDays.findIndex((w) => w.month === mdB.month && w.day === mdB.day);
+      weightB = wIdx !== -1 ? wIdx : mdB.month * 32 + mdB.day;
+    }
+
+    if (weightA !== weightB) {
+      return weightA - weightB;
+    }
+
+    const nameA = a.name || '';
+    const nameB = b.name || '';
+    return nameA.localeCompare(nameB);
+  });
 }
 

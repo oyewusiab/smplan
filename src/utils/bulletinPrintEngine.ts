@@ -13,8 +13,8 @@ import { getBulletinTheme } from './bulletinThemes';
 import { formatHonorificName } from './memberTitle';
 import { formatBulletinTextToHtml } from './bulletinFormatter';
 import { formatHymnDisplay } from '../data/bundledHymns';
-import { normalizeBirthdaysString } from './bulletinBirthdayEngine';
-import type { Bulletin, SpeakerItem, WeeklyActivityItem, NextActivityItem } from '../types';
+import { normalizeBirthdaysString, parseCelebrantsFromText, formatCelebrantDisplayName, sortCelebrantsChronologically } from './bulletinBirthdayEngine';
+import type { Bulletin, SpeakerItem, WeeklyActivityItem, NextActivityItem, BulletinCelebrant } from '../types';
 
 export function isSectionVisible(val: any): boolean {
   if (val === undefined || val === null) return true;
@@ -81,6 +81,22 @@ function safeDateFormat(dateStr?: string, fmt = 'EEEE, MMMM d, yyyy'): string {
   } catch {
     return dateStr;
   }
+}
+
+function renderPrintCelebrants(d: Bulletin, badgeClass: string = 'celebrant-pill'): string {
+  const raw: BulletinCelebrant[] = (d.birthday_celebrants_list && d.birthday_celebrants_list.length > 0)
+    ? d.birthday_celebrants_list
+    : parseCelebrantsFromText(d.birthdays, undefined, d.date);
+  const sorted = sortCelebrantsChronologically(raw, d.date);
+  if (sorted.length > 0) {
+    return sorted.map(c => `<span class="${badgeClass}">🎂 ${formatCelebrantDisplayName(c, d.date)}</span>`).join('');
+  }
+  return (normalizeBirthdaysString(d.birthdays, d.date) || '')
+    .split(/[\n,]|   |🎂/)
+    .map(b => b.trim())
+    .filter(Boolean)
+    .map(b => `<span class="${badgeClass}">🎂 ${b.replace(/^🎂\s*/, '')}</span>`)
+    .join('');
 }
 
 function parseSpeakersArray(speakersRaw?: any): SpeakerItem[] {
@@ -422,7 +438,7 @@ export function generateStandard1PageA4Html(d: Bulletin): string {
           <span style="font-size: 6.5pt; background: #fbbf24; color: #78350f; padding: 1pt 3pt; border-radius: 2pt; font-weight: 700;">CELEBRATION</span>
         </div>
         <div style="margin-bottom: 3pt; display: flex; flex-wrap: wrap; gap: 2pt;">
-          ${(normalizeBirthdaysString(d.birthdays, d.date) || '').split(/[\n,]|   |🎂/).map(b => b.trim()).filter(Boolean).map(b => `<span class="celebrant-pill">🎂 ${b.replace(/^🎂\s*/, '')}</span>`).join('')}
+          ${renderPrintCelebrants(d, 'celebrant-pill')}
         </div>
         ${d.birthday_message ? `<div style="font-size: 7pt; color: #92400e; font-style: italic; background: rgba(255,255,255,0.75); padding: 2pt 4pt; border-radius: 2pt;">${formatBulletinTextToHtml(d.birthday_message, { forPrint: true })}</div>` : ''}
       </div>
@@ -746,7 +762,7 @@ export function generateStandard2PageHtml(d: Bulletin): string {
           <span style="font-size: 7.5pt; background: #fbbf24; color: #78350f; padding: 2pt 5pt; border-radius: 3pt; font-weight: 700;">CELEBRATION</span>
         </div>
         <div style="margin-bottom: 5pt; display: flex; flex-wrap: wrap; gap: 3pt;">
-          ${(normalizeBirthdaysString(d.birthdays, d.date) || '').split(/[\n,]|   |🎂/).map(b => b.trim()).filter(Boolean).map(b => `<span class="celebrant-badge">🎂 ${b.replace(/^🎂\s*/, '')}</span>`).join('')}
+          ${renderPrintCelebrants(d, 'celebrant-badge')}
         </div>
         ${d.birthday_message ? `<div style="font-style: italic; color: #92400e; background: rgba(255,255,255,0.8); padding: 3pt 6pt; border-radius: 3pt; font-size: 8.5pt;">${formatBulletinTextToHtml(d.birthday_message, { forPrint: true })}</div>` : ''}
       </div>
@@ -942,8 +958,7 @@ export function generateBiFoldBookletHtml(d: Bulletin): string {
         ${isSectionVisible(d.show_birthdays) && d.birthdays ? `
         <!-- Birthday Celebrants Special Frame -->
         <div style="margin-top: 6pt; background: #fffdf5; border: 1.5px solid #fbbf24; border-radius: 3pt; padding: 4pt 6pt;">
-          <div style="font-weight: 700; font-size: 7.5pt; color: #92400e; margin-bottom: 2pt;">🎂 Celebrants This Week</div>
-          <div style="font-size: 7.5pt; color: #78350f; font-weight: 600;">${d.birthdays}</div>
+          <div style="margin-top: 2pt; display: flex; flex-wrap: wrap; gap: 2pt;">${renderPrintCelebrants(d, 'celebrant-pill')}</div>
           ${d.birthday_message ? `<div style="font-size: 6.5pt; color: #a16207; font-style: italic; margin-top: 2pt;">${formatBulletinTextToHtml(d.birthday_message, { forPrint: true })}</div>` : ''}
         </div>
         ` : ''}

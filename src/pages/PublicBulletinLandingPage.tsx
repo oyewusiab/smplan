@@ -8,11 +8,12 @@ import { bulletinsApi } from '../services/api';
 import { getBulletinTheme } from '../utils/bulletinThemes';
 import { getWeekDateRange, isSectionVisible } from '../utils/bulletinPrintEngine';
 import { resolveHymnLink, formatHymnDisplay } from '../data/bundledHymns';
-import { formatBirthdayLabel, getOrdinalSuffix, normalizeBirthdaysString, parseCelebrantsFromText, formatCelebrantDisplayName, isCelebrantBirthdayToday } from '../utils/bulletinBirthdayEngine';
+import { formatBirthdayLabel, getOrdinalSuffix, normalizeBirthdaysString, parseCelebrantsFromText, formatCelebrantDisplayName, isCelebrantBirthdayToday, sortCelebrantsChronologically } from '../utils/bulletinBirthdayEngine';
 import { getBulletinLifecycle, findActiveLiveBulletin, findQueuedBulletins, getBulletinWeekBounds } from '../utils/bulletinLifecycle';
 import { formatHonorificName } from '../utils/memberTitle';
 import { BulletinFormattedText } from '../utils/bulletinFormatter';
 import { BirthdayWishModal, type BirthdayChannel } from '../components/bulletin/BirthdayWishModal';
+import { TodayBirthdayCelebrationCard } from '../components/bulletin/TodayBirthdayCelebrationCard';
 import { BulletinNotificationModal } from '../components/bulletin/BulletinNotificationModal';
 import { initOneSignal } from '../utils/bulletinNotifications';
 import {
@@ -677,15 +678,17 @@ export function PublicBulletinLandingPage({ previewBulletin, isPreview = false }
 
           {/* 3. Birthday Celebrants Frame with direct celebrant hyperlinks */}
           {isSectionVisible(bulletin.show_birthdays) && (bulletin.birthdays || (bulletin.birthday_celebrants_list && bulletin.birthday_celebrants_list.length > 0)) && (() => {
-            const celebrantsList: BulletinCelebrant[] = (bulletin.birthday_celebrants_list && bulletin.birthday_celebrants_list.length > 0)
+            const rawCelebrants: BulletinCelebrant[] = (bulletin.birthday_celebrants_list && bulletin.birthday_celebrants_list.length > 0)
               ? bulletin.birthday_celebrants_list
               : parseCelebrantsFromText(bulletin.birthdays, undefined, bulletin.date);
 
+            // Sort chronologically across the Monday-to-Sunday week window (handles multi-month boundaries properly)
+            const celebrantsList = sortCelebrantsChronologically(rawCelebrants, bulletin.date);
             const todayCelebrants = celebrantsList.filter((c) => isCelebrantBirthdayToday(c, bulletin.date));
 
             return (
               <section
-                className="rounded-2xl border-2 p-4 sm:p-5 space-y-3 shadow-xs"
+                className="rounded-2xl border-2 p-4 sm:p-5 space-y-3.5 shadow-xs"
                 style={{
                   borderColor: theme.secondaryColor,
                   background: `linear-gradient(135deg, ${theme.bgLight} 0%, #ffffff 100%)`
@@ -700,53 +703,61 @@ export function PublicBulletinLandingPage({ previewBulletin, isPreview = false }
                   </span>
                 </div>
 
+                {/* Animated, Personal Celebration Showcase for Today's Celebrants */}
                 {todayCelebrants.length > 0 && (
-                  <div className="p-2.5 rounded-xl bg-gradient-to-r from-amber-100 via-yellow-100 to-amber-200 border border-amber-300/90 flex items-center gap-2 shadow-2xs">
-                    <span className="text-base flex-shrink-0 animate-bounce">🎉</span>
-                    <p className="text-xs font-extrabold text-amber-950 leading-tight">
-                      <span className="underline decoration-amber-500 underline-offset-2">Today's Birthday:</span>{' '}
-                      {todayCelebrants.map((c) => (c.name || '').replace(/\s*\([^)]+\)$/, '').trim()).join(' & ')}!{' '}
-                      <span className="font-medium text-amber-900 block sm:inline mt-0.5 sm:mt-0">Click their name to send warm wishes today!</span>
-                    </p>
-                  </div>
+                  <TodayBirthdayCelebrationCard
+                    celebrants={todayCelebrants}
+                    bulletinDate={bulletin.date}
+                    unitName={bulletin.unit_name || 'Ward'}
+                    onOpenWishModal={(c, channel) => {
+                      setSelectedCelebrant(c);
+                      setSelectedChannel(channel);
+                      setBirthdayModalOpen(true);
+                    }}
+                  />
                 )}
 
                 {celebrantsList.length > 0 ? (
-                  <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                    {celebrantsList.map((c, idx) => {
-                      const isToday = isCelebrantBirthdayToday(c, bulletin.date);
-                      return (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => {
-                            setSelectedCelebrant(c);
-                            setSelectedChannel('WHATSAPP');
-                            setBirthdayModalOpen(true);
-                          }}
-                          title={`Click to send WhatsApp, Email or SMS birthday wish to ${c.name}${isToday ? ' (Birthday is Today!)' : ''}`}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all shadow-2xs hover:shadow-xs hover:scale-[1.02] active:scale-95 cursor-pointer text-left group ${
-                            isToday
-                              ? 'bg-amber-100/95 border-amber-400 ring-2 ring-amber-400/40 text-amber-950 font-black'
-                              : 'bg-white/95 hover:bg-white hover:border-amber-400'
-                          }`}
-                          style={{ borderColor: isToday ? undefined : theme.borderLight, color: isToday ? undefined : theme.primaryColor }}
-                        >
-                          <span>{isToday ? '🎉' : '🎂'}</span>
-                          <span className="group-hover:underline underline-offset-2 font-bold">
-                            {formatCelebrantDisplayName(c, bulletin.date)}
-                          </span>
-                          {isToday && (
-                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-[9px] font-black uppercase tracking-wider shadow-2xs">
-                              🎈 Today!
+                  <div className="space-y-1.5">
+                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                      This Week's Celebrants (Mon – Sun):
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                      {celebrantsList.map((c, idx) => {
+                        const isToday = isCelebrantBirthdayToday(c, bulletin.date);
+                        return (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => {
+                              setSelectedCelebrant(c);
+                              setSelectedChannel('WHATSAPP');
+                              setBirthdayModalOpen(true);
+                            }}
+                            title={`Click to send WhatsApp, Email or SMS birthday wish to ${c.name}${isToday ? ' (Birthday is Today!)' : ''}`}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all shadow-2xs hover:shadow-xs hover:scale-[1.02] active:scale-95 cursor-pointer text-left group ${
+                              isToday
+                                ? 'bg-gradient-to-r from-amber-100 via-yellow-100 to-amber-200 border-amber-400 ring-2 ring-amber-400/60 shadow-xs text-amber-950 font-black'
+                                : 'bg-white/95 hover:bg-white hover:border-amber-400 text-slate-800'
+                            }`}
+                            style={{ borderColor: isToday ? undefined : theme.borderLight, color: isToday ? undefined : theme.primaryColor }}
+                          >
+                            <span>{isToday ? '🎉' : '🎂'}</span>
+                            <span className="group-hover:underline underline-offset-2 font-bold">
+                              {formatCelebrantDisplayName(c, bulletin.date)}
                             </span>
-                          )}
-                          <span className="text-[10px] text-emerald-600 font-semibold ml-0.5 opacity-85 group-hover:opacity-100 flex items-center gap-0.5">
-                            💬 Wish
-                          </span>
-                        </button>
-                      );
-                    })}
+                            {isToday && (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-[9px] font-black uppercase tracking-wider shadow-2xs animate-pulse">
+                                🎈 Today!
+                              </span>
+                            )}
+                            <span className="text-[10px] text-emerald-600 font-semibold ml-0.5 opacity-85 group-hover:opacity-100 flex items-center gap-0.5">
+                              💬 Wish
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 ) : bulletin.birthdays ? (
                   <p className="font-bold text-xs sm:text-sm leading-relaxed" style={{ color: theme.primaryColor }}>

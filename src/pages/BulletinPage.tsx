@@ -15,7 +15,7 @@ import { BulletinWebView } from '../components/bulletin/BulletinWebView';
 import { BulletinWhatsAppCard } from '../components/bulletin/BulletinWhatsAppCard';
 import { BulletinPrintPreview } from '../components/bulletin/BulletinPrintPreview';
 import { BulletinSyncConfirmModal, SyncFieldDifference } from '../components/bulletin/BulletinSyncConfirmModal';
-import { getBirthdaysForWeek, normalizeBirthdaysString } from '../utils/bulletinBirthdayEngine';
+import { getBirthdaysForWeek, normalizeBirthdaysString, sortCelebrantsChronologically } from '../utils/bulletinBirthdayEngine';
 import { harvestWeeklyActivities, getNext5Activities, formatActivitiesToText, getRecurringActivitiesForTargetWeek, mergeRecurringActivities } from '../utils/bulletinActivityHarvester';
 import { fetchAndParseCfmUrl, generateCfmFromUrlOffline } from '../utils/bulletinCfmParser';
 import { getWeekDateRange } from '../utils/bulletinPrintEngine';
@@ -558,9 +558,12 @@ export function BulletinPage() {
             : typeof sug.birthday_celebrants_list === 'string'
             ? (() => { try { return JSON.parse(sug.birthday_celebrants_list); } catch { return []; } })()
             : [];
-          const finalCelebrants = baseCelebrants.length > 0
-            ? baseCelebrants
-            : getBirthdaysForWeek(members, targetDate).celebrants;
+          const finalCelebrants = sortCelebrantsChronologically(
+            baseCelebrants.length > 0
+              ? baseCelebrants
+              : getBirthdaysForWeek(members, targetDate).celebrants,
+            targetDate
+          );
 
           setForm((prev) => ({
             ...prev,
@@ -588,6 +591,7 @@ export function BulletinPage() {
       }
     } catch {
       const { celebrants: harvestedBirthdays, formattedString: bdaysText } = getBirthdaysForWeek(members, targetDate);
+      const sortedHarvested = sortCelebrantsChronologically(harvestedBirthdays, targetDate);
       const { items: actItems, formattedText: actText } = harvestWeeklyActivities(activities, targetDate, recurringActivities);
       const next5 = getNext5Activities(activities, targetDate);
 
@@ -615,7 +619,7 @@ export function BulletinPage() {
         is_canceled: localCanceled || prev.is_canceled,
         cancel_reason: localReason || prev.cancel_reason,
         birthdays: bdaysText,
-        birthday_celebrants_list: harvestedBirthdays,
+        birthday_celebrants_list: sortedHarvested,
         activities: actText,
         activities_list: actItems,
         next_activities_list: next5,

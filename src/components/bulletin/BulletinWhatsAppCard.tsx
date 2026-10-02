@@ -5,7 +5,7 @@ import { Button } from '../ui/Button';
 import { getBulletinTheme } from '../../utils/bulletinThemes';
 import { resolveHymnLink, formatHymnDisplay } from '../../data/bundledHymns';
 import { formatHonorificName } from '../../utils/memberTitle';
-import { isCelebrantBirthdayToday, parseCelebrantsFromText, formatCelebrantDisplayName } from '../../utils/bulletinBirthdayEngine';
+import { isCelebrantBirthdayToday, parseCelebrantsFromText, formatCelebrantDisplayName, sortCelebrantsChronologically } from '../../utils/bulletinBirthdayEngine';
 import type { Bulletin, BulletinCelebrant } from '../../types';
 import toast from 'react-hot-toast';
 
@@ -51,10 +51,11 @@ export function BulletinWhatsAppCard({ bulletin: b }: BulletinWhatsAppCardProps)
   })();
 
   // Parse celebrants
-  const celebrantsList: BulletinCelebrant[] = (b.birthday_celebrants_list && b.birthday_celebrants_list.length > 0)
+  const rawCelebrants: BulletinCelebrant[] = (b.birthday_celebrants_list && b.birthday_celebrants_list.length > 0)
     ? b.birthday_celebrants_list
     : parseCelebrantsFromText(b.birthdays, undefined, b.date);
 
+  const celebrantsList = sortCelebrantsChronologically(rawCelebrants, b.date);
   const todayCelebrants = celebrantsList.filter((c) => isCelebrantBirthdayToday(c, b.date));
 
   // Helper for drawing rounded rect safely across browsers
