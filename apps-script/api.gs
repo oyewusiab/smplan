@@ -3347,6 +3347,51 @@ function handleListBulletinFeedbacks(params) {
 }
 
 /**
+ * Public Celebrant Wall of Love Notes
+ * Saves and lists birthday greetings for celebrants across devices.
+ */
+function handleSubmitCelebrantNote(body) {
+  validateRequired(body, ['celebrant_name', 'author', 'message']);
+  
+  const note = {
+    note_id: generateId('NOT'),
+    celebrant_name: sanitizeString(body.celebrant_name).toLowerCase().trim(),
+    celebrant_date: sanitizeDate(body.celebrant_date || today()),
+    author: sanitizeString(body.author || 'Ward Member'),
+    relationship: sanitizeString(body.relationship || 'Ward Member'),
+    message: sanitizeString(body.message),
+    emoji: sanitizeString(body.emoji || '❤️'),
+    created_date: now(),
+  };
+
+  dbInsert('CELEBRANT_NOTES', note);
+
+  return { ok: true, data: note, message: 'Your message has been pinned to the Wall of Love!' };
+}
+
+function handleListCelebrantNotes(params) {
+  validateRequired(params, ['celebrant_name']);
+  const targetName = sanitizeString(params.celebrant_name).toLowerCase().trim();
+  const targetDate = params.celebrant_date ? sanitizeDate(params.celebrant_date) : '';
+
+  let notes = dbReadAll('CELEBRANT_NOTES');
+  
+  notes = notes.filter(n => {
+    const cName = String(n.celebrant_name || '').toLowerCase().trim();
+    const nameMatches = cName === targetName || cName.includes(targetName) || targetName.includes(cName);
+    if (!nameMatches) return false;
+    if (targetDate && n.celebrant_date) {
+      return String(n.celebrant_date).trim() === targetDate;
+    }
+    return true;
+  });
+
+  notes.sort((a, b) => (b.created_date || '').localeCompare(a.created_date || ''));
+  return { ok: true, data: notes };
+}
+
+
+/**
  * AI Come Follow Me Lesson Summarizer & Web URL Extractor
  */
 function handleGenerateCfmFromUrl(body) {

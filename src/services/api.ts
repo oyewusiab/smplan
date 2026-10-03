@@ -417,6 +417,29 @@ export const bulletinsApi = {
     post(withTokenBody(token, { action: 'GENERATE_CFM_FROM_URL', url })),
 };
 
+// ─── Celebrants Wall of Love Notes ───────────────────────────────────────────
+
+export const celebrantsApi = {
+  submitNote: (data: {
+    celebrant_name: string;
+    celebrant_date?: string;
+    author: string;
+    relationship?: string;
+    message: string;
+    emoji?: string;
+  }) => post<{ ok: boolean; data: any; message?: string }>({ action: 'SUBMIT_CELEBRANT_NOTE', ...data }),
+
+  listNotes: (celebrant_name: string, celebrant_date?: string, options?: { forceRefresh?: boolean }) =>
+    get<{ ok: boolean; data: any[] }>(
+      {
+        action: 'LIST_CELEBRANT_NOTES',
+        celebrant_name,
+        ...(celebrant_date ? { celebrant_date } : {}),
+      },
+      options
+    ),
+};
+
 // ─── Members ─────────────────────────────────────────────────────────────────
 
 export const membersApi = {

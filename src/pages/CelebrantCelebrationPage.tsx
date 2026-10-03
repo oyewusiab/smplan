@@ -13,6 +13,7 @@ import {
 } from '../utils/bulletinBirthdayEngine';
 import { formatHonorificName } from '../utils/memberTitle';
 import type { CelebrantCardNote } from '../types';
+import { celebrantsApi } from '../services/api';
 import toast from 'react-hot-toast';
 
 // ─── Age & Demographic Categorization ──────────────────────────────────────────
@@ -244,6 +245,55 @@ export function CelebrantCelebrationPage() {
     return INITIAL_WARD_NOTES;
   });
 
+  // Synchronize Wall of Love notes from backend Google Sheets across all devices
+  useEffect(() => {
+    if (!cleanName || cleanName === 'Celebrant' || cleanName === 'Beloved Celebrant') return;
+
+    let isMounted = true;
+    celebrantsApi
+      .listNotes(cleanName, celebrantData.dateStr, { forceRefresh: true })
+      .then((res: any) => {
+        if (!isMounted || !res || !res.data || !Array.isArray(res.data)) return;
+
+        const serverNotes: CelebrantCardNote[] = res.data.map((n: any) => ({
+          id: n.note_id || `note-${Math.random()}`,
+          author: n.author || 'Ward Member',
+          relationship: n.relationship || 'Ward Member',
+          message: n.message || '',
+          emoji: n.emoji || '❤️',
+          timestamp: n.created_date ? n.created_date.split('T')[0] : 'Recently',
+        }));
+
+        if (serverNotes.length > 0) {
+          setNotes((prevNotes) => {
+            const map = new Map<string, CelebrantCardNote>();
+            serverNotes.forEach((sn) => {
+              const key = `${sn.author.trim()}_${sn.message.trim()}`;
+              map.set(key, sn);
+            });
+            prevNotes.forEach((pn) => {
+              const key = `${pn.author.trim()}_${pn.message.trim()}`;
+              if (!map.has(key)) {
+                map.set(key, pn);
+              }
+            });
+            const merged = Array.from(map.values());
+            try {
+              localStorage.setItem(storageKey, JSON.stringify(merged));
+            } catch {}
+            return merged;
+          });
+        }
+      })
+      .catch((err: any) => {
+        console.warn('Could not fetch remote celebrant notes, using local cache:', err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [cleanName, celebrantData.dateStr, storageKey]);
+
   const [authorName, setAuthorName] = useState('');
   const [authorRelationship, setAuthorRelationship] = useState('Ward Member');
   const [noteMessage, setNoteMessage] = useState('');
@@ -450,23 +500,30 @@ export function CelebrantCelebrationPage() {
     }, 3200);
   };
 
-  // Sign Wall of Love handler
-  const handleAddNote = (e: React.FormEvent) => {
+  // Sign Wall of Love handler (synced to backend Google Sheets & cached locally)
+  const handleAddNote = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!authorName.trim() || !noteMessage.trim()) {
       toast.error('Please enter your name and a warm message!');
       return;
     }
 
+    const optimisticId = `note-${Date.now()}`;
+    const submittedAuthor = authorName.trim();
+    const submittedRel = authorRelationship.trim() || 'Ward Member';
+    const submittedMsg = noteMessage.trim();
+    const submittedEmoji = selectedEmoji;
+
     const newNote: CelebrantCardNote = {
-      id: `note-${Date.now()}`,
-      author: authorName.trim(),
-      relationship: authorRelationship.trim() || 'Ward Member',
-      message: noteMessage.trim(),
-      emoji: selectedEmoji,
+      id: optimisticId,
+      author: submittedAuthor,
+      relationship: submittedRel,
+      message: submittedMsg,
+      emoji: submittedEmoji,
       timestamp: 'Just now',
     };
 
+    // 1. Optimistic UI update
     const updated = [newNote, ...notes];
     setNotes(updated);
     try {
@@ -477,6 +534,26 @@ export function CelebrantCelebrationPage() {
     setNoteMessage('');
     triggerConfettiExplosion();
     toast.success('Your warm birthday message has been pinned to the Wall of Love! 💌');
+
+    // 2. Synchronize to backend Google Sheets so all members across devices see it
+    try {
+      const res = await celebrantsApi.submitNote({
+        celebrant_name: cleanName,
+        celebrant_date: celebrantData.dateStr,
+        author: submittedAuthor,
+        relationship: submittedRel,
+        message: submittedMsg,
+        emoji: submittedEmoji,
+      });
+
+      if (res && res.data && res.data.note_id) {
+        setNotes((prev) =>
+          prev.map((n) => (n.id === optimisticId ? { ...n, id: res.data.note_id } : n))
+        );
+      }
+    } catch (err) {
+      console.warn('Could not sync note to server, saved locally:', err);
+    }
   };
 
   // Copy shareable link
