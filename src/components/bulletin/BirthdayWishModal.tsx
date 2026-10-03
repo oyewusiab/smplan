@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { X, Copy, Check, MessageSquare, Mail, Smartphone, Sparkles, User, Phone, AtSign, Heart } from 'lucide-react';
+import { X, Copy, Check, MessageSquare, Mail, Smartphone, Sparkles, User, Phone, AtSign, Heart, ExternalLink, Share2, PartyPopper } from 'lucide-react';
 import { Button } from '../ui/Button';
 import type { BulletinCelebrant } from '../../types';
 import {
   cleanPhoneNumberForWhatsApp,
   buildWhatsAppBirthdayGreetingUrl,
   buildSmsBirthdayGreetingUrl,
-  buildMailtoBirthdayGreetingUrl
+  buildMailtoBirthdayGreetingUrl,
+  generateCelebrantShareUrl
 } from '../../utils/bulletinBirthdayEngine';
 import toast from 'react-hot-toast';
 
@@ -211,6 +212,68 @@ export function BirthdayWishModal({
               </span>
             </div>
           </div>
+
+          {/* Dedicated Celebrant Personal Page Link & Share Banner */}
+          {(() => {
+            const celebrationUrl = generateCelebrantShareUrl(celebrant, unitName);
+            const cleanName = (celebrant.name || '').replace(/\s*\([^)]+\)$/, '').trim();
+            return (
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 p-3 rounded-xl bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-100/60 border border-amber-300 shadow-2xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-base flex-shrink-0">🌟</span>
+                  <div>
+                    <p className="text-xs font-extrabold text-amber-950">
+                      Personal Celebration Page
+                    </p>
+                    <p className="text-[11px] text-amber-800">
+                      Interactive page with games, blessings & virtual card
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 flex-wrap self-end sm:self-auto">
+                  <a
+                    href={celebrationUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black shadow-2xs transition-all active:scale-95 cursor-pointer"
+                  >
+                    <span>Open Page</span>
+                    <ExternalLink className="w-3 h-3 text-slate-950" />
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(celebrationUrl);
+                      toast.success(`Copied celebration link for ${cleanName}! 🔗`);
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white hover:bg-amber-50 text-amber-950 border border-amber-300 text-xs font-bold transition-all active:scale-95 cursor-pointer"
+                    title="Copy Personal Link"
+                  >
+                    <Copy className="w-3 h-3 text-amber-700" />
+                    <span>Copy Link</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const text = encodeURIComponent(
+                        `🎉 Join us in celebrating our dear ${cleanName} on their birthday!\n\n` +
+                        `Check out their personalized celebration page, pop balloons, and sign their card:\n` +
+                        `${celebrationUrl}\n\n` +
+                        `With love from your ${unitName} family! ❤️`
+                      );
+                      window.open(`https://wa.me/?text=${text}`, '_blank');
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-2xs transition-all active:scale-95 cursor-pointer"
+                    title="Share Page on WhatsApp"
+                  >
+                    <Share2 className="w-3 h-3" />
+                    <span>Share Page</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Channel Selector Tabs */}
           <div>

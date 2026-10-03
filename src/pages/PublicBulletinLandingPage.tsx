@@ -2,18 +2,17 @@ import React, { useState, useEffect } from 'react';
 import {
   Calendar, Music, Sparkles, MessageSquare, Users, Globe, ExternalLink,
   Share2, Check, ArrowRight, Heart, MapPin, Clock, BookOpen, Send,
-  Bookmark, ChevronRight, Phone, Mail, AlertCircle, RefreshCw, Download, Smartphone, X, AlertTriangle, Bell
+  Bookmark, ChevronRight, Phone, Mail, AlertCircle, RefreshCw, Download, Smartphone, X, AlertTriangle, Bell, Copy
 } from 'lucide-react';
 import { bulletinsApi } from '../services/api';
 import { getBulletinTheme } from '../utils/bulletinThemes';
 import { getWeekDateRange, isSectionVisible } from '../utils/bulletinPrintEngine';
 import { resolveHymnLink, formatHymnDisplay } from '../data/bundledHymns';
-import { formatBirthdayLabel, getOrdinalSuffix, normalizeBirthdaysString, parseCelebrantsFromText, formatCelebrantDisplayName, isCelebrantBirthdayToday, sortCelebrantsChronologically } from '../utils/bulletinBirthdayEngine';
+import { formatBirthdayLabel, getOrdinalSuffix, normalizeBirthdaysString, parseCelebrantsFromText, formatCelebrantDisplayName, isCelebrantBirthdayToday, sortCelebrantsChronologically, generateCelebrantShareUrl } from '../utils/bulletinBirthdayEngine';
 import { getBulletinLifecycle, findActiveLiveBulletin, findQueuedBulletins, getBulletinWeekBounds } from '../utils/bulletinLifecycle';
 import { formatHonorificName } from '../utils/memberTitle';
 import { BulletinFormattedText } from '../utils/bulletinFormatter';
 import { BirthdayWishModal, type BirthdayChannel } from '../components/bulletin/BirthdayWishModal';
-import { TodayBirthdayCelebrationCard } from '../components/bulletin/TodayBirthdayCelebrationCard';
 import { BulletinNotificationModal } from '../components/bulletin/BulletinNotificationModal';
 import { initOneSignal } from '../utils/bulletinNotifications';
 import {
@@ -703,18 +702,76 @@ export function PublicBulletinLandingPage({ previewBulletin, isPreview = false }
                   </span>
                 </div>
 
-                {/* Animated, Personal Celebration Showcase for Today's Celebrants */}
+                {/* Clean, Non-Busy Today's Birthday Alert Banner (matching user screenshot) */}
                 {todayCelebrants.length > 0 && (
-                  <TodayBirthdayCelebrationCard
-                    celebrants={todayCelebrants}
-                    bulletinDate={bulletin.date}
-                    unitName={bulletin.unit_name || 'Ward'}
-                    onOpenWishModal={(c, channel) => {
-                      setSelectedCelebrant(c);
-                      setSelectedChannel(channel);
-                      setBirthdayModalOpen(true);
-                    }}
-                  />
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 sm:p-3.5 rounded-2xl bg-gradient-to-r from-amber-100 via-yellow-100/90 to-amber-200/90 border-2 border-amber-300/90 text-amber-950 shadow-xs">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-xl flex-shrink-0 animate-bounce" style={{ animationDuration: '2.5s' }}>🎉</span>
+                      <div className="text-xs sm:text-sm">
+                        <span className="font-extrabold underline underline-offset-2">
+                          Today's Birthday:
+                        </span>{' '}
+                        <span className="font-black text-amber-950">
+                          {todayCelebrants.map((c) => (c.name || '').replace(/\s*\([^)]+\)$/, '').trim()).join(', ')}!
+                        </span>{' '}
+                        <span className="text-amber-900 font-medium">
+                          Click their name to send warm wishes today!
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Retained Action Buttons: Open Personal Celebration Page, Copy Link, Share Page */}
+                    <div className="flex items-center gap-1.5 flex-wrap self-end sm:self-auto">
+                      {todayCelebrants.map((c, idx) => {
+                        const celebrationUrl = generateCelebrantShareUrl(c, bulletin.unit_name, bulletin.date);
+                        const cleanName = (c.name || '').replace(/\s*\([^)]+\)$/, '').trim();
+                        const single = todayCelebrants.length === 1;
+                        return (
+                          <div key={idx} className="flex items-center gap-1.5">
+                            <a
+                              href={celebrationUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-black text-xs shadow-2xs active:scale-95 transition-all cursor-pointer group"
+                              title={`Open ${cleanName}'s Personal Celebration Page`}
+                            >
+                              <span>🌟 {single ? 'Open Celebration Page' : `${cleanName.split(',')[0]}'s Page`}</span>
+                              <ExternalLink className="w-3.5 h-3.5 text-slate-900 group-hover:translate-x-0.5 transition-transform" />
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(celebrationUrl);
+                                toast.success(`Copied celebration link for ${cleanName}! 🔗`);
+                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white hover:bg-amber-50 text-amber-950 border border-amber-300 font-bold text-xs shadow-2xs active:scale-95 transition-all cursor-pointer"
+                              title="Copy Personal Celebration Link"
+                            >
+                              <Copy className="w-3.5 h-3.5 text-amber-700" />
+                              <span className="hidden md:inline">Copy Link</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const text = encodeURIComponent(
+                                  `🎉 Join us in celebrating our dear ${cleanName} on their birthday today!\n\n` +
+                                  `Check out their personalized celebration page, pop some balloons, and sign their card:\n` +
+                                  `${celebrationUrl}\n\n` +
+                                  `With love from your ${bulletin.unit_name || 'Ward'} family! ❤️`
+                                );
+                                window.open(`https://wa.me/?text=${text}`, '_blank');
+                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-2xs active:scale-95 transition-all cursor-pointer"
+                              title="Share Page on WhatsApp"
+                            >
+                              <Share2 className="w-3.5 h-3.5" />
+                              <span className="hidden md:inline">Share</span>
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 )}
 
                 {celebrantsList.length > 0 ? (
