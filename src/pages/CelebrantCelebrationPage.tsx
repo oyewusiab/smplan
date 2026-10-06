@@ -11,7 +11,7 @@ import {
   formatBirthdayLabel,
   type CelebrantShareData
 } from '../utils/bulletinBirthdayEngine';
-import { formatHonorificName } from '../utils/memberTitle';
+import { formatHonorificName, findMemberInList } from '../utils/memberTitle';
 import type { CelebrantCardNote } from '../types';
 import { celebrantsApi } from '../services/api';
 import toast from 'react-hot-toast';
@@ -189,8 +189,10 @@ export function CelebrantCelebrationPage() {
     const dateStr = searchParams.get('date') || searchParams.get('d') || '';
     const unitName = searchParams.get('unit') || searchParams.get('ward') || 'Ward';
     const ageParam = parseInt(searchParams.get('age') || '', 10);
-    const org = searchParams.get('org') || '';
+    const org = searchParams.get('org') || searchParams.get('organisation') || searchParams.get('organization') || '';
     const phone = searchParams.get('phone') || '';
+    const genderParam = searchParams.get('gender') || searchParams.get('g') || '';
+    const memberIdParam = searchParams.get('member_id') || searchParams.get('id') || '';
 
     return {
       name: nameParam,
@@ -199,13 +201,49 @@ export function CelebrantCelebrationPage() {
       unitName,
       age: isNaN(ageParam) ? undefined : ageParam,
       organisation: org,
+      gender: genderParam || undefined,
+      member_id: memberIdParam || undefined,
       phone,
     };
   }, [searchParams]);
 
   const cleanName = (celebrantData.name || 'Celebrant').replace(/\s*\([^)]+\)$/, '').trim();
-  const displayName = formatHonorificName(cleanName);
-  const ageCategory = determineAgeCategory(celebrantData.age, celebrantData.organisation);
+
+  // Dynamic state for resolved demographic information (enriched from directory or API)
+  const [resolvedGender, setResolvedGender] = useState<string | undefined>(celebrantData.gender);
+  const [resolvedOrg, setResolvedOrg] = useState<string | undefined>(celebrantData.organisation);
+  const [resolvedMemberId, setResolvedMemberId] = useState<string | undefined>(celebrantData.member_id);
+
+  // Fallback lookup from cached member registry
+  useEffect(() => {
+    if (!resolvedGender || !resolvedOrg) {
+      const match = findMemberInList(cleanName);
+      if (match) {
+        if (!resolvedGender && match.gender) setResolvedGender(match.gender);
+        if (!resolvedOrg && match.organisation) setResolvedOrg(match.organisation);
+        if (!resolvedMemberId && (match.member_id || match.members_id)) {
+          setResolvedMemberId(match.member_id || match.members_id);
+        }
+      }
+    }
+  }, [cleanName, resolvedGender, resolvedOrg, resolvedMemberId]);
+
+  const effectiveGender = resolvedGender || celebrantData.gender;
+  const effectiveOrg = resolvedOrg || celebrantData.organisation;
+  const effectiveMemberId = resolvedMemberId || celebrantData.member_id;
+
+  const displayName = formatHonorificName(
+    cleanName,
+    {
+      gender: effectiveGender,
+      calling: effectiveOrg,
+      organisation: effectiveOrg,
+      member_id: effectiveMemberId,
+    },
+    effectiveGender
+  );
+
+  const ageCategory = determineAgeCategory(celebrantData.age, effectiveOrg);
   const content = CATEGORY_CONTENT[ageCategory];
 
   // 2. Temporal Status Calculation
@@ -253,7 +291,15 @@ export function CelebrantCelebrationPage() {
     celebrantsApi
       .listNotes(cleanName, celebrantData.dateStr, { forceRefresh: true })
       .then((res: any) => {
-        if (!isMounted || !res || !res.data || !Array.isArray(res.data)) return;
+        if (!isMounted || !res) return;
+
+        if (res.celebrant_info) {
+          if (res.celebrant_info.gender) setResolvedGender(res.celebrant_info.gender);
+          if (res.celebrant_info.organisation) setResolvedOrg(res.celebrant_info.organisation);
+          if (res.celebrant_info.member_id) setResolvedMemberId(res.celebrant_info.member_id);
+        }
+
+        if (!res.data || !Array.isArray(res.data)) return;
 
         const serverNotes: CelebrantCardNote[] = res.data.map((n: any) => ({
           id: n.note_id || `note-${Math.random()}`,

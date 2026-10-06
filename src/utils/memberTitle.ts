@@ -3,15 +3,34 @@ import type { Member, User } from '../types';
 let _MEMBERS_CACHE: Member[] = [];
 
 /**
- * Registers the active ward members directory in-memory for automatic title and calling resolution.
+ * Registers the active ward members directory in-memory and in localStorage
+ * for automatic title, calling, and gender resolution across all pages.
  */
 export function setMembersDirectoryRegistry(members: Member[]): void {
   if (Array.isArray(members)) {
     _MEMBERS_CACHE = members;
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('SM_MEMBERS_DIRECTORY_CACHE', JSON.stringify(members));
+      }
+    } catch {}
   }
 }
 
 export function getMembersDirectoryRegistry(): Member[] {
+  if (_MEMBERS_CACHE.length === 0) {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const saved = localStorage.getItem('SM_MEMBERS_DIRECTORY_CACHE');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            _MEMBERS_CACHE = parsed;
+          }
+        }
+      }
+    } catch {}
+  }
   return _MEMBERS_CACHE;
 }
 
@@ -96,6 +115,8 @@ export function formatHonorificName(
     priesthood_office?: string;
     members_id?: string;
     member_id?: string;
+    organisation?: string;
+    organization?: string;
   } | null,
   genderFallback?: string | null
 ): string {
@@ -110,6 +131,7 @@ export function formatHonorificName(
   let role = '';
   let priesthoodOffice = '';
   let memberId = '';
+  let organisation = '';
 
   if (typeof memberOrCallingOrOptions === 'string') {
     calling = memberOrCallingOrOptions;
@@ -129,21 +151,37 @@ export function formatHonorificName(
     } else if ('members_id' in memberOrCallingOrOptions && memberOrCallingOrOptions.members_id) {
       memberId = String(memberOrCallingOrOptions.members_id);
     }
+    if ('organisation' in memberOrCallingOrOptions && (memberOrCallingOrOptions as any).organisation) {
+      organisation = String((memberOrCallingOrOptions as any).organisation);
+    } else if ('organization' in memberOrCallingOrOptions && (memberOrCallingOrOptions as any).organization) {
+      organisation = String((memberOrCallingOrOptions as any).organization);
+    }
   }
 
   // If calling or gender wasn't passed directly, look up the member in the registry
-  if ((!calling || !gender) && _MEMBERS_CACHE.length > 0) {
+  const memList = getMembersDirectoryRegistry();
+  if ((!calling || !gender || !organisation) && memList.length > 0) {
     let matchedMem: Member | undefined;
     if (memberId) {
-      matchedMem = _MEMBERS_CACHE.find((m) => (m.member_id === memberId || m.members_id === memberId));
+      matchedMem = memList.find((m) => (m.member_id === memberId || m.members_id === memberId));
     }
     if (!matchedMem) {
-      matchedMem = findMemberInList(baseName, _MEMBERS_CACHE);
+      matchedMem = findMemberInList(baseName, memList);
     }
     if (matchedMem) {
       if (!calling && matchedMem.calling) calling = matchedMem.calling;
       if (!gender && matchedMem.gender) gender = matchedMem.gender;
       if (!priesthoodOffice && matchedMem.priesthood_office) priesthoodOffice = matchedMem.priesthood_office;
+      if (!organisation && matchedMem.organisation) organisation = matchedMem.organisation;
+    }
+  }
+
+  // Infer gender from organisation or calling if gender is still unspecified
+  if (!gender) {
+    if (/relief society|young women/i.test(organisation) || /relief society|young women/i.test(calling)) {
+      gender = 'F';
+    } else if (/elders quorum|high priests|young men|aaronic/i.test(organisation) || /elders quorum|young men/i.test(calling)) {
+      gender = 'M';
     }
   }
 
@@ -157,7 +195,7 @@ export function formatHonorificName(
   ) {
     if (baseName.toLowerCase() === 'bishop') {
       // Find the ward bishop's actual name if available
-      const bishopMember = _MEMBERS_CACHE.find((m) => m.calling && /bishop/i.test(m.calling));
+      const bishopMember = memList.find((m) => m.calling && /bishop/i.test(m.calling));
       if (bishopMember) {
         const { baseName: bName } = stripAllHonorifics(bishopMember.name);
         return `Bishop ${bName}`;
@@ -194,12 +232,16 @@ export function formatHonorificName(
   }
 
   // 5. Gender / Auxiliary Priority: Sister
+  // If gender is F/Female, or organisation/calling is Relief Society or Young Women, ALWAYS output Sister.
   const gUpper = String(gender).toUpperCase();
+  const isFemaleGender = gUpper === 'F' || gUpper === 'FEMALE';
+  const isFemaleAuxiliary = /relief society|young women/i.test(organisation) || /relief society|young women/i.test(calling);
+
   if (
     detectedTitle === 'Sister' ||
-    gUpper === 'F' ||
-    gUpper === 'FEMALE' ||
-    /relief society|young women|primary/i.test(calling)
+    isFemaleGender ||
+    isFemaleAuxiliary ||
+    /primary/i.test(calling)
   ) {
     return `Sister ${baseName}`;
   }
@@ -277,7 +319,7 @@ export function namesMatch(nameA?: unknown, nameB?: unknown): boolean {
 export function findMemberInList(nameOrId?: string | null, members: Member[] = []): Member | undefined {
   if (!nameOrId || !nameOrId.trim()) return undefined;
   const target = nameOrId.trim();
-  const list = members.length > 0 ? members : _MEMBERS_CACHE;
+  const list = members.length > 0 ? members : getMembersDirectoryRegistry();
   if (list.length === 0) return undefined;
 
   // 1. Direct ID match (6-digit member_id or members_id)

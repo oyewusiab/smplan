@@ -3001,14 +3001,19 @@ function handleGetBulletinDraftData(params) {
           const wDay = parseInt(parts[2], 10);
           if (wMonth === bDayParsed.month && wDay === bDayParsed.day) {
             const dayFormatted = formatBirthdayLabelLocal(bDayParsed.month, bDayParsed.day);
+            const hName = typeof formatHonorificName === 'function' ? formatHonorificName(m.name, m, m.gender) : m.name;
             birthdaysThisWeek.push({
-              name: m.name,
+              name: hName || m.name,
               day: bDayParsed.day,
               dateStr: w.dateStr,
               phone: m.phone || '',
               email: m.email || '',
               birth_date: dayFormatted,
-              formatted: `🎂 ${m.name} (${dayFormatted})`
+              formatted: `🎂 ${hName || m.name} (${dayFormatted})`,
+              gender: m.gender || '',
+              organisation: m.organisation || '',
+              age: m.age || '',
+              member_id: m.member_id || m.members_id || ''
             });
           }
         });
@@ -3386,8 +3391,24 @@ function handleListCelebrantNotes(params) {
     return true;
   });
 
+  let celebrantInfo = null;
+  const allMems = dbReadAll('MEMBERS');
+  const matchedMem = allMems.find(m => {
+    const raw = String(m.name || '').toLowerCase().trim();
+    return raw === targetName || raw.includes(targetName) || targetName.includes(raw);
+  });
+  if (matchedMem) {
+    celebrantInfo = {
+      name: matchedMem.name,
+      gender: matchedMem.gender || '',
+      organisation: matchedMem.organisation || '',
+      age: matchedMem.age || '',
+      member_id: matchedMem.member_id || matchedMem.members_id || ''
+    };
+  }
+
   notes.sort((a, b) => (b.created_date || '').localeCompare(a.created_date || ''));
-  return { ok: true, data: notes };
+  return { ok: true, data: notes, celebrant_info: celebrantInfo };
 }
 
 

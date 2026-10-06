@@ -341,7 +341,16 @@ export function TodayBirthdayCelebrationCard({
         <div className={`grid gap-4 ${celebrants.length > 1 ? 'sm:grid-cols-2' : 'grid-cols-1'}`}>
           {celebrants.map((celebrant, idx) => {
             const cleanName = (celebrant.name || 'Member').replace(/\s*\([^)]+\)$/, '').trim();
-            const displayName = formatHonorificName(cleanName);
+            const displayName = formatHonorificName(
+              cleanName,
+              {
+                gender: celebrant.gender,
+                calling: celebrant.organisation,
+                organisation: celebrant.organisation,
+                member_id: celebrant.member_id,
+              },
+              celebrant.gender
+            );
             const wishText = PERSONAL_WISHES[idx % PERSONAL_WISHES.length];
 
             return (

@@ -6,6 +6,7 @@
 
 import { format, parseISO, startOfWeek, addDays } from 'date-fns';
 import type { Member, BulletinCelebrant } from '../types';
+import { formatHonorificName, getMembersDirectoryRegistry, namesMatch } from './memberTitle';
 
 export function parseMemberBirthMonthDay(str?: string | null): { month: number; day: number } | null {
   if (!str) return null;
@@ -134,15 +135,16 @@ export function getBirthdaysForWeek(
         const matchDay = weekDays.find((w) => w.month === parsed.month && w.day === parsed.day);
         if (matchDay) {
           const rawName = m.name.trim();
+          const honorificName = formatHonorificName(rawName, m, m.gender);
           const dayLabel = formatBirthdayLabel(parsed.month, parsed.day);
           celebrants.push({
-            name: rawName,
+            name: honorificName,
             day: parsed.day,
             dateStr: matchDay.dateStr,
             phone: m.phone || '',
             email: m.email || '',
             birth_date: dayLabel,
-            formatted: `🎂 ${rawName} (${dayLabel})`,
+            formatted: `🎂 ${honorificName} (${dayLabel})`,
             member_id: m.member_id || m.members_id || '',
             age: m.age,
             organisation: m.organisation,
@@ -243,15 +245,26 @@ export function parseCelebrantsFromText(
 
     let phone = '';
     let email = '';
-    if (members && members.length > 0 && name) {
+    let gender = '';
+    let organisation = '';
+    let age: number | undefined = undefined;
+    let memberId = '';
+
+    const list = members && members.length > 0 ? members : getMembersDirectoryRegistry();
+    if (list && list.length > 0 && name) {
       const lowerName = name.toLowerCase().replace(/^(brother|sister|bro\.|sis\.|elder|bishop|president)\s+/i, '').trim();
-      const matched = members.find((m) => {
+      const matched = list.find((m) => {
         const mLower = (m.name || '').toLowerCase();
-        return mLower.includes(lowerName) || lowerName.includes(mLower);
+        return mLower.includes(lowerName) || lowerName.includes(mLower) || namesMatch(m.name, name);
       });
       if (matched) {
         phone = matched.phone || '';
         email = matched.email || '';
+        gender = matched.gender || '';
+        organisation = matched.organisation || '';
+        age = matched.age;
+        memberId = matched.member_id || matched.members_id || '';
+        name = formatHonorificName(name, matched, matched.gender);
         if (!dayLabel) {
           const bDateStr = (matched as any).birthdate || (matched as any).dob || '';
           if (bDateStr) {
@@ -270,6 +283,10 @@ export function parseCelebrantsFromText(
       email,
       formatted: `🎂 ${name}${dayLabel ? ` (${dayLabel})` : ''}`,
       birth_date: dayLabel,
+      gender,
+      organisation,
+      age,
+      member_id: memberId,
     };
   });
 }
@@ -285,45 +302,64 @@ export function formatCelebrantDisplayName(
 ): string {
   if (!celebrant) return '';
 
+  const memList = members && members.length > 0 ? members : getMembersDirectoryRegistry();
+
   if (typeof celebrant === 'string') {
     let s = celebrant.replace(/^🎂\s*/, '').trim();
     // If it already has (Month Day) or (Day)
-    if (/\([^)]+\)/.test(s)) {
-      return normalizeBirthdaysString(s, targetDateStr);
+    const parenMatch = s.match(/^(.*?)\s*\(([^)]+)\)$/);
+    if (parenMatch) {
+      const bName = parenMatch[1].trim();
+      const dLabel = normalizeBirthdaysString(`(${parenMatch[2].trim()})`, targetDateStr).replace(/^\(|\)$/g, '');
+      const matched = memList.find((mem) => namesMatch(mem.name, bName));
+      const formattedTitle = formatHonorificName(bName, matched, matched?.gender);
+      return `${formattedTitle} (${dLabel})`;
     }
     // If bare name, try to look up member birthdate
-    if (members && members.length > 0) {
-      const lower = s.toLowerCase().replace(/^(brother|sister|bro\.|sis\.|elder|bishop|president)\s+/i, '').trim();
-      const m = members.find((mem) => {
-        const mLower = (mem.name || '').toLowerCase();
-        return mLower.includes(lower) || lower.includes(mLower);
-      });
-      if (m) {
-        const bDate = (m as any).birthdate || (m as any).dob;
+    if (memList.length > 0) {
+      const matched = memList.find((mem) => namesMatch(mem.name, s));
+      if (matched) {
+        const bDate = (matched as any).birthdate || (matched as any).dob;
         const parsed = parseMemberBirthMonthDay(bDate);
+        const formattedTitle = formatHonorificName(s, matched, matched.gender);
         if (parsed) {
-          return `${s} (${formatBirthdayLabel(parsed.month, parsed.day)})`;
+          return `${formattedTitle} (${formatBirthdayLabel(parsed.month, parsed.day)})`;
         }
+        return formattedTitle;
       }
     }
     return s;
   }
 
   // BulletinCelebrant object
-  let name = (celebrant.name || '').replace(/^🎂\s*/, '').trim();
+  let rawName = (celebrant.name || '').replace(/^🎂\s*/, '').trim();
   let bDate = (celebrant.birth_date || '').trim();
+  let gender = celebrant.gender;
+  let organisation = celebrant.organisation;
+  let memberId = celebrant.member_id;
 
-  // If name itself already has "(...)"
-  const parenMatch = name.match(/^(.*?)\s*\(([^)]+)\)$/);
+  const parenMatch = rawName.match(/^(.*?)\s*\(([^)]+)\)$/);
   if (parenMatch) {
-    const rawBase = parenMatch[1].trim();
-    const insideParen = parenMatch[2].trim();
-    if (/^\d{1,2}$/.test(insideParen)) {
-      const normalized = normalizeBirthdaysString(`(${insideParen})`, targetDateStr);
-      return `${rawBase} ${normalized}`;
-    }
-    return `${rawBase} (${insideParen})`;
+    rawName = parenMatch[1].trim();
+    if (!bDate) bDate = parenMatch[2].trim();
   }
+
+  const matchedMem = memList.find((mem) =>
+    (memberId && (mem.member_id === memberId || mem.members_id === memberId)) ||
+    namesMatch(mem.name, rawName)
+  );
+
+  if (matchedMem) {
+    if (!gender && matchedMem.gender) gender = matchedMem.gender;
+    if (!organisation && matchedMem.organisation) organisation = matchedMem.organisation;
+    if (!memberId && (matchedMem.member_id || matchedMem.members_id)) memberId = matchedMem.member_id || matchedMem.members_id;
+  }
+
+  const name = formatHonorificName(
+    rawName,
+    { gender, calling: organisation, organisation, member_id: memberId },
+    gender
+  );
 
   // If birth_date property is present
   if (bDate) {
@@ -367,18 +403,11 @@ export function formatCelebrantDisplayName(
   }
 
   // Try member lookup as fallback
-  if (members && members.length > 0 && name) {
-    const lower = name.toLowerCase().replace(/^(brother|sister|bro\.|sis\.|elder|bishop|president)\s+/i, '').trim();
-    const matched = members.find((m) => {
-      const mLower = (m.name || '').toLowerCase();
-      return mLower.includes(lower) || lower.includes(mLower);
-    });
-    if (matched) {
-      const mBDate = (matched as any).birthdate || (matched as any).dob;
-      const parsed = parseMemberBirthMonthDay(mBDate);
-      if (parsed) {
-        return `${name} (${formatBirthdayLabel(parsed.month, parsed.day)})`;
-      }
+  if (matchedMem) {
+    const mBDate = (matchedMem as any).birthdate || (matchedMem as any).dob;
+    const parsed = parseMemberBirthMonthDay(mBDate);
+    if (parsed) {
+      return `${name} (${formatBirthdayLabel(parsed.month, parsed.day)})`;
     }
   }
 
@@ -602,17 +631,52 @@ export function generateCelebrantShareUrl(
   unitName: string = 'Ward',
   bulletinDate?: string
 ): string {
+  const memList = getMembersDirectoryRegistry();
+  const rawName = (celebrant.name || '').replace(/\s*\([^)]+\)$/, '').trim();
+  let gender = celebrant.gender;
+  let organisation = celebrant.organisation;
+  let age = celebrant.age;
+  let memberId = celebrant.member_id;
+  let phone = celebrant.phone;
+  let email = celebrant.email;
+
+  if ((!gender || !organisation || !memberId) && memList.length > 0) {
+    const matched = memList.find((m) =>
+      (memberId && (m.member_id === memberId || m.members_id === memberId)) ||
+      namesMatch(m.name, rawName)
+    );
+    if (matched) {
+      if (!gender && matched.gender) gender = matched.gender;
+      if (!organisation && matched.organisation) organisation = matched.organisation;
+      if (age === undefined && matched.age !== undefined) age = matched.age;
+      if (!memberId && (matched.member_id || matched.members_id)) memberId = matched.member_id || matched.members_id;
+      if (!phone && matched.phone) phone = matched.phone;
+      if (!email && matched.email) email = matched.email;
+    }
+  }
+
+  const titleName = formatHonorificName(
+    rawName,
+    {
+      gender,
+      calling: organisation,
+      organisation,
+      member_id: memberId,
+    },
+    gender
+  );
+
   const data: CelebrantShareData = {
-    name: (celebrant.name || '').replace(/\s*\([^)]+\)$/, '').trim(),
+    name: titleName || rawName,
     birthDate: celebrant.birth_date,
     dateStr: celebrant.dateStr || bulletinDate || format(new Date(), 'yyyy-MM-dd'),
     unitName,
-    age: celebrant.age,
-    organisation: celebrant.organisation,
-    gender: celebrant.gender,
-    phone: celebrant.phone,
-    email: celebrant.email,
-    member_id: celebrant.member_id,
+    age,
+    organisation,
+    gender,
+    phone,
+    email,
+    member_id: memberId,
   };
   const token = encodeCelebrantToken(data);
   const origin = typeof window !== 'undefined' && window.location.origin

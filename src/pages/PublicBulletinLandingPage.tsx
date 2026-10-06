@@ -712,7 +712,19 @@ export function PublicBulletinLandingPage({ previewBulletin, isPreview = false }
                           Today's Birthday:
                         </span>{' '}
                         <span className="font-black text-amber-950">
-                          {todayCelebrants.map((c) => (c.name || '').replace(/\s*\([^)]+\)$/, '').trim()).join(', ')}!
+                          {todayCelebrants.map((c) => {
+                            const clean = (c.name || '').replace(/\s*\([^)]+\)$/, '').trim();
+                            return formatHonorificName(
+                              clean,
+                              {
+                                gender: c.gender,
+                                calling: c.organisation,
+                                organisation: c.organisation,
+                                member_id: c.member_id,
+                              },
+                              c.gender
+                            );
+                          }).join(', ')}!
                         </span>{' '}
                         <span className="text-amber-900 font-medium">
                           Click their name to send warm wishes today!
@@ -724,7 +736,17 @@ export function PublicBulletinLandingPage({ previewBulletin, isPreview = false }
                     <div className="flex items-center gap-1.5 flex-wrap self-end sm:self-auto">
                       {todayCelebrants.map((c, idx) => {
                         const celebrationUrl = generateCelebrantShareUrl(c, bulletin.unit_name, bulletin.date);
-                        const cleanName = (c.name || '').replace(/\s*\([^)]+\)$/, '').trim();
+                        const clean = (c.name || '').replace(/\s*\([^)]+\)$/, '').trim();
+                        const titleName = formatHonorificName(
+                          clean,
+                          {
+                            gender: c.gender,
+                            calling: c.organisation,
+                            organisation: c.organisation,
+                            member_id: c.member_id,
+                          },
+                          c.gender
+                        );
                         const single = todayCelebrants.length === 1;
                         return (
                           <div key={idx} className="flex items-center gap-1.5">
@@ -733,16 +755,16 @@ export function PublicBulletinLandingPage({ previewBulletin, isPreview = false }
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-black text-xs shadow-2xs active:scale-95 transition-all cursor-pointer group"
-                              title={`Open ${cleanName}'s Personal Celebration Page`}
+                              title={`Open ${titleName}'s Personal Celebration Page`}
                             >
-                              <span>🌟 {single ? 'Open Celebration Page' : `${cleanName.split(',')[0]}'s Page`}</span>
+                              <span>🌟 {single ? 'Open Celebration Page' : `${titleName.split(',')[0]}'s Page`}</span>
                               <ExternalLink className="w-3.5 h-3.5 text-slate-900 group-hover:translate-x-0.5 transition-transform" />
                             </a>
                             <button
                               type="button"
                               onClick={() => {
                                 navigator.clipboard.writeText(celebrationUrl);
-                                toast.success(`Copied celebration link for ${cleanName}! 🔗`);
+                                toast.success(`Copied celebration link for ${titleName}! 🔗`);
                               }}
                               className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white hover:bg-amber-50 text-amber-950 border border-amber-300 font-bold text-xs shadow-2xs active:scale-95 transition-all cursor-pointer"
                               title="Copy Personal Celebration Link"
@@ -754,7 +776,7 @@ export function PublicBulletinLandingPage({ previewBulletin, isPreview = false }
                               type="button"
                               onClick={() => {
                                 const text = encodeURIComponent(
-                                  `🎉 Join us in celebrating our dear ${cleanName} on their birthday today!\n\n` +
+                                  `🎉 Join us in celebrating our dear ${titleName} on their birthday today!\n\n` +
                                   `Check out their personalized celebration page, pop some balloons, and sign their card:\n` +
                                   `${celebrationUrl}\n\n` +
                                   `With love from your ${bulletin.unit_name || 'Ward'} family! ❤️`

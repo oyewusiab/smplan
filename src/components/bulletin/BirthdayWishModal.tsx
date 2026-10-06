@@ -9,6 +9,7 @@ import {
   buildMailtoBirthdayGreetingUrl,
   generateCelebrantShareUrl
 } from '../../utils/bulletinBirthdayEngine';
+import { formatHonorificName } from '../../utils/memberTitle';
 import toast from 'react-hot-toast';
 
 export type BirthdayChannel = 'WHATSAPP' | 'EMAIL' | 'SMS';
@@ -38,14 +39,30 @@ export function BirthdayWishModal({
   const [customMessage, setCustomMessage] = useState('');
   const [copied, setCopied] = useState(false);
 
+  // Helper to get formatted celebrant name with title
+  const getCelebrantTitleName = (cel: BulletinCelebrant | null) => {
+    if (!cel) return 'Brother / Sister';
+    const clean = (cel.name || '').replace(/\s*\([^)]+\)$/, '').trim();
+    return formatHonorificName(
+      clean,
+      {
+        gender: cel.gender,
+        calling: cel.organisation,
+        organisation: cel.organisation,
+        member_id: cel.member_id,
+      },
+      cel.gender
+    ) || clean || 'Brother / Sister';
+  };
+
   // Initialize or reset state when celebrant or channel changes
   useEffect(() => {
     if (celebrant) {
-      const cleanName = (celebrant.name || '').replace(/\s*\([^)]+\)$/, '').trim();
+      const titleName = getCelebrantTitleName(celebrant);
       setPhone(celebrant.phone || '');
       setEmail(celebrant.email || '');
       setChannel(initialChannel || 'WHATSAPP');
-      setSubject(`Happy Birthday, ${cleanName || 'Brother / Sister'}! 🎂🎉`);
+      setSubject(`Happy Birthday, ${titleName}! 🎂🎉`);
     }
   }, [celebrant, initialChannel]);
 
@@ -58,7 +75,7 @@ export function BirthdayWishModal({
     uName: string
   ) => {
     if (!cel) return '';
-    const name = (cel.name || 'Brother / Sister').replace(/\s*\([^)]+\)$/, '').trim();
+    const name = getCelebrantTitleName(cel);
     const signOff = sName.trim() ? sName.trim() : `${uName} Family`;
 
     if (curChannel === 'SMS') {
