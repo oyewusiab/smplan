@@ -3,6 +3,7 @@ import { Sparkles, MessageSquare, Mail, Smartphone, Heart, Gift, PartyPopper, Co
 import type { BulletinCelebrant } from '../../types';
 import type { BirthdayChannel } from './BirthdayWishModal';
 import { formatHonorificName } from '../../utils/memberTitle';
+import { inferGenderFromName } from '../../utils/genderInference';
 import { generateCelebrantShareUrl } from '../../utils/bulletinBirthdayEngine';
 import toast from 'react-hot-toast';
 
@@ -341,15 +342,17 @@ export function TodayBirthdayCelebrationCard({
         <div className={`grid gap-4 ${celebrants.length > 1 ? 'sm:grid-cols-2' : 'grid-cols-1'}`}>
           {celebrants.map((celebrant, idx) => {
             const cleanName = (celebrant.name || 'Member').replace(/\s*\([^)]+\)$/, '').trim();
+            const effectiveGender = celebrant.gender || inferGenderFromName(cleanName) || undefined;
+            const effectiveOrg = celebrant.organisation || (effectiveGender === 'F' ? 'Relief Society' : undefined);
             const displayName = formatHonorificName(
               cleanName,
               {
-                gender: celebrant.gender,
-                calling: celebrant.organisation,
-                organisation: celebrant.organisation,
+                gender: effectiveGender,
+                calling: effectiveOrg,
+                organisation: effectiveOrg,
                 member_id: celebrant.member_id,
               },
-              celebrant.gender
+              effectiveGender
             );
             const wishText = PERSONAL_WISHES[idx % PERSONAL_WISHES.length];
 
@@ -418,7 +421,11 @@ export function TodayBirthdayCelebrationCard({
 
                 {/* Catchy Personal Temporal Celebration Page Links & Action Buttons */}
                 {(() => {
-                  const celebrationUrl = generateCelebrantShareUrl(celebrant, unitName, bulletinDate);
+                  const celebrationUrl = generateCelebrantShareUrl(
+                    { ...celebrant, gender: effectiveGender, organisation: effectiveOrg },
+                    unitName,
+                    bulletinDate
+                  );
                   return (
                     <div className="pt-3 mt-2 border-t border-amber-200 space-y-2">
                       {/* Big Gold Personal Celebration Page Link */}

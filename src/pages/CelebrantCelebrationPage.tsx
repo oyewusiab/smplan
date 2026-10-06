@@ -11,9 +11,10 @@ import {
   formatBirthdayLabel,
   type CelebrantShareData
 } from '../utils/bulletinBirthdayEngine';
-import { formatHonorificName, findMemberInList } from '../utils/memberTitle';
+import { formatHonorificName, findMemberInList, namesMatch } from '../utils/memberTitle';
+import { inferGenderFromName } from '../utils/genderInference';
 import type { CelebrantCardNote } from '../types';
-import { celebrantsApi } from '../services/api';
+import { celebrantsApi, bulletinsApi } from '../services/api';
 import toast from 'react-hot-toast';
 
 // ─── Age & Demographic Categorization ──────────────────────────────────────────
@@ -209,9 +210,16 @@ export function CelebrantCelebrationPage() {
 
   const cleanName = (celebrantData.name || 'Celebrant').replace(/\s*\([^)]+\)$/, '').trim();
 
-  // Dynamic state for resolved demographic information (enriched from directory or API)
-  const [resolvedGender, setResolvedGender] = useState<string | undefined>(celebrantData.gender);
-  const [resolvedOrg, setResolvedOrg] = useState<string | undefined>(celebrantData.organisation);
+  // Instant gender inference synchronously from name tokens for zero delay and accurate initial rendering
+  const inferredGender = useMemo(() => inferGenderFromName(cleanName), [cleanName]);
+
+  // Dynamic state for resolved demographic information (enriched from directory, live bulletin, or API)
+  const [resolvedGender, setResolvedGender] = useState<string | undefined>(
+    celebrantData.gender || inferredGender || undefined
+  );
+  const [resolvedOrg, setResolvedOrg] = useState<string | undefined>(
+    celebrantData.organisation || ((celebrantData.gender === 'F' || inferredGender === 'F') ? 'Relief Society' : undefined)
+  );
   const [resolvedMemberId, setResolvedMemberId] = useState<string | undefined>(celebrantData.member_id);
 
   // Fallback lookup from cached member registry
@@ -228,8 +236,24 @@ export function CelebrantCelebrationPage() {
     }
   }, [cleanName, resolvedGender, resolvedOrg, resolvedMemberId]);
 
-  const effectiveGender = resolvedGender || celebrantData.gender;
-  const effectiveOrg = resolvedOrg || celebrantData.organisation;
+  // Also cross-reference with live bulletin celebrants list if demographic details are incomplete
+  useEffect(() => {
+    if (!resolvedGender || !resolvedOrg || !resolvedMemberId) {
+      bulletinsApi.getLive().then((res: any) => {
+        if (res && res.ok && res.data && Array.isArray(res.data.birthday_celebrants_list)) {
+          const found = res.data.birthday_celebrants_list.find((c: any) => namesMatch(c.name, cleanName));
+          if (found) {
+            if (found.gender && !resolvedGender) setResolvedGender(found.gender);
+            if (found.organisation && !resolvedOrg) setResolvedOrg(found.organisation);
+            if (found.member_id && !resolvedMemberId) setResolvedMemberId(found.member_id);
+          }
+        }
+      }).catch(() => {});
+    }
+  }, [cleanName, resolvedGender, resolvedOrg, resolvedMemberId]);
+
+  const effectiveGender = resolvedGender || celebrantData.gender || inferredGender || undefined;
+  const effectiveOrg = resolvedOrg || celebrantData.organisation || (effectiveGender === 'F' ? 'Relief Society' : undefined);
   const effectiveMemberId = resolvedMemberId || celebrantData.member_id;
 
   const displayName = formatHonorificName(

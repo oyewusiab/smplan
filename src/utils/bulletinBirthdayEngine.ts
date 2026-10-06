@@ -7,6 +7,7 @@
 import { format, parseISO, startOfWeek, addDays } from 'date-fns';
 import type { Member, BulletinCelebrant } from '../types';
 import { formatHonorificName, getMembersDirectoryRegistry, namesMatch } from './memberTitle';
+import { inferGenderFromName } from './genderInference';
 
 export function parseMemberBirthMonthDay(str?: string | null): { month: number; day: number } | null {
   if (!str) return null;
@@ -355,6 +356,13 @@ export function formatCelebrantDisplayName(
     if (!memberId && (matchedMem.member_id || matchedMem.members_id)) memberId = matchedMem.member_id || matchedMem.members_id;
   }
 
+  if (!gender) {
+    gender = inferGenderFromName(rawName) || undefined;
+  }
+  if (!organisation && gender === 'F') {
+    organisation = 'Relief Society';
+  }
+
   const name = formatHonorificName(
     rawName,
     { gender, calling: organisation, organisation, member_id: memberId },
@@ -655,6 +663,13 @@ export function generateCelebrantShareUrl(
     }
   }
 
+  if (!gender) {
+    gender = inferGenderFromName(rawName) || undefined;
+  }
+  if (!organisation && gender === 'F') {
+    organisation = 'Relief Society';
+  }
+
   const titleName = formatHonorificName(
     rawName,
     {
@@ -682,6 +697,16 @@ export function generateCelebrantShareUrl(
   const origin = typeof window !== 'undefined' && window.location.origin
     ? window.location.origin
     : 'https://smplans.online';
-  return `${origin}/celebrant?c=${token}`;
+
+  const params = new URLSearchParams();
+  if (token) params.set('c', token);
+  if (data.name) params.set('name', data.name);
+  if (gender) params.set('gender', gender);
+  if (organisation) params.set('org', organisation);
+  if (memberId) params.set('member_id', memberId);
+  if (data.birthDate) params.set('bdate', data.birthDate);
+  if (data.dateStr) params.set('date', data.dateStr);
+
+  return `${origin}/celebrant?${params.toString()}`;
 }
 

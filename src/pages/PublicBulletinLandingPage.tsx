@@ -11,6 +11,7 @@ import { resolveHymnLink, formatHymnDisplay } from '../data/bundledHymns';
 import { formatBirthdayLabel, getOrdinalSuffix, normalizeBirthdaysString, parseCelebrantsFromText, formatCelebrantDisplayName, isCelebrantBirthdayToday, sortCelebrantsChronologically, generateCelebrantShareUrl } from '../utils/bulletinBirthdayEngine';
 import { getBulletinLifecycle, findActiveLiveBulletin, findQueuedBulletins, getBulletinWeekBounds } from '../utils/bulletinLifecycle';
 import { formatHonorificName } from '../utils/memberTitle';
+import { inferGenderFromName } from '../utils/genderInference';
 import { BulletinFormattedText } from '../utils/bulletinFormatter';
 import { BirthdayWishModal, type BirthdayChannel } from '../components/bulletin/BirthdayWishModal';
 import { BulletinNotificationModal } from '../components/bulletin/BulletinNotificationModal';
@@ -735,17 +736,23 @@ export function PublicBulletinLandingPage({ previewBulletin, isPreview = false }
                     {/* Retained Action Buttons: Open Personal Celebration Page, Copy Link, Share Page */}
                     <div className="flex items-center gap-1.5 flex-wrap self-end sm:self-auto">
                       {todayCelebrants.map((c, idx) => {
-                        const celebrationUrl = generateCelebrantShareUrl(c, bulletin.unit_name, bulletin.date);
                         const clean = (c.name || '').replace(/\s*\([^)]+\)$/, '').trim();
+                        const effectiveGender = c.gender || inferGenderFromName(clean) || undefined;
+                        const effectiveOrg = c.organisation || (effectiveGender === 'F' ? 'Relief Society' : undefined);
+                        const celebrationUrl = generateCelebrantShareUrl(
+                          { ...c, gender: effectiveGender, organisation: effectiveOrg },
+                          bulletin.unit_name,
+                          bulletin.date
+                        );
                         const titleName = formatHonorificName(
                           clean,
                           {
-                            gender: c.gender,
-                            calling: c.organisation,
-                            organisation: c.organisation,
+                            gender: effectiveGender,
+                            calling: effectiveOrg,
+                            organisation: effectiveOrg,
                             member_id: c.member_id,
                           },
-                          c.gender
+                          effectiveGender
                         );
                         const single = todayCelebrants.length === 1;
                         return (

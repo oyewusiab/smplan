@@ -1,4 +1,5 @@
 import type { Member, User } from '../types';
+import { inferGenderFromName } from './genderInference';
 
 let _MEMBERS_CACHE: Member[] = [];
 
@@ -176,12 +177,17 @@ export function formatHonorificName(
     }
   }
 
-  // Infer gender from organisation or calling if gender is still unspecified
+  // Infer gender from organisation, calling, or name heuristics if gender is still unspecified
   if (!gender) {
     if (/relief society|young women/i.test(organisation) || /relief society|young women/i.test(calling)) {
       gender = 'F';
     } else if (/elders quorum|high priests|young men|aaronic/i.test(organisation) || /elders quorum|young men/i.test(calling)) {
       gender = 'M';
+    } else {
+      const inferred = inferGenderFromName(baseName);
+      if (inferred) {
+        gender = inferred;
+      }
     }
   }
 
@@ -233,15 +239,16 @@ export function formatHonorificName(
 
   // 5. Gender / Auxiliary Priority: Sister
   // If gender is F/Female, or organisation/calling is Relief Society or Young Women, ALWAYS output Sister.
+  // Female status ALWAYS supersedes an erroneous 'Brother' detected prefix.
   const gUpper = String(gender).toUpperCase();
   const isFemaleGender = gUpper === 'F' || gUpper === 'FEMALE';
   const isFemaleAuxiliary = /relief society|young women/i.test(organisation) || /relief society|young women/i.test(calling);
 
   if (
-    detectedTitle === 'Sister' ||
     isFemaleGender ||
     isFemaleAuxiliary ||
-    /primary/i.test(calling)
+    /primary/i.test(calling) ||
+    (detectedTitle === 'Sister' && gUpper !== 'M' && gUpper !== 'MALE')
   ) {
     return `Sister ${baseName}`;
   }

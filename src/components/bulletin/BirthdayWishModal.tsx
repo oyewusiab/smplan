@@ -10,6 +10,7 @@ import {
   generateCelebrantShareUrl
 } from '../../utils/bulletinBirthdayEngine';
 import { formatHonorificName } from '../../utils/memberTitle';
+import { inferGenderFromName } from '../../utils/genderInference';
 import toast from 'react-hot-toast';
 
 export type BirthdayChannel = 'WHATSAPP' | 'EMAIL' | 'SMS';
@@ -43,16 +44,18 @@ export function BirthdayWishModal({
   const getCelebrantTitleName = (cel: BulletinCelebrant | null) => {
     if (!cel) return 'Brother / Sister';
     const clean = (cel.name || '').replace(/\s*\([^)]+\)$/, '').trim();
+    const effectiveGender = cel.gender || inferGenderFromName(clean) || undefined;
+    const effectiveOrg = cel.organisation || (effectiveGender === 'F' ? 'Relief Society' : undefined);
     return formatHonorificName(
       clean,
       {
-        gender: cel.gender,
-        calling: cel.organisation,
-        organisation: cel.organisation,
+        gender: effectiveGender,
+        calling: effectiveOrg,
+        organisation: effectiveOrg,
         member_id: cel.member_id,
       },
-      cel.gender
-    ) || clean || 'Brother / Sister';
+      effectiveGender
+    ) || clean || (effectiveGender === 'F' ? `Sister ${clean}` : `Brother ${clean}`);
   };
 
   // Initialize or reset state when celebrant or channel changes
@@ -232,8 +235,13 @@ export function BirthdayWishModal({
 
           {/* Dedicated Celebrant Personal Page Link & Share Banner */}
           {(() => {
-            const celebrationUrl = generateCelebrantShareUrl(celebrant, unitName);
             const cleanName = (celebrant.name || '').replace(/\s*\([^)]+\)$/, '').trim();
+            const effectiveGender = celebrant.gender || inferGenderFromName(cleanName) || undefined;
+            const effectiveOrg = celebrant.organisation || (effectiveGender === 'F' ? 'Relief Society' : undefined);
+            const celebrationUrl = generateCelebrantShareUrl(
+              { ...celebrant, gender: effectiveGender, organisation: effectiveOrg },
+              unitName
+            );
             return (
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 p-3 rounded-xl bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-100/60 border border-amber-300 shadow-2xs">
                 <div className="flex items-center gap-2">

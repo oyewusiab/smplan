@@ -2626,6 +2626,65 @@ function getBulletinWeekBounds(dateStr) {
 }
 
 /**
+ * Enriches bulletin birthday celebrants with gender, calling/organisation, ID, and LDS titles from MEMBERS_LIST.
+ */
+function enrichBulletinCelebrants(bulletin) {
+  if (!bulletin) return bulletin;
+  var celebrants = bulletin.birthday_celebrants_list;
+  if (!celebrants) return bulletin;
+  if (typeof celebrants === 'string') {
+    try { celebrants = JSON.parse(celebrants); } catch(e) { return bulletin; }
+  }
+  if (!Array.isArray(celebrants) || celebrants.length === 0) return bulletin;
+
+  var allMembers = dbReadAll('MEMBERS_LIST');
+  function matchMem(a, b) {
+    if (!a || !b) return false;
+    var cleanA = String(a).toLowerCase().replace(/^(brother|sister|elder|bishop|president|patriarch|bro\.|bro|sis\.|sis|bp\.|bp|eld\.|eld|pres\.|pres)\s+/i, '').replace(/[^a-z0-9]/g, ' ').trim();
+    var cleanB = String(b).toLowerCase().replace(/^(brother|sister|elder|bishop|president|patriarch|bro\.|bro|sis\.|sis|bp\.|bp|eld\.|eld|pres\.|pres)\s+/i, '').replace(/[^a-z0-9]/g, ' ').trim();
+    if (cleanA === cleanB || cleanA.indexOf(cleanB) !== -1 || cleanB.indexOf(cleanA) !== -1) return true;
+    var toksA = cleanA.split(/\s+/).filter(Boolean);
+    var toksB = cleanB.split(/\s+/).filter(Boolean);
+    if (!toksA.length || !toksB.length) return false;
+    var setB = {};
+    toksB.forEach(function(t) { setB[t] = true; });
+    var inter = toksA.filter(function(t) { return setB[t]; });
+    if (toksA.length >= 2 && toksB.length >= 2 && inter.length >= 2) return true;
+    if (toksA.every(function(t) { return setB[t]; })) return true;
+    var setA = {};
+    toksA.forEach(function(t) { setA[t] = true; });
+    if (toksB.every(function(t) { return setA[t]; })) return true;
+    return false;
+  }
+
+  bulletin.birthday_celebrants_list = celebrants.map(function(c) {
+    var rawName = (c.name || '').replace(/^🎂\s*/, '').replace(/\s*\([^)]+\)$/, '').trim();
+    var matched = allMembers.find(function(m) {
+      if (c.member_id && (m.member_id === c.member_id || m.members_id === c.member_id)) return true;
+      return matchMem(m.name, rawName);
+    });
+    if (matched) {
+      var gender = c.gender || matched.gender || '';
+      var org = c.organisation || matched.organisation || '';
+      var memId = c.member_id || matched.member_id || matched.members_id || '';
+      var age = c.age !== undefined && c.age !== '' ? c.age : (matched.age || '');
+      var honorific = typeof formatHonorificName === 'function'
+        ? formatHonorificName(rawName, matched, gender)
+        : (String(gender).toUpperCase() === 'F' ? 'Sister ' + rawName : 'Brother ' + rawName);
+      return Object.assign({}, c, {
+        name: honorific || c.name,
+        gender: gender,
+        organisation: org,
+        member_id: memId,
+        age: age
+      });
+    }
+    return c;
+  });
+  return bulletin;
+}
+
+/**
  * Public Endpoint: Returns the currently active published ward bulletin for congregation members.
  * Accessible without authentication token.
  * Automatically filters out expired bulletins (past Sunday 11:59 PM) AND future queued bulletins (before Monday 12:00 AM).
@@ -2638,11 +2697,11 @@ function handleGetLiveBulletin(params) {
   // Support direct inspection / leadership preview if requested by ID or specific date
   if (params && params.bulletin_id) {
     const specific = published.find(b => b.bulletin_id === params.bulletin_id);
-    if (specific) return { ok: true, data: specific, is_preview: true };
+    if (specific) return { ok: true, data: enrichBulletinCelebrants(specific), is_preview: true };
   }
   if (params && params.date) {
     const specificDate = published.find(b => b.date === params.date);
-    if (specificDate) return { ok: true, data: specificDate, is_preview: true };
+    if (specificDate) return { ok: true, data: enrichBulletinCelebrants(specificDate), is_preview: true };
   }
 
   const nowTime = new Date();
@@ -2657,7 +2716,7 @@ function handleGetLiveBulletin(params) {
   if (activeBulletins.length > 0) {
     // Sort by updated_date descending
     activeBulletins.sort((a, b) => (b.updated_date || '').localeCompare(a.updated_date || ''));
-    return { ok: true, data: activeBulletins[0] };
+    return { ok: true, data: enrichBulletinCelebrants(activeBulletins[0]) };
   }
 
   // Check if any upcoming bulletins are queued for future weeks (nowTime < monday)
@@ -3392,11 +3451,27 @@ function handleListCelebrantNotes(params) {
   });
 
   let celebrantInfo = null;
-  const allMems = dbReadAll('MEMBERS');
-  const matchedMem = allMems.find(m => {
-    const raw = String(m.name || '').toLowerCase().trim();
-    return raw === targetName || raw.includes(targetName) || targetName.includes(raw);
-  });
+  const allMems = dbReadAll('MEMBERS_LIST');
+  function matchMemNotes(a, b) {
+    if (!a || !b) return false;
+    var cleanA = String(a).toLowerCase().replace(/^(brother|sister|elder|bishop|president|patriarch|bro\.|bro|sis\.|sis|bp\.|bp|eld\.|eld|pres\.|pres)\s+/i, '').replace(/[^a-z0-9]/g, ' ').trim();
+    var cleanB = String(b).toLowerCase().replace(/^(brother|sister|elder|bishop|president|patriarch|bro\.|bro|sis\.|sis|bp\.|bp|eld\.|eld|pres\.|pres)\s+/i, '').replace(/[^a-z0-9]/g, ' ').trim();
+    if (cleanA === cleanB || cleanA.indexOf(cleanB) !== -1 || cleanB.indexOf(cleanA) !== -1) return true;
+    var toksA = cleanA.split(/\s+/).filter(Boolean);
+    var toksB = cleanB.split(/\s+/).filter(Boolean);
+    if (!toksA.length || !toksB.length) return false;
+    var setB = {};
+    toksB.forEach(function(t) { setB[t] = true; });
+    var inter = toksA.filter(function(t) { return setB[t]; });
+    if (toksA.length >= 2 && toksB.length >= 2 && inter.length >= 2) return true;
+    if (toksA.every(function(t) { return setB[t]; })) return true;
+    var setA = {};
+    toksA.forEach(function(t) { setA[t] = true; });
+    if (toksB.every(function(t) { return setA[t]; })) return true;
+    return false;
+  }
+
+  const matchedMem = allMems.find(m => matchMemNotes(m.name, targetName));
   if (matchedMem) {
     celebrantInfo = {
       name: matchedMem.name,
